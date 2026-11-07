@@ -1,98 +1,98 @@
-# OneCast – One-Button Fishing for WoW Forever
+# OneCast – 魔兽世界 Forever 一键钓鱼
 
-**One key to cast, the same key to reel.** OneCast turns fishing into a single button, then tells you how it's going: what you've caught, how fast, what it's worth, and whether this zone is right for your skill. And now it keeps a **collection book** of every fish in WoW Forever, so you know what's left to catch and where to find it.
+**一键抛竿，同一键收竿。** OneCast 把钓鱼变成一个按键，再告诉你进展如何：钓到了什么、速度怎样、值多少钱，以及这片水域是否适合你的技能。现在还会维护一本 **WoW Forever 全部鱼类的图鉴**，让你知道还剩什么要钓、去哪里找。
 
-Every cast and every reel is still your own key press. OneCast never fishes for you.
+每次抛竿与收竿仍是你自己的按键。OneCast 从不会替你自动钓鱼。
 
-## Getting started
-1. Install, then bind a key under **Options → Keybindings → AddOns → OneCast** (or in OneCast's own options).
-2. Stand by the water and press it. With no pole equipped, the first press puts one on for you.
-3. Press it again when the bobber splashes to reel in.
+## 快速上手
+1. 安装后，在 **选项 → 按键绑定 → 插件 → OneCast**（或在 OneCast 自身选项中）绑定一个按键。
+2. 站在水边按下。未装备鱼竿时，第一次按下会帮你装上。
+3. 浮漂溅起水花时再按一次即可收竿。
 
-Prefer the mouse? **Double right-click** the water with a pole equipped to cast, and right-click the bobber to reel.
+更喜欢鼠标？**双击右键** 水面（需已装备鱼竿）可抛竿，右键点击浮漂可收竿。
 
-## Features
+## 功能
 
-### 🎣 One-button fishing
-- One key casts, then the same key reels in your bobber using the game's soft-interact.
-- Optional double right-click to cast.
-- Your keys go straight back to normal when the line comes in or combat starts.
+### 🎣 一键钓鱼
+- 一键抛竿，同一键通过游戏的软交互收竿。
+- 可选双击右键抛竿。
+- 收竿或开战时，按键立即恢复正常。
 
-### 📖 The fishing collection (new in 0.2.0)
-- A book of **every fish in WoW Forever**: 88 catches across fish, special catches, trophy fish and bloated fish, checked against the launch build.
-- See which you've caught, on which characters, and how many. The rest wait greyed out, with your progress at the top.
-- Click any fish for **its own page**: the game's description, your catches on every character, when and where you first caught it, whether you caught it **by day or at night**, every zone it's caught in with a **map**, and the **recipes** it's used in, including WoW Forever's new ones.
-- **Filter by zone and search by name.** Pick your zone and show what's missing to see what's left to catch here.
-- Shared across all your characters, including everything caught before you installed it.
-- Catch a fish none of your characters has and chat tells you it's **new for your collection**.
+### 📖 钓鱼图鉴（0.2.0 新增）
+- 一本 **WoW Forever 全部鱼类** 的书：88 种渔获，涵盖普通鱼、特殊渔获、奖杯鱼与浮肿鱼，已对照启动版本核对。
+- 查看你钓到了哪些、在哪些角色上、各多少条。其余灰显，顶部显示进度。
+- 点击任意鱼类打开 **专属页面**：游戏描述、各角色渔获、首次钓获时间与地点、是 **白天还是夜间** 钓到的、所有出没区域及 **地图**，以及所用到的 **配方**（含 WoW Forever 新增配方）。
+- **按区域筛选、按名称搜索。** 选中当前区域并显示缺失项，即可看到这里还剩什么。
+- 全账号共享，包括安装插件前已钓到的。
+- 钓到角色从未见过的鱼时，聊天会提示这是 **图鉴新发现**。
 
-### 🗡️ Pole on, weapons back
-- With no pole equipped, the cast key equips the best one in your bags.
-- Your main- and off-hand weapons are remembered and put back after a break (you choose how long), when combat starts, or with one click.
+### 🗡️ 自动装竿，武器换回
+- 未装备鱼竿时，施法键会装备背包中最好的鱼竿。
+- 主副手武器会被记住，并在休息一段时间后（时长自定）、开战时，或一键换回。
 
-### 📊 Session stats
-- A stats window that opens as you cast: catches out of casts, catch rate, fishing time and **fish per hour**.
-- Tabs for the **session**, the **zone** you're in (all time), your **lifetime** totals, and a **log** of recent catches.
-- Every fish you've caught, with icon, quality colour and count.
-- **Best spots:** every lake, coast and river you fish in a zone, compared by fish per hour.
-- A **session summary** in chat when you take a break: catches, fish per hour, value, skill gained and new fish.
-- Click any item for its **WoW Forever Wowhead** page, ready to copy. Shift-click to link it in chat.
+### 📊 会话统计
+- 抛竿时打开的统计窗口：渔获/抛竿次数、渔获率、钓鱼时间与 **每小时鱼数**。
+- 分页显示 **本次会话**、当前 **区域**（累计）、**生涯** 总计，以及近期渔获 **日志**。
+- 每条钓到的鱼都有图标、品质颜色与数量。
+- **最佳钓点：** 同一区域内你钓过的每个湖、岸与河，按每小时鱼数对比。
+- 休息时聊天输出 **会话摘要**：渔获、每小时鱼数、价值、技能提升与新鱼。
+- 点击任意物品打开其 **WoW Forever Wowhead** 页面，便于复制。Shift-点击可在聊天中链接。
 
-### 🗺️ Is this zone right for you?
-- An animated skill bar shows your Fishing skill, lure bonus included.
-- See at a glance whether you meet the zone's fishing level, so no fish get away.
-- Zones without known levels are judged from your own catches and getaways.
-- **Skill-ups:** skill gained this session, about how many catches until the next point, and how many until the zone's level.
+### 🗺️ 这片水域适合你吗？
+- 带动画的技能条显示钓鱼技能（含诱饵加成）。
+- 一眼看出是否达到该区域钓鱼等级，避免脱钩。
+- 没有已知等级的区域，根据你自己的渔获与脱钩来判断。
+- **技能提升：** 本会话已提升点数、大约还需多少次渔获升下一点，以及还需多少次达到区域等级。
 
-### 💰 What your catch is worth
-- Vendor value of everything caught, per tab.
-- Auction value with **Auctionator** or **TradeSkillMaster**. Open the auction house and scan your whole catch with Auctionator in one click.
+### 💰 渔获值多少
+- 各分页显示全部渔获的商人价值。
+- 配合 **Auctionator** 或 **TradeSkillMaster** 显示拍卖价值。打开拍卖行后可一键用 Auctionator 扫描全部渔获。
 
-### ✨ Rare catch alerts
-- A raid-warning flash and sound for anything green or better (you choose the quality).
-- Right-click any fish to mark it as **wanted** and get alerted when it bites.
+### ✨ 稀有渔获提醒
+- 对绿色及以上品质（品质可自选）发出团队警告闪烁与音效。
+- 右键任意鱼类标记为 **想要**，咬钩时提醒。
 
-### 🏆 Fishing Extravaganza
-- A countdown to Stranglethorn's Sunday contest, a Tastyfish counter while it runs, and an alert the moment you hold 40.
-- Chat reminders shortly before it starts and when it does. The schedule is Classic's until Forever confirms its own.
+### 🏆 钓鱼大赛
+- 荆棘谷周日大赛倒计时，进行中美味鱼计数，拿到 40 条时立即提醒。
+- 开始前与开始时聊天提醒。赛程暂用经典版，直至 Forever 确认自己的安排。
 
-### 🔊 Hear the splash
-- Sound effects turn up while your line is out.
-- Optionally, music, ambience and dialog go quiet (or off) while your pole is equipped, so the splash stands out. Your own levels come back when your weapons go back on.
+### 🔊 听清溅水声
+- 抛竿期间提高音效音量。
+- 可选地，装备鱼竿时压低（或关闭）音乐、环境音与对话，让溅水声更突出。换回武器后恢复你自己的音量。
 
-### ⚙️ Fits right in
-- Built from WoW Forever's own UI style.
-- Offers to turn on auto loot if it's off, so catches go straight to your bags.
-- Minimap button, addon compartment entry and a full options page.
-- Drag and scale the stats window, and close it whenever you like.
-- A **What's new** page shows every update.
+### ⚙️ 融入游戏界面
+- 采用 WoW Forever 自身的 UI 风格。
+- 若自动拾取关闭，会提示开启，使渔获直接入包。
+- 小地图按钮、插件隔间入口与完整选项页。
+- 可拖动与缩放统计窗口，随时关闭。
+- **更新内容** 页面展示每次更新。
 
-## Opening things
-- **Stats window:** opens when you cast, or right-click the minimap button.
-- **Fishing collection:** the book button in the stats window, Shift-click the minimap button, or `/onecast book`.
-- **Options:** left-click the minimap button, or `/onecast`.
+## 打开方式
+- **统计窗口：** 抛竿时打开，或右键小地图按钮。
+- **钓鱼图鉴：** 统计窗口中的图鉴按钮、Shift-点击小地图按钮，或 `/onecast book`。
+- **选项：** 左键小地图按钮，或 `/onecast`。
 
-## Commands
-| Command | What it does |
+## 命令
+| 命令 | 作用 |
 |---|---|
-| `/onecast` | Open options |
-| `/onecast stats` | Show or hide the stats window |
-| `/onecast book` | Fishing collection |
-| `/onecast reset` | Start a new session |
-| `/onecast gear` | Put your weapons back on |
-| `/onecast scan` | Price your catch with Auctionator (auction house open) |
-| `/onecast new` | What's new |
-| `/onecast help` | All commands and options |
+| `/onecast` | 打开选项 |
+| `/onecast stats` | 显示或隐藏统计窗口 |
+| `/onecast book` | 钓鱼图鉴 |
+| `/onecast reset` | 开始新会话 |
+| `/onecast gear` | 换回武器 |
+| `/onecast scan` | 用 Auctionator 估价渔获（需打开拍卖行） |
+| `/onecast new` | 更新内容 |
+| `/onecast help` | 全部命令与选项 |
 
-## Good to know
-- **Made for WoW Forever.** Classic Era and Retail aren't supported.
-- The collection's fish and recipes are checked against WoW Forever's own game data. Where each fish is caught isn't published for Forever yet, so zones come from Classic data and player reports, marked as such. Fish with no known waters fill in from your own catches.
-- Zone fishing levels come from Classic data. Forever may differ, and its new zones have no data yet, so the Zone tab counts real getaways to keep you honest.
-- Auction values need Auctionator or TradeSkillMaster installed.
+## 须知
+- **专为 WoW Forever 制作。** 不支持经典旧世与正式服。
+- 图鉴中的鱼类与配方已对照 WoW Forever 游戏数据核对。各鱼出没地点 Forever 尚未公布，因此区域来自经典版数据与玩家报告，并已标注。没有已知水域的鱼会用你自己的渔获补全。
+- 区域钓鱼等级来自经典版数据。Forever 可能不同，其新区域尚无数据，因此区域页会统计真实脱钩以保持准确。
+- 拍卖价值需要安装 Auctionator 或 TradeSkillMaster。
 
-## Feedback
-Feature requests and bug reports are very welcome. Leave a comment or open an issue here on CurseForge.
+## 反馈
+欢迎功能建议与错误报告。请在 CurseForge 留言或提交 issue。
 
 ---
 
-Working on OneCast itself? See [DEVELOPMENT.md](DEVELOPMENT.md) for how it works and how releases are built.
+参与 OneCast 开发？见 [DEVELOPMENT.md](DEVELOPMENT.md) 了解工作原理与发布流程。

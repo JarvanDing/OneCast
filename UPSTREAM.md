@@ -1,12 +1,12 @@
-# Merging author updates
+# 合并上游作者更新
 
-This fork keeps Chinese UI strings in the `zhcn` branch. The author's repository is `upstream` (fetch only — do not push).
+本 fork 在 `zhcn` 分支维护中文界面字符串。作者仓库为 `upstream`（仅拉取——不要推送）。
 
 ```text
 git checkout zhcn
 git fetch upstream
 git merge upstream/main
-# Resolve conflicts, then keep using zhcn
+# 解决冲突后继续使用 zhcn
 ```
 
-Do not run `git push upstream`. Add your own remote if you want a backup.
+不要执行 `git push upstream`。如需备份，请添加你自己的远程仓库。

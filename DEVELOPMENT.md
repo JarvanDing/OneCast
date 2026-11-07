@@ -1,81 +1,81 @@
-# Developing OneCast
+# 开发 OneCast
 
-The player-facing description is in [README.md](README.md), the same text as the CurseForge page.
+面向玩家的说明见 [README.md](README.md)，与 CurseForge 页面文案相同。
 
-## How it works
+## 工作原理
 
-Forever runs the modern (Midnight-era) addon API but `loadstring_untainted` is missing, so SecureHandler snippets don't work. OneCast avoids them:
+Forever 使用现代（Midnight 时代）插件 API，但缺少 `loadstring_untainted`，因此 SecureHandler 片段无法使用。OneCast 的规避方式如下：
 
-1. `OneCastButton` is a `SecureActionButtonTemplate` button with `type=spell`, `spell=<Fishing>` (name resolved from spell ID 7620, falling back to 131474).
-2. On `UNIT_SPELLCAST_CHANNEL_START` for Fishing, the key bound to the button is overridden to `INTERACTTARGET`, and `SoftTargetInteract=3`, `SoftTargetInteractArc=2` and `SoftTargetInteractRange=30` are set so the bobber is the soft-interact target. Optionally, SFX volume is raised to full for the cast.
-3. On `UNIT_SPELLCAST_CHANNEL_STOP` the override is cleared, and each CVar is restored only if it still holds OneCast's value.
-4. `PLAYER_REGEN_DISABLED` drops every override before combat lockdown; `PLAYER_LOGOUT` restores CVars so they're never saved.
-5. With "Quiet other sounds" on, `Sound_MusicVolume`, `Sound_AmbienceVolume` and `Sound_DialogVolume` are turned down to `quietLevel` percent of their own value while a pole is equipped (checked on `PLAYER_EQUIPMENT_CHANGED`). They're a separate lease group from the per-cast CVars, so the line coming in or combat starting doesn't give them back; the pole coming off does.
+1. `OneCastButton` 是一个 `SecureActionButtonTemplate` 按钮，`type=spell`，`spell=<钓鱼>`（由法术 ID 7620 解析名称，失败则回退到 131474）。
+2. 在钓鱼的 `UNIT_SPELLCAST_CHANNEL_START` 时，将该按钮绑定的按键覆盖为 `INTERACTTARGET`，并设置 `SoftTargetInteract=3`、`SoftTargetInteractArc=2` 与 `SoftTargetInteractRange=30`，使浮漂成为软交互目标。可选地，在施法期间将音效音量提到最大。
+3. 在 `UNIT_SPELLCAST_CHANNEL_STOP` 时清除覆盖；每个 CVar 仅在仍保持 OneCast 写入的值时才还原。
+4. `PLAYER_REGEN_DISABLED` 在进入战斗锁定前卸下所有覆盖；`PLAYER_LOGOUT` 还原 CVar，避免被持久化保存。
+5. 开启「压低其他声音」时，装备鱼竿期间（在 `PLAYER_EQUIPMENT_CHANGED` 上检查）会将 `Sound_MusicVolume`、`Sound_AmbienceVolume` 与 `Sound_DialogVolume` 降到各自原值的 `quietLevel` 百分比。它们与每次施法的 CVar 属于不同的租约组：收竿或开战不会把它们还回去，只有卸下鱼竿才会。
 
-Each cast and reel is still one hardware press; nothing is automated.
+每次抛竿与收竿仍是一次真实按键；没有任何自动化。
 
-### Files
+### 文件说明
 
-| File | What it holds |
+| 文件 | 内容 |
 |---|---|
-| `OneCast.lua` | Cast button, reel key override, CVar leases, options panel, minimap button, slash commands |
-| `Gear.lua` | Equipping the pole from the bags and putting weapons back |
-| `Stats.lua` | Session, zone, lifetime and log stats, and the stats window |
-| `Prices.lua` | Handing the catch to Auctionator's search |
-| `ZoneLevels.lua` | Zone fishing levels (Classic Era data) and notes on Forever zones |
-| `FishData.lua` | Every fish in the collection: category, zones (most common first) and recipes |
-| `Collection.lua` | Account-wide record of which characters caught each fish, synced from each character's stats |
-| `Extravaganza.lua` | The Stranglethorn Fishing Extravaganza: schedule (Classic's), Tastyfish counter and reminders |
-| `MapOverlays.lua` | Every explored-area overlay of each zone map, so the book's maps show fully revealed (generated from game data) |
-| `Book.lua` | The collection book window: fish grid and each fish's page with zones, map and recipes |
-| `Changelog.lua` | Release notes, shown in the What's new window and used for releases |
-| `WhatsNew.lua` | The What's new window and the login chat line |
-| `Media/*.tga` | Button glyphs: white with a dark outline, tinted gold in game |
+| `OneCast.lua` | 施法按钮、收竿按键覆盖、CVar 租约、选项面板、小地图按钮、斜杠命令 |
+| `Gear.lua` | 从背包装备鱼竿，以及换回武器 |
+| `Stats.lua` | 会话、区域、生涯与日志统计，以及统计窗口 |
+| `Prices.lua` | 将渔获交给 Auctionator 搜索 |
+| `ZoneLevels.lua` | 区域钓鱼等级（经典旧世数据）以及 Forever 区域备注 |
+| `FishData.lua` | 图鉴中的全部鱼类：分类、区域（最常见优先）与配方 |
+| `Collection.lua` | 账号范围的各角色渔获记录，从各角色统计同步 |
+| `Extravaganza.lua` | 荆棘谷钓鱼大赛：赛程（经典版）、美味鱼计数与提醒 |
+| `MapOverlays.lua` | 各区域地图的已探索区域叠加层，使图鉴地图完整显示（由游戏数据生成） |
+| `Book.lua` | 图鉴窗口：鱼类网格，以及每条鱼的区域、地图与配方页面 |
+| `Changelog.lua` | 版本说明，显示在「更新内容」窗口，并用于发布 |
+| `WhatsNew.lua` | 「更新内容」窗口与登录时的聊天提示 |
+| `Media/*.tga` | 按钮图标：白底深描边，游戏中着色为金色 |
 
-### Details worth knowing
+### 值得了解的细节
 
-- **Auto-equip pole:** with no pole equipped, the cast key equips the best pole in the bags (the one used last, else highest item level) from the button's `PreClick`, and that press doesn't cast. Weapons are saved per character and put back after the idle delay (60 s by default; 0 = never), when combat starts (anything blocked in combat finishes when it ends), or on demand. Equipping a different weapon by hand forgets the saved ones. Double right-click needs the pole equipped, so a stray double-click never swaps gear.
-- **Sessions:** a cast after 30 minutes idle starts a new session. Fish per hour counts only time actually fishing (gaps over 2 minutes between casts don't count).
-- **Opens on cast:** closing the window with its X or the minimap button keeps it closed until a 2-minute break from fishing; Escape, Alt+Z and cutscenes don't count.
-- **Spots, hours and skill-ups:** each zone's totals keep `spots` by sub-zone (`GetSubZoneText` at the cast). Lifetime items keep `hours`, catches by realm hour (`GetGameTime`), which the collection copies for the book's time of day. `OneCastCharDB.skill` counts catches since the last skill-up; the next-point estimate uses Classic's rule of thumb (1 catch per point to 75, then one more per 25 points).
-- **Session summary** prints after `ACTIVE_GAP` (2 minutes) without a cast, once per stretch of new catches.
-- **Zone levels** are keyed by English zone name (`GetRealZoneText`). The Zone tab counts real getaways (`ERR_FISH_ESCAPED`), and zones without data are judged from them.
-- **Auction prices** come from Auctionator (`GetAuctionPriceByItemID`) or TSM (`dbmarket`). The scan hands every caught item to Auctionator's `MultiSearchExact`.
-- **Wanted items** are account-wide (`OneCastDB.wanted`); stats are per character (`OneCastCharDB`).
-- **Collection:** `OneCastDB.collection.items[itemID].byChar[character]` holds each character's count and zones, copied from that character's `OneCastCharDB` at login and after each catch, so earlier catches count and nothing is counted twice. Any "Meat" trade good you fish up that isn't in `FishData.lua` joins the book as a discovered fish.
+- **自动装备鱼竿：** 未装备鱼竿时，施法键会在按钮的 `PreClick` 中装备背包里最好的鱼竿（优先上次使用的，否则物品等级最高的），且该次按键不会施法。武器按角色保存，并在空闲延迟后换回（默认 60 秒；0 = 永不）、开战时换回（战斗中被挡住的操作会在结束时完成），或按需换回。手动换上其他武器会忘记已保存的武器。双击右键需要已装备鱼竿，因此误双击不会换装。
+- **会话：** 空闲超过 30 分钟后再抛竿会开启新会话。「每小时鱼数」只统计实际钓鱼时间（两次抛竿间隔超过 2 分钟的空隙不计）。
+- **随抛竿打开：** 用窗口的 X 或小地图按钮关闭后会保持关闭，直到连续 2 分钟不钓鱼；Esc、Alt+Z 与过场动画不算关闭。
+- **钓点、时段与技能提升：** 各区域总计按子区域（抛竿时的 `GetSubZoneText`）记录 `spots`。生涯物品记录 `hours`——按服务器小时（`GetGameTime`）的渔获，图鉴会复制用于时段显示。`OneCastCharDB.skill` 统计自上次技能提升以来的渔获次数；下一点估算沿用经典版经验法则（到 75 点每点 1 次渔获，之后每 25 点多 1 次）。
+- **会话摘要** 在 `ACTIVE_GAP`（2 分钟）内无抛竿后打印，每个有新渔获的时段只打印一次。
+- **区域等级** 以英文区域名（`GetRealZoneText`）为键。区域页统计真实脱钩（`ERR_FISH_ESCAPED`），没有数据的区域据此判断。
+- **拍卖价格** 来自 Auctionator（`GetAuctionPriceByItemID`）或 TSM（`dbmarket`）。扫描会把所有渔获交给 Auctionator 的 `MultiSearchExact`。
+- **想要的物品** 为账号范围（`OneCastDB.wanted`）；统计为角色范围（`OneCastCharDB`）。
+- **图鉴：** `OneCastDB.collection.items[itemID].byChar[character]` 保存各角色的数量与区域，在登录时及每次渔获后从该角色的 `OneCastCharDB` 复制，使安装前的渔获也计入且不重复计数。钓到但不在 `FishData.lua` 中的「肉类」贸易品会作为新发现的鱼加入图鉴。
 
-### Fish data
+### 鱼类数据
 
-Which fish exist, and the recipes they go into, are checked against Forever's launch build (1.60.1.70790) using the client's game data on [wago.tools](https://wago.tools): `ItemSparse` and `Item` for the items, `SpellReagents`, `SkillLineAbility` and `SpellName` for recipes. That data doesn't hold recipes' required skill, so `skill` is left out where it isn't known.
+哪些鱼存在、以及它们进入哪些配方，已对照 Forever 启动版本（1.60.1.70790），使用客户端游戏数据（[wago.tools](https://wago.tools)）：物品用 `ItemSparse` 与 `Item`，配方用 `SpellReagents`、`SkillLineAbility` 与 `SpellName`。该数据不含配方所需技能，因此在未知时会省略 `skill`。
 
-Where fish are caught is server-side and not in the client data. `zones` came from Wowhead's Forever zone Fishing tabs, but those turned out to be copied from Classic Era (identical catch counts), so treat them as Classic data. Zones from anywhere else go in `more` with their source (`"classic"` or `"reported"`). Fish with no known zones are fine: the book shows the zones you've caught them in. When Forever loot data turns up, replace `zones` with it.
+鱼类出没地点在服务端，客户端数据中没有。`zones` 来自 Wowhead 的 Forever 区域钓鱼页，但那些数据实际上是从经典旧世复制的（渔获数量完全相同），因此应按经典版数据对待。其他来源的区域放在 `more` 中，并标注来源（`"classic"` 或 `"reported"`）。没有已知区域的鱼也可以：图鉴会显示你实际钓到它们的区域。等 Forever 掉落数据出现后，用其替换 `zones`。
 
-## Install for testing
+## 安装以供测试
 
-Copy this folder to `World of Warcraft\_<forever folder>_\Interface\AddOns\OneCast`. New files or a changed TOC need a full game restart; other changes need only `/reload`.
+将本文件夹复制到 `World of Warcraft\_<forever 文件夹>_\Interface\AddOns\OneCast`。新增文件或 TOC 变更需要完全重启游戏；其他更改只需 `/reload`。
 
-## Releasing
+## 发布
 
-`.github/workflows/release.yml` checks every push and pull request: it syntax-checks the Lua files and makes sure `Changelog.lua` has notes for the TOC's `## Version:`.
+`.github/workflows/release.yml` 会检查每次推送与拉取请求：对 Lua 文件做语法检查，并确认 `Changelog.lua` 含有 TOC 中 `## Version:` 对应版本的说明。
 
-To release:
+发布步骤：
 
-1. Add the new version's notes at the top of `Changelog.lua` and bump `## Version:` in `OneCast.toc` to match.
-2. Commit, then tag and push: `git tag v0.1.1` and `git push origin main v0.1.1`.
-3. The workflow builds `OneCast-0.1.1.zip` with `git archive` (one `OneCast/` folder, leaving out what `.gitattributes` marks `export-ignore`), and publishes a GitHub release with that zip and the notes from `Changelog.lua`. A version containing `alpha` or `beta` is marked as a pre-release.
+1. 在 `Changelog.lua` 顶部加入新版本说明，并将 `OneCast.toc` 中的 `## Version:` 同步提升。
+2. 提交，然后打标签并推送：`git tag v0.1.1` 与 `git push origin main v0.1.1`。
+3. 工作流用 `git archive` 构建 `OneCast-0.1.1.zip`（单一 `OneCast/` 文件夹，排除 `.gitattributes` 中标记为 `export-ignore` 的内容），并以该 zip 与 `Changelog.lua` 中的说明发布 GitHub Release。版本号含 `alpha` 或 `beta` 时会标记为预发布。
 
-A tag that doesn't match the TOC version fails the release, so the two can't drift apart.
+标签与 TOC 版本不一致时发布会失败，因此两者不会漂移。
 
-### CurseForge uploads
+### CurseForge 上传
 
-The same run uploads the zip to CurseForge once the repository has (Settings → Secrets and variables → Actions):
+同一流程会在仓库配置好以下内容后（Settings → Secrets and variables → Actions）将 zip 上传到 CurseForge：
 
-| Name | Kind | Value |
+| 名称 | 类型 | 值 |
 |---|---|---|
-| `CF_API_TOKEN` | secret | An API token from authors.curseforge.com → API Tokens |
-| `CURSEFORGE_PROJECT_ID` | variable | The project ID shown on the CurseForge project page |
-| `CURSEFORGE_GAME_VERSION_ID` | variable | CurseForge's ID for the WoW Forever game version (comma-separate several) |
+| `CF_API_TOKEN` | secret | 来自 authors.curseforge.com → API Tokens 的 API 令牌 |
+| `CURSEFORGE_PROJECT_ID` | variable | CurseForge 项目页上显示的项目 ID |
+| `CURSEFORGE_GAME_VERSION_ID` | variable | CurseForge 上 WoW Forever 游戏版本的 ID（多个用逗号分隔） |
 
-To find the game version ID, add the token secret first, then run the workflow by hand (Actions → Build and release → Run workflow, or `gh workflow run release.yml`). Its `curseforge-versions` job lists every CurseForge WoW game version with its ID and type; pick the Forever one.
+查找游戏版本 ID：先添加令牌 secret，再手动运行工作流（Actions → Build and release → Run workflow，或 `gh workflow run release.yml`）。其中的 `curseforge-versions` 任务会列出所有 CurseForge WoW 游戏版本及其 ID 与类型；选择 Forever 对应项即可。
 
-Until the two variables are set, a release warns that the upload was skipped, and you upload the zip from the GitHub release by hand.
+在两个变量设置完成前，发布会警告上传已跳过，你需要从 GitHub Release 手动上传 zip。
