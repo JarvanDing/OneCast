@@ -44,25 +44,25 @@ end
 
 function Prices.Scan()
 	if not Prices.CanScan() then
-		ns.Print("scanning needs Auctionator installed.")
+		ns.Print("扫描需要安装 Auctionator。")
 		return
 	end
 	if not auctionOpen then
-		ns.Print("open the auction house first, then scan.")
+		ns.Print("请先打开拍卖行，再扫描。")
 		return
 	end
 	local names = CaughtItemNames()
 	if #names == 0 then
-		ns.Print("nothing caught yet to price.")
+		ns.Print("还没有可估价的渔获。")
 		return
 	end
 	local api = API()
 	local search = api.MultiSearchExact or api.MultiSearch
 	local ok, err = pcall(search, ADDON, names)
 	if ok then
-		ns.Print(string.format("Auctionator is searching %d items. Prices update as it finishes.", #names))
+		ns.Print(string.format("Auctionator 正在搜索 %d 件物品。完成后价格会更新。", #names))
 	else
-		ns.Print("Auctionator search failed: " .. tostring(err))
+		ns.Print("Auctionator 搜索失败：" .. tostring(err))
 	end
 end
 

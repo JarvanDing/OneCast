@@ -18,27 +18,28 @@ local MAX_ZONES, MAX_RECIPES, MAX_CHARS = 6, 4, 4
 local MAP_W, MAP_H = 300, 128
 
 local CATEGORIES = {
-	{ key = "all", label = "All" },
-	{ key = "fish", label = "Fish" },
-	{ key = "special", label = "Special" },
-	{ key = "trophy", label = "Trophies" },
-	{ key = "bloated", label = "Bloated" },
+	{ key = "all", label = "全部" },
+	{ key = "fish", label = "鱼类" },
+	{ key = "special", label = "特殊" },
+	{ key = "trophy", label = "奖杯" },
+	{ key = "bloated", label = "浮肿" },
 }
 local CAT_ORDER = { fish = 1, special = 2, trophy = 3, bloated = 4 }
 -- FishData's `when`: fish that bite only at some hours in Classic.
 local WHEN_TEXT = {
-	night = "In Classic it bites only at night, 18:00-06:00 realm time.",
-	day = "In Classic it bites only by day, 06:00-18:00 realm time.",
+	night = "在经典中仅夜间上钩，服务器时间 18:00–06:00。",
+	day = "在经典中仅白天上钩，服务器时间 06:00–18:00。",
 }
-local CAT_NAME = { fish = "Fish", special = "Special catch", trophy = "Trophy fish", bloated = "Bloated fish" }
+local CAT_NAME = { fish = "鱼类", special = "特殊渔获", trophy = "奖杯鱼", bloated = "浮肿鱼" }
 local CAT_LEAD = {
-	fish = "A fish",
-	special = "An unusual catch",
-	trophy = "A trophy fish, kept for its size rather than eaten",
-	bloated = "A bloated fish that can hold a pearl or other treasure when opened",
+	fish = "一种鱼",
+	special = "一种特殊渔获",
+	trophy = "一种奖杯鱼，因其体型而收藏而非食用",
+	bloated = "一种浮肿鱼，打开后可能藏有珍珠或其他宝物",
 }
 local SHOW = { "all", "caught", "missing" }
-local SHOW_LABEL = { all = "Showing: all", caught = "Showing: caught", missing = "Showing: missing" }
+local SHOW_LABEL = { all = "显示：全部", caught = "显示：已钓到", missing = "显示：未钓到" }
+local TAG_LABEL = { classic = "经典", reported = "玩家报告", ["found by you"] = "你发现的" }
 
 -- Parchment ink, as in the What's new window.
 local INK = { 0.18, 0.10, 0.02 }
@@ -200,16 +201,16 @@ local function Summary(fish)
 		end
 	end
 	local first = (fish.zones and fish.zones[1]) or (fish.more and fish.more[1] and fish.more[1][1])
-	local text = CAT_LEAD[fish.cat] or "A catch"
+	local text = CAT_LEAD[fish.cat] or "一种渔获"
 	if zones == 1 then
-		text = text .. " found in " .. first
+		text = text .. "，见于 " .. first
 	elseif zones > 1 then
-		text = text .. string.format(" found in %d zones, most often in %s", zones, first)
+		text = text .. string.format("，见于 %d 个区域，最常见于 %s", zones, first)
 	end
-	text = text .. "."
+	text = text .. "。"
 	local skill = EasiestSkill(fish)
 	if skill then
-		text = text .. string.format(" Its easiest waters need %d Fishing so none get away.", skill)
+		text = text .. string.format(" 最易钓水域需要 %d 点钓鱼，以免脱钩。", skill)
 	end
 	if fish.recipes and #fish.recipes > 0 then
 		local byProf, order = {}, {}
@@ -221,9 +222,9 @@ local function Summary(fish)
 		end
 		local parts = {}
 		for _, prof in ipairs(order) do
-			parts[#parts + 1] = string.format("%d %s recipe%s", byProf[prof], prof, byProf[prof] == 1 and "" or "s")
+			parts[#parts + 1] = string.format("%d 个%s配方", byProf[prof], prof)
 		end
-		text = text .. " Used in " .. table.concat(parts, " and ") .. "."
+		text = text .. " 用于 " .. table.concat(parts, " 与 ") .. "。"
 	end
 	if fish.when then
 		text = text .. " " .. WHEN_TEXT[fish.when]
@@ -232,7 +233,7 @@ local function Summary(fish)
 		text = text .. " " .. ns.Extravaganza.Describe()
 	end
 	if fish.discovered then
-		text = text .. " Not in OneCast's records yet: you found this one yourself."
+		text = text .. " 图鉴记录中尚无此鱼：是你自己发现的。"
 	end
 	return text
 end
@@ -251,13 +252,13 @@ local function TimeOfDay(info)
 	if total == 0 then
 		return nil
 	end
-	local lead = total == 1 and "Your one logged catch was" or ("All " .. total .. " logged catches were")
+	local lead = total == 1 and "你记录的唯一一次钓获" or ("全部 " .. total .. " 次记录的钓获")
 	if night == 0 then
-		return lead .. " by day (06:00-18:00 realm time)."
+		return lead .. "发生在白天（服务器时间 06:00–18:00）。"
 	elseif day == 0 then
-		return lead .. " at night (18:00-06:00 realm time)."
+		return lead .. "发生在夜间（服务器时间 18:00–06:00）。"
 	end
-	return string.format("Caught %d time%s by day and %d at night (realm time).", day, day == 1 and "" or "s", night)
+	return string.format("白天钓到 %d 次，夜间钓到 %d 次（服务器时间）。", day, night)
 end
 
 -- Zone maps ------------------------------------------------------------------------------
@@ -375,7 +376,7 @@ local function OpenZoneMap(mapID)
 		return
 	end
 	if InCombatLockdown() then
-		ns.Print("the map can't be opened from here in combat.")
+		ns.Print("战斗中无法从这里打开地图。")
 	elseif OpenWorldMap then
 		OpenWorldMap(mapID)
 	elseif WorldMapFrame then
@@ -517,12 +518,11 @@ local function CreateCell(parent)
 		local info = ns.Collection.Get(self.fishID)
 		GameTooltip:AddLine(" ")
 		if info.total > 0 then
-			GameTooltip:AddLine(string.format("Caught %d time%s on %d character%s", info.total,
-				info.total == 1 and "" or "s", #info.chars, #info.chars == 1 and "" or "s"), 0.6, 0.8, 1)
+			GameTooltip:AddLine(string.format("已在 %d 个角色上钓到 %d 次", #info.chars, info.total), 0.6, 0.8, 1)
 		else
-			GameTooltip:AddLine("Not caught yet", 0.7, 0.7, 0.7)
+			GameTooltip:AddLine("尚未钓到", 0.7, 0.7, 0.7)
 		end
-		GameTooltip:AddLine("Click to open its page", 0.6, 0.8, 1)
+		GameTooltip:AddLine("点击打开详情页", 0.6, 0.8, 1)
 		GameTooltip:Show()
 	end)
 	b:SetScript("OnLeave", GameTooltip_Hide)
@@ -567,26 +567,26 @@ local function RenderGrid()
 		end
 		page.number:SetText((state.spread - 1) * 2 + p)
 	end
-	local label = state.where and "Fish" or "Fish of Azeroth"
+	local label = state.where and "鱼类" or "艾泽拉斯鱼类"
 	for _, cat in ipairs(CATEGORIES) do
 		if cat.key == state.cat and cat.key ~= "all" then
 			label = cat.label
 		end
 	end
 	if state.where then
-		label = label .. " of " .. state.where
+		label = state.where .. "的" .. label
 	end
 	frame.pages[1].title:SetText(label)
-	frame.pages[2].title:SetText(#list == 0 and "" or string.format("%d shown", #list))
+	frame.pages[2].title:SetText(#list == 0 and "" or string.format("显示 %d 种", #list))
 	frame.empty:SetShown(#list == 0)
 	if state.show == "missing" and not state.search then
-		frame.empty:SetText("Nothing missing here: all caught!")
+		frame.empty:SetText("此处已全部钓到！")
 	elseif state.search or state.where or state.show ~= "all" then
-		frame.empty:SetText("No fish match.")
+		frame.empty:SetText("没有匹配的鱼。")
 	else
-		frame.empty:SetText("Nothing here yet.")
+		frame.empty:SetText("这里还没有内容。")
 	end
-	frame.pageLabel:SetText(string.format("Pages %d-%d of %d", state.spread * 2 - 1, state.spread * 2, spreads * 2))
+	frame.pageLabel:SetText(string.format("第 %d–%d 页，共 %d 页", state.spread * 2 - 1, state.spread * 2, spreads * 2))
 	frame.prev:SetEnabled(state.spread > 1)
 	frame.next:SetEnabled(state.spread < spreads)
 end
@@ -640,7 +640,7 @@ local function RenderLeft(fish, info)
 	name:SetPoint("TOPLEFT", icon, "TOPRIGHT", 12, -2)
 	local kind = PoolString(pool, QuestFont, 13, INK_SOFT)
 	local skill = EasiestSkill(fish)
-	kind:SetText((CAT_NAME[fish.cat] or "Catch") .. (skill and ("  ·  " .. skill .. " Fishing") or ""))
+	kind:SetText((CAT_NAME[fish.cat] or "渔获") .. (skill and ("  ·  钓鱼 " .. skill) or ""))
 	kind:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -4)
 
 	local y = 30 + 56 + 18
@@ -658,21 +658,20 @@ local function RenderLeft(fish, info)
 	end
 	Paragraph(Summary(fish), INK, 18)
 
-	y = y + Heading(pool, "Your catches", x, y, 32)
+	y = y + Heading(pool, "你的钓获", x, y, 32)
 	if info.total > 0 then
-		Paragraph(string.format("Caught %s%d|r time%s on %d character%s.", LEAD, info.total,
-			info.total == 1 and "" or "s", #info.chars, #info.chars == 1 and "" or "s"), INK, 6)
+		Paragraph(string.format("已在 %d 个角色上钓到 %s%d|r 次。", #info.chars, LEAD, info.total), INK, 6)
 		for i, who in ipairs(info.chars) do
 			if i > MAX_CHARS then
-				Paragraph(string.format("%sand %d more|r", SOFT, #info.chars - MAX_CHARS), INK, 4)
+				Paragraph(string.format("%s还有 %d 个|r", SOFT, #info.chars - MAX_CHARS), INK, 4)
 				break
 			end
 			Paragraph(string.format("%s  %s%d|r", who.name, LEAD, who.count), INK, 4)
 		end
 		y = y + 6
 		if info.first then
-			Paragraph(string.format("%sFirst caught on %s by %s%s.|r", SOFT, date("%d %B %Y", info.first.time),
-				info.first.char or "?", info.first.zone and (" in " .. info.first.zone) or ""), INK, 4)
+			Paragraph(string.format("%s首次由 %s 于 %s%s钓到。|r", SOFT, info.first.char or "?",
+				date("%Y年%m月%d日", info.first.time), info.first.zone and ("，地点：" .. info.first.zone) or ""), INK, 4)
 		end
 		local when = TimeOfDay(info)
 		if when then
@@ -680,7 +679,7 @@ local function RenderLeft(fish, info)
 		end
 	else
 		local tip = (fish.zones and fish.zones[1]) or (fish.more and fish.more[1] and fish.more[1][1])
-		Paragraph("Not caught yet." .. (tip and (" Try " .. tip .. ".") or ""), INK)
+		Paragraph("尚未钓到。" .. (tip and (" 可尝试 " .. tip .. "。") or ""), INK)
 	end
 end
 
@@ -691,7 +690,7 @@ local function RenderRight(fish, info)
 	local x, width = 32, math.max(page:GetWidth(), 400) - 64
 	local y = 30
 
-	y = y + Heading(pool, "Where to catch", x, y, 32)
+	y = y + Heading(pool, "出没地点", x, y, 32)
 	local rows = ZoneRows(fish, info)
 	if not state.zone then
 		state.zone = rows[1] and rows[1].zone
@@ -699,7 +698,7 @@ local function RenderRight(fish, info)
 	for i, row in ipairs(rows) do
 		if i > MAX_ZONES then
 			local more = PoolString(pool, QuestFont, 13, INK_SOFT)
-			more:SetText(string.format("and %d more zone%s", #rows - MAX_ZONES, #rows - MAX_ZONES == 1 and "" or "s"))
+			more:SetText(string.format("还有 %d 个区域", #rows - MAX_ZONES))
 			more:SetPoint("TOPLEFT", page, "TOPLEFT", x + 6, -y)
 			y = y + 16
 			break
@@ -708,16 +707,17 @@ local function RenderRight(fish, info)
 		b:SetPoint("TOPLEFT", page, "TOPLEFT", x, -y)
 		b:SetWidth(width)
 		b.bg:SetShown(row.zone == state.zone)
-		b.left:SetText(row.zone .. (row.tag and (" " .. SOFT .. "(" .. row.tag .. ")|r") or ""))
+		local tag = row.tag and (TAG_LABEL[row.tag] or row.tag)
+		b.left:SetText(row.zone .. (tag and (" " .. SOFT .. "（" .. tag .. "）|r") or ""))
 		b.left:SetTextColor(INK[1], INK[2], INK[3])
 		local needs = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[row.zone]
 		local mine = info.zones[row.zone]
 		local right = {}
 		if needs and needs > 1 then
-			right[#right + 1] = "needs " .. needs
+			right[#right + 1] = "需要 " .. needs
 		end
 		if mine then
-			right[#right + 1] = LEAD .. mine .. " caught|r"
+			right[#right + 1] = LEAD .. "已钓 " .. mine .. "|r"
 		end
 		b.right:SetText(table.concat(right, "  ·  "))
 		b.right:SetTextColor(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3])
@@ -729,7 +729,7 @@ local function RenderRight(fish, info)
 	end
 	if #rows == 0 then
 		local none = PoolString(pool, QuestFont, 14, INK_SOFT)
-		none:SetText("No known waters yet. Catch one and OneCast will remember where.")
+		none:SetText("尚无已知水域。钓到一条后，插件会记住地点。")
 		none:SetWidth(width)
 		none:SetPoint("TOPLEFT", page, "TOPLEFT", x, -y)
 		y = y + none:GetStringHeight() + 6
@@ -746,12 +746,12 @@ local function RenderRight(fish, info)
 	frame.openMap:SetEnabled(frame.mapID ~= nil)
 	y = y + MAP_H + 34
 
-	y = y + Heading(pool, "Used in", x, y, 32)
+	y = y + Heading(pool, "用途", x, y, 32)
 	local recipes = fish.recipes or {}
 	for i, recipe in ipairs(recipes) do
 		if i > MAX_RECIPES then
 			local more = PoolString(pool, QuestFont, 13, INK_SOFT)
-			more:SetText(string.format("and %d more", #recipes - MAX_RECIPES))
+			more:SetText(string.format("还有 %d 个", #recipes - MAX_RECIPES))
 			more:SetPoint("TOPLEFT", page, "TOPLEFT", x + 18, -y)
 			break
 		end
@@ -767,7 +767,7 @@ local function RenderRight(fish, info)
 	end
 	if #recipes == 0 then
 		local none = PoolString(pool, QuestFont, 14, INK_SOFT)
-		none:SetText("Not used in any recipe.")
+		none:SetText("未用于任何配方。")
 		none:SetPoint("TOPLEFT", page, "TOPLEFT", x, -y)
 	end
 end
@@ -799,7 +799,7 @@ local function RenderFish()
 	RenderLeft(entry.fish, info)
 	RenderRight(entry.fish, info)
 	local count = state.list and #state.list or 0
-	frame.pageLabel:SetText(state.index and string.format("%d of %d", state.index, count) or "")
+	frame.pageLabel:SetText(state.index and string.format("%d / %d", state.index, count) or "")
 	frame.prev:SetEnabled(state.index and state.index > 1 or false)
 	frame.next:SetEnabled(state.index and state.index < count or false)
 	return true
@@ -853,7 +853,7 @@ local function CreateWindow()
 		close:SetPoint("TOPRIGHT", -2, -2)
 	end
 	if f.SetTitle then
-		f:SetTitle("Fishing Collection")
+		f:SetTitle("钓鱼图鉴")
 	end
 	if ns.SetPortrait then
 		ns.SetPortrait(f, "Interface\\Icons\\INV_Misc_Book_09")
@@ -938,7 +938,7 @@ local function CreateWindow()
 	f.empty:SetTextColor(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3])
 	f.empty:SetShadowOffset(0, 0)
 	f.empty:SetPoint("TOP", 0, -80)
-	f.empty:SetText("Nothing here yet.")
+	f.empty:SetText("这里还没有内容。")
 
 	-- Map box on the fish page, with its caption and an Open map button.
 	f.map = CreateFrame("Frame", nil, f.pages[2].detail, "BackdropTemplate")
@@ -953,7 +953,7 @@ local function CreateWindow()
 	f.map.empty:SetTextColor(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3])
 	f.map.empty:SetShadowOffset(0, 0)
 	f.map.empty:SetPoint("CENTER")
-	f.map.empty:SetText("No map for this zone.")
+	f.map.empty:SetText("此区域无地图。")
 	f.mapCaption = f.pages[2].detail:CreateFontString(nil, "OVERLAY")
 	SizedFont(f.mapCaption, QuestFont, 13)
 	f.mapCaption:SetTextColor(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3])
@@ -962,7 +962,7 @@ local function CreateWindow()
 	f.openMap = CreateFrame("Button", nil, f.pages[2].detail, "UIPanelButtonTemplate")
 	f.openMap:SetSize(96, 20)
 	f.openMap:SetPoint("TOPRIGHT", f.map, "BOTTOMRIGHT", 0, -4)
-	f.openMap:SetText("Open map")
+	f.openMap:SetText("打开地图")
 	f.openMap:SetScript("OnClick", function()
 		OpenZoneMap(frame.mapID)
 	end)
@@ -994,8 +994,8 @@ local function CreateWindow()
 	end)
 	f.where:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
-		GameTooltip:SetText("Zone")
-		GameTooltip:AddLine("Show only the fish of one zone. Pick yours, then Showing: missing, to see what's left to catch here.",
+		GameTooltip:SetText("区域")
+		GameTooltip:AddLine("只显示某一区域的鱼。选中你的区域，再设为「显示：未钓到」，即可查看此处还缺什么。",
 			1, 1, 1, true)
 		GameTooltip:Show()
 	end)
@@ -1021,7 +1021,7 @@ local function CreateWindow()
 	f.next = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 	f.next:SetSize(100, 22)
 	f.next:SetPoint("BOTTOMRIGHT", -10, 4)
-	f.next:SetText("Next")
+	f.next:SetText("下一页")
 	f.next:SetScript("OnClick", function()
 		if state.fishID and state.index then
 			state.fishID, state.zone = state.list[state.index + 1].fish.id, nil
@@ -1033,7 +1033,7 @@ local function CreateWindow()
 	f.prev = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 	f.prev:SetSize(100, 22)
 	f.prev:SetPoint("RIGHT", f.next, "LEFT", -4, 0)
-	f.prev:SetText("Previous")
+	f.prev:SetText("上一页")
 	f.pageLabel:SetPoint("RIGHT", f.prev, "LEFT", -12, 0)
 	f.prev:SetScript("OnClick", function()
 		if state.fishID and state.index then
@@ -1074,7 +1074,7 @@ function Book.Refresh()
 	end
 
 	local caught, total = ns.Collection.Progress()
-	frame.progressText:SetText(string.format("Collected |cffffffff%d|r of %d", caught, total))
+	frame.progressText:SetText(string.format("已收集 |cffffffff%d|r / %d", caught, total))
 	frame.progress:SetValue(total > 0 and caught / total or 0)
 
 	state.list = state.list or Filtered()
@@ -1088,9 +1088,9 @@ function Book.Refresh()
 		page.title:SetShown(not showFish)
 		page.number:SetShown(not showFish)
 	end
-	frame.back:SetText(showFish and "Back to collection" or SHOW_LABEL[state.show])
+	frame.back:SetText(showFish and "返回图鉴" or SHOW_LABEL[state.show])
 	frame.where:SetShown(not showFish)
-	frame.where:SetText(state.where or "All zones")
+	frame.where:SetText(state.where or "全部区域")
 	frame.search:SetShown(not showFish)
 end
 
@@ -1115,9 +1115,9 @@ function Book.OpenZoneMenu(owner)
 				SetWhere(zone)
 			end)
 		end
-		Radio("All zones", nil)
+		Radio("全部区域", nil)
 		if here then
-			Radio("Here: " .. here, here)
+			Radio("此处：" .. here, here)
 		end
 		root:CreateDivider()
 		for _, zone in ipairs(ZoneChoices()) do

@@ -14,7 +14,7 @@ ns.Extravaganza = X
 X.ZONE = "Stranglethorn Vale"
 X.TASTYFISH = 19807
 X.GOAL = 40
-X.SCHEDULE = "Sundays 14:00-16:00 realm time"
+X.SCHEDULE = "服务器时间周日 14:00–16:00"
 
 local WEEKDAY = 1          -- calendar weekday: 1 is Sunday
 local START_HOUR = 14
@@ -72,21 +72,21 @@ function X.StatusLine(zone)
 		return nil
 	end
 	if running then
-		return string.format("Tastyfish %d/%d  |cff9d9d9d%s left|r", X.TastyfishInBags(), X.GOAL, X.FormatWait(seconds))
+		return string.format("可口鱼 %d/%d  |cff9d9d9d剩余 %s|r", X.TastyfishInBags(), X.GOAL, X.FormatWait(seconds))
 	end
 	if zone == X.ZONE or seconds <= 3 * 3600 then
-		return "starts in " .. X.FormatWait(seconds)
+		return X.FormatWait(seconds) .. " 后开始"
 	end
 end
 
 -- A sentence for the fish's page in the book.
 function X.Describe()
 	local running, seconds = X.Status()
-	local text = "Bites only during the Stranglethorn Fishing Extravaganza, " .. X.SCHEDULE .. " in Classic."
+	local text = "仅在荆棘谷钓鱼大赛期间上钩，经典日程为 " .. X.SCHEDULE .. "。"
 	if running then
-		return text .. " It's on now: " .. X.FormatWait(seconds) .. " left."
+		return text .. " 正在进行中：还剩 " .. X.FormatWait(seconds) .. "。"
 	elseif running == false then
-		return text .. " Next contest in " .. X.FormatWait(seconds) .. "."
+		return text .. " 下场大赛还有 " .. X.FormatWait(seconds) .. "。"
 	end
 	return text
 end
@@ -99,9 +99,9 @@ local function CheckGoal()
 		return
 	end
 	announcedGoal = true
-	ns.Print(string.format("%d Speckled Tastyfish! Hand them to Riggle Bassbait in Booty Bay to win.", X.GOAL))
+	ns.Print(string.format("已有 %d 条斑点可口鱼！交给藏宝海湾的林格·巴斯贝特即可获胜。", X.GOAL))
 	if RaidNotice_AddMessage and RaidWarningFrame then
-		RaidNotice_AddMessage(RaidWarningFrame, X.GOAL .. " Tastyfish: hurry to Booty Bay!", ChatTypeInfo.RAID_WARNING)
+		RaidNotice_AddMessage(RaidWarningFrame, X.GOAL .. " 条可口鱼：快去藏宝海湾！", ChatTypeInfo.RAID_WARNING)
 	end
 	PlaySound(SOUNDKIT.RAID_WARNING)
 end
@@ -125,11 +125,11 @@ local function Tick()
 		return
 	end
 	if running and not wasRunning then
-		ns.Print(string.format("the Stranglethorn Fishing Extravaganza is on%s! Catch %d Speckled Tastyfish in Stranglethorn Vale and hand them to Riggle Bassbait in Booty Bay.",
-			wasRunning == nil and (" (" .. X.FormatWait(seconds) .. " left)") or "", X.GOAL))
+		ns.Print(string.format("荆棘谷钓鱼大赛进行中%s！在荆棘谷钓 %d 条斑点可口鱼，交给藏宝海湾的林格·巴斯贝特。",
+			wasRunning == nil and ("（还剩 " .. X.FormatWait(seconds) .. "）") or "", X.GOAL))
 	elseif not running and seconds <= REMIND_BEFORE and not remindedSoon then
 		remindedSoon = true
-		ns.Print("the Stranglethorn Fishing Extravaganza starts in " .. X.FormatWait(seconds) .. ".")
+		ns.Print("荆棘谷钓鱼大赛将在 " .. X.FormatWait(seconds) .. " 后开始。")
 	end
 	if not running and seconds > REMIND_BEFORE then
 		remindedSoon = false

@@ -129,7 +129,7 @@ local function RenderPage()
 
 	local date = PageString(content, QuestFont, 14, INK_SOFT)
 	date:SetWidth(width)
-	date:SetText("Released " .. release.date .. ".")
+	date:SetText("发布于 " .. release.date .. "。")
 	Place(date, 0, 18)
 
 	for _, section in ipairs(release.sections) do
@@ -202,7 +202,7 @@ end
 
 local function CreateWindow()
 	local f = TryCreate("Frame", "OneCastWhatsNewFrame", UIParent, "ButtonFrameTemplate")
-	local title = "What's new in OneCast  |cff9d9d9dv" .. (ns.VERSION or "?") .. "|r"
+	local title = (ns.DISPLAY_NAME or "哇，大鱼") .. " 更新内容  |cff9d9d9dv" .. (ns.VERSION or "?") .. "|r"
 	if f then
 		if ButtonFrameTemplate_HidePortrait then
 			ButtonFrameTemplate_HidePortrait(f)
@@ -243,10 +243,10 @@ local function CreateWindow()
 	versions:SetBackdropColor(0, 0, 0, 0.6)
 	local versionsText = versions:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	versionsText:SetPoint("CENTER")
-	versionsText:SetText("Versions: |cffffffff" .. #ns.CHANGELOG .. "|r")
+	versionsText:SetText("版本：|cffffffff" .. #ns.CHANGELOG .. "|r")
 	local summary = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 	summary:SetPoint("LEFT", versions, "RIGHT", 12, 0)
-	summary:SetText(TotalChanges() .. " changes, newest first.")
+	summary:SetText(TotalChanges() .. " 项改动，最新在前。")
 
 	-- Left: the version list.
 	local list = Inset(f)
@@ -257,10 +257,10 @@ local function CreateWindow()
 	SizedFont(listTitle, QuestTitleFont, 20)
 	listTitle:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 	listTitle:SetPoint("TOPLEFT", 16, -14)
-	listTitle:SetText("OneCast")
+	listTitle:SetText(ns.DISPLAY_NAME or "哇，大鱼")
 	local listCount = list:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	listCount:SetPoint("TOPRIGHT", -16, -20)
-	listCount:SetText(#ns.CHANGELOG == 1 and "1 version" or (#ns.CHANGELOG .. " versions"))
+	listCount:SetText(#ns.CHANGELOG == 1 and "1 个版本" or (#ns.CHANGELOG .. " 个版本"))
 	list:EnableMouseWheel(true)
 	list:SetScript("OnMouseWheel", function(_, delta)
 		Select(selected - delta)
@@ -322,23 +322,23 @@ local function CreateWindow()
 	f.newer = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 	f.newer:SetSize(110, 22)
 	f.newer:SetPoint("BOTTOMLEFT", 12, 36)
-	f.newer:SetText("Newer")
+	f.newer:SetText("更新版本")
 	f.newer:SetScript("OnClick", function() Select(selected - 1) end)
 	f.older = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 	f.older:SetSize(110, 22)
 	f.older:SetPoint("LEFT", f.newer, "RIGHT", 12, 0)
-	f.older:SetText("Older")
+	f.older:SetText("更旧版本")
 	f.older:SetScript("OnClick", function() Select(selected + 1) end)
 	local close = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 	close:SetSize(110, 22)
 	close:SetPoint("BOTTOMRIGHT", -12, 36)
-	close:SetText(CLOSE or "Close")
+	close:SetText(CLOSE or "关闭")
 	close:SetScript("OnClick", function() f:Hide() end)
 
 	-- Footer: where to send requests, and the project page, selectable to copy.
 	local footer = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 	footer:SetPoint("BOTTOMLEFT", 14, 12)
-	footer:SetText("Feature requests and bug reports are welcome on CurseForge")
+	footer:SetText("欢迎在 CurseForge 提交功能建议与缺陷反馈")
 	local url = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
 	url:SetSize(200, 20)
 	url:SetPoint("LEFT", footer, "RIGHT", 14, 0)
@@ -355,7 +355,7 @@ local function CreateWindow()
 	url:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
 	local hint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	hint:SetPoint("LEFT", url, "RIGHT", 8, 0)
-	hint:SetText("click, then Ctrl+C")
+	hint:SetText("点击后按 Ctrl+C")
 
 	f:Hide()
 	return f
@@ -381,10 +381,10 @@ end
 -- Login announcement --------------------------------------------------------------------
 
 local function ChatLink()
-	return "|cff71d5ff|H" .. LINK .. "|h[What's new]|h|r"
+	return "|cff71d5ff|H" .. LINK .. "|h[更新内容]|h|r"
 end
 
--- Clicking [What's new] in chat.
+-- Clicking [更新内容] in chat.
 hooksecurefunc("SetItemRef", function(link)
 	if link == LINK then
 		WhatsNew.Show()
@@ -402,13 +402,13 @@ events:SetScript("OnEvent", function()
 		end
 		-- Until the window has been opened for this version, point at it.
 		if not db.seenVersion then
-			ns.Print(string.format("|cffffffffv%s|r installed. See what it does: %s or /onecast new",
+			ns.Print(string.format("|cffffffffv%s|r 已安装。查看功能：%s 或 /onecast new",
 				ns.VERSION, ChatLink()))
 		elseif db.seenVersion ~= ns.VERSION then
-			ns.Print(string.format("updated to |cffffffffv%s|r. See what changed: %s or /onecast new",
+			ns.Print(string.format("已更新至 |cffffffffv%s|r。查看改动：%s 或 /onecast new",
 				ns.VERSION, ChatLink()))
 		else
-			ns.Print(string.format("|cffffffffv%s|r loaded. %s  /onecast for options", ns.VERSION, ChatLink()))
+			ns.Print(string.format("|cffffffffv%s|r 已加载。%s  输入 /onecast 打开选项", ns.VERSION, ChatLink()))
 		end
 	end)
 end)

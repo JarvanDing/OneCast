@@ -31,10 +31,10 @@ local TAB_WIDTH = math.floor((WINDOW_WIDTH - TABS_LEFT - 10 - 3 * TAB_GAP) / 4)
 local WINDOW_HEIGHT = 60 + (-LIST_TOP + 28 + MAX_ROWS * ITEM_HEIGHT + 22) + 28
 
 local VIEWS = {
-	{ key = "session", label = "Session" },
-	{ key = "zone", label = "Zone" },
-	{ key = "lifetime", label = "Lifetime" },
-	{ key = "log", label = "Log" },
+	{ key = "session", label = "会话" },
+	{ key = "zone", label = "区域" },
+	{ key = "lifetime", label = "生涯" },
+	{ key = "log", label = "记录" },
 }
 
 local charDB
@@ -148,8 +148,8 @@ local function ToggleWanted(itemID, name)
 	ns.db.wanted = ns.db.wanted or {}
 	ns.db.wanted[itemID] = not ns.db.wanted[itemID] or nil
 	ns.Print((name or ("item:" .. itemID)) .. (ns.db.wanted[itemID]
-		and " marked as wanted: you'll get an alert when you catch it."
-		or " is no longer wanted."))
+		and " 已标记为想要：钓到时会提醒。"
+		or " 已取消想要标记。"))
 	RefreshIfShown()
 end
 
@@ -296,33 +296,33 @@ local function AlertIfRare(loot)
 			local color = QualityColor(l.quality)
 			local text = (color and color.hex or "|cffffffff") .. (l.name or "?") .. "|r"
 			if RaidNotice_AddMessage and RaidWarningFrame then
-				RaidNotice_AddMessage(RaidWarningFrame, "Caught " .. text .. "!", ChatTypeInfo.RAID_WARNING)
+				RaidNotice_AddMessage(RaidWarningFrame, "钓到 " .. text .. "！", ChatTypeInfo.RAID_WARNING)
 			end
 			PlaySound(SOUNDKIT.RAID_WARNING)
-			ns.Print("rare catch: " .. (l.link or text))
+			ns.Print("稀有渔获：" .. (l.link or text))
 		end
 	end
 end
 
 -- Sum up the session in chat once the player has stopped for a while.
 local function SessionSummaryText(s)
-	local parts = { string.format("%d catch%s", s.catches, s.catches == 1 and "" or "es") }
+	local parts = { string.format("%d 条渔获", s.catches) }
 	local rate = PerHour(s)
 	if rate then
-		parts[#parts + 1] = string.format("%.0f/hr", rate)
+		parts[#parts + 1] = string.format("%.0f/时", rate)
 	end
 	local vendor = TotalValue(s.items, VendorPrice)
 	if vendor > 0 then
-		parts[#parts + 1] = Coins(vendor) .. " vendor"
+		parts[#parts + 1] = Coins(vendor) .. " 商人售价"
 	end
 	local gained = SkillGained(s)
 	if gained > 0 then
-		parts[#parts + 1] = string.format("+%d %s", gained, ns.GetFishingName and ns.GetFishingName() or "Fishing")
+		parts[#parts + 1] = string.format("+%d %s", gained, ns.GetFishingName and ns.GetFishingName() or "钓鱼")
 	end
 	if (s.newFish or 0) > 0 then
-		parts[#parts + 1] = string.format("%d new for your collection", s.newFish)
+		parts[#parts + 1] = string.format("%d 条图鉴新鱼", s.newFish)
 	end
-	return table.concat(parts, ", ")
+	return table.concat(parts, "，")
 end
 
 local function PrintSessionSummary()
@@ -331,23 +331,23 @@ local function PrintSessionSummary()
 	if not (ns.db and ns.db.sessionSummary) or s.catches <= (s.summarized or 0) then
 		return
 	end
-	local lead = (s.summarized or 0) > 0 and "session so far: " or "session: "
+	local lead = (s.summarized or 0) > 0 and "目前会话：" or "会话："
 	s.summarized = s.catches
-	ns.Print(lead .. SessionSummaryText(s) .. ".")
+	ns.Print(lead .. SessionSummaryText(s) .. "。")
 end
 
 StaticPopupDialogs["ONECAST_AUTOLOOT"] = {
-	text = "Auto loot is off, so every catch opens a loot window you have to click.\n\nTurn on auto loot so catches go straight to your bags? You can change it back in Options > Controls.",
-	button1 = "Turn on",
-	button2 = "Not now",
-	button3 = "Don't ask again",
+	text = "自动拾取未开启，每次渔获都会弹出战利品窗口需要点击。\n\n是否开启自动拾取，让渔获直接进包？可在 选项 > 控制 中改回。",
+	button1 = "开启",
+	button2 = "暂不",
+	button3 = "不再询问",
 	OnAccept = function()
 		C_CVar.SetCVar("autoLootDefault", "1")
-		ns.Print("auto loot is on.")
+		ns.Print("已开启自动拾取。")
 	end,
 	OnAlt = function()
 		ns.db.autoLootHint = false
-		ns.Print("won't offer auto loot again. Turn the offer back on in OneCast's options.")
+		ns.Print("将不再提示自动拾取。可在「哇，大鱼」选项中重新开启此提示。")
 	end,
 	timeout = 0,
 	whileDead = true,
@@ -479,11 +479,11 @@ end
 function Stats.Summary()
 	local s = Session()
 	if s.casts == 0 then
-		return "No fishing this session"
+		return "本次会话尚未钓鱼"
 	end
 	local rate = PerHour(s)
-	return string.format("Session: %d/%d caught%s", s.catches, s.casts,
-		rate and string.format(", %.0f/hr", rate) or "")
+	return string.format("会话：%d/%d 钓获%s", s.catches, s.casts,
+		rate and string.format("，%.0f/时", rate) or "")
 end
 
 local function SortedItems(items)
@@ -506,25 +506,25 @@ local GREY = "|cff9d9d9d"
 local function CatchPairs(totals)
 	local rate = PerHour(totals)
 	return {
-		{ "Caught", string.format("%d of %d%s", totals.catches, totals.casts,
+		{ "钓获", string.format("%d / %d%s", totals.catches, totals.casts,
 			totals.casts > 0 and string.format("  (%.0f%%)", totals.catches / totals.casts * 100) or "") },
-		{ "Fishing time", FormatDuration(totals.activeTime) },
-		{ "Fish per hour", rate and string.format("%.0f", rate) or "-" },
+		{ "钓鱼时间", FormatDuration(totals.activeTime) },
+		{ "每小时鱼数", rate and string.format("%.0f", rate) or "-" },
 	}
 end
 
 local function ValuePairs(items)
 	local vendor, vendorMissing = TotalValue(items, VendorPrice)
 	local pairs_ = {
-		{ "Vendor value", Coins(vendor) .. (vendorMissing and (GREY .. " (loading)|r") or "") },
+		{ "商人售价", Coins(vendor) .. (vendorMissing and (GREY .. "（加载中）|r") or "") },
 	}
 	local ah, ahMissing, sources = TotalValue(items, AuctionPrice)
 	if not next(sources) then
 		local hint = "-"
 		if next(items) then
-			hint = (ns.Prices and ns.Prices.CanScan()) and "scan at the auction house" or "needs Auctionator or TSM"
+			hint = (ns.Prices and ns.Prices.CanScan()) and "请在拍卖行扫描" or "需要 Auctionator 或 TSM"
 		end
-		pairs_[2] = { "Auction value", GREY .. hint .. "|r" }
+		pairs_[2] = { "拍卖估价", GREY .. hint .. "|r" }
 		return pairs_
 	end
 	local names = {}
@@ -534,8 +534,8 @@ local function ValuePairs(items)
 	if sources.TSM then
 		names[#names + 1] = "TSM"
 	end
-	pairs_[2] = { "Auction value", string.format("%s %s(%s%s)|r", Coins(ah), GREY,
-		table.concat(names, ", "), ahMissing and ", some unlisted" or "") }
+	pairs_[2] = { "拍卖估价", string.format("%s %s（%s%s）|r", Coins(ah), GREY,
+		table.concat(names, "、"), ahMissing and "，部分无价" or "") }
 	return pairs_
 end
 
@@ -568,7 +568,7 @@ local function SpotRows(z)
 			local rate = PerHour(t)
 			rows[#rows + 1] = { name = name, spot = t, rate = rate,
 				icon = topID and C_Item.GetItemIconByID(topID) or "Interface\\Icons\\INV_Misc_Fish_68",
-				right = string.format("%d caught%s", t.catches, rate and string.format("  %.0f/hr", rate) or "") }
+				right = string.format("%d 条%s", t.catches, rate and string.format("  %.0f/时", rate) or "") }
 		end
 	end
 	table.sort(rows, function(a, b)
@@ -583,17 +583,17 @@ end
 local function SkillPair(s)
 	local rank, maxRank = FishingSkill()
 	if not rank then
-		return { "Skill gained", "-" }
+		return { "技能提升", "-" }
 	end
 	local gained = SkillGained(s)
 	local text = gained > 0 and string.format("|cff1eff00+%d|r", gained) or "+0"
 	if rank >= maxRank then
-		text = text .. GREY .. "  (at your rank's cap)|r"
+		text = text .. GREY .. "  （已达当前上限）|r"
 	else
 		local n = CatchesToGo(rank, 1)
-		text = text .. GREY .. string.format("  (next in ~%d catch%s)|r", n, n == 1 and "" or "es")
+		text = text .. GREY .. string.format("  （约 %d 次后升级）|r", n)
 	end
-	return { "Skill gained", text }
+	return { "技能提升", text }
 end
 
 local function CountRows(rows)
@@ -610,26 +610,26 @@ local function BuildView(view)
 	if view == "zone" then
 		local z = charDB.zoneStats[zone] or NewTotals()
 		local stats = CatchPairs(z)
-		stats[#stats + 1] = { "Got away", tostring(z.escapes or 0) }
+		stats[#stats + 1] = { "脱钩", tostring(z.escapes or 0) }
 		local spots = SpotRows(z)
 		local best = spots[1]
-		stats[#stats + 1] = { "Best spot", best and (best.name .. (best.rate and string.format(GREY .. "  %.0f/hr|r", best.rate) or ""))
+		stats[#stats + 1] = { "最佳地点", best and (best.name .. (best.rate and string.format(GREY .. "  %.0f/时|r", best.rate) or ""))
 			or (GREY .. "-|r") }
 		Append(stats, ValuePairs(z.items))
 		if charDB.zoneList == "spots" then
-			return zone, stats, spots, "Spots here", "No spots yet: they're logged from OneCast 0.3.0 on."
+			return zone, stats, spots, "此处地点", "尚无地点记录：需插件 0.3.0 及以后才会记录。"
 		end
-		return zone, stats, CountRows(SortedItems(z.items)), "Catches here", "Nothing caught here yet."
+		return zone, stats, CountRows(SortedItems(z.items)), "此处渔获", "此处尚未钓到任何东西。"
 	elseif view == "lifetime" then
 		local life = charDB.lifetime
 		local stats = CatchPairs(life)
-		stats[#stats + 1] = { "Zones fished", tostring(CountKeys(life.zones)) }
+		stats[#stats + 1] = { "钓过的区域", tostring(CountKeys(life.zones)) }
 		if ns.Collection then
 			local caught, total = ns.Collection.Progress()
-			stats[#stats + 1] = { "Collection", string.format("%d of %d fish", caught, total) }
+			stats[#stats + 1] = { "图鉴", string.format("%d / %d 种鱼", caught, total) }
 		end
 		Append(stats, ValuePairs(life.items))
-		return "Lifetime", stats, CountRows(SortedItems(life.items)), "Catches", "Nothing caught yet."
+		return "生涯", stats, CountRows(SortedItems(life.items)), "渔获", "尚未钓到任何东西。"
 	elseif view == "log" then
 		local rows = {}
 		for i = 1, math.min(#charDB.log, MAX_ROWS) do
@@ -639,10 +639,10 @@ local function BuildView(view)
 		end
 		local last = charDB.log[1]
 		local stats = {
-			{ "Logged", string.format("%d of %d", #charDB.log, LOG_SIZE) },
-			{ "Last catch", last and (date("%H:%M", last.time) .. "  " .. GREY .. last.zone .. "|r") or "-" },
+			{ "已记录", string.format("%d / %d", #charDB.log, LOG_SIZE) },
+			{ "最近渔获", last and (date("%H:%M", last.time) .. "  " .. GREY .. last.zone .. "|r") or "-" },
 		}
-		return "Catch log", stats, rows, "Recent catches", "No catches logged yet."
+		return "渔获记录", stats, rows, "最近渔获", "尚无渔获记录。"
 	end
 
 	local s = Session()
@@ -652,10 +652,10 @@ local function BuildView(view)
 	Append(stats, ValuePairs(s.items))
 	local contest = ns.Extravaganza and ns.Extravaganza.StatusLine(zone)
 	if contest then
-		stats[#stats + 1] = { "Extravaganza", contest }
+		stats[#stats + 1] = { "钓鱼大赛", contest }
 	end
-	return "Session  " .. FormatDuration(s.start and GetServerTime() - s.start or 0), stats,
-		CountRows(SortedItems(s.items)), "Catches", "Nothing caught yet."
+	return "会话  " .. FormatDuration(s.start and GetServerTime() - s.start or 0), stats,
+		CountRows(SortedItems(s.items)), "渔获", "尚未钓到任何东西。"
 end
 
 -- Skill bar fraction, value text and the verdict for the current zone.
@@ -664,7 +664,7 @@ local function SkillStatus()
 	local zone = CurrentZone()
 	local needed = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone]
 	if not rank then
-		return 0, "?", GREY .. "Fishing skill not found.|r"
+		return 0, "?", GREY .. "未找到钓鱼技能。|r"
 	end
 	local effective = rank + modifier
 	local value = modifier > 0 and string.format("%d|cff1eff00+%d|r/%d", rank, modifier, maxRank)
@@ -675,24 +675,24 @@ local function SkillStatus()
 	local note = ns.ZONE_FISHING_NOTE and ns.ZONE_FISHING_NOTE[zone]
 	if note and escapes == 0 then
 		-- A reported quirk, not a measured level, so it gives way to real getaways.
-		verdict = string.format("|cff1eff00%s: %s.|r", zone, note)
+		verdict = string.format("|cff1eff00%s：%s。|r", zone, note)
 	elseif not needed then
 		-- No data for this zone: judge from what has actually happened here.
 		if here and (here.escapes or 0) > 0 then
-			verdict = string.format("|cffff4040%s: level unknown, but %d fish got away here: skill too low.|r",
+			verdict = string.format("|cffff4040%s：等级未知，但此处已脱钩 %d 次：技能不足。|r",
 				zone, here.escapes)
 		elseif here and here.catches >= 10 then
-			verdict = string.format("|cff1eff00%s: level unknown, but no fish got away in %d catches.|r",
+			verdict = string.format("|cff1eff00%s：等级未知，但 %d 次钓获均未脱钩。|r",
 				zone, here.catches)
 		else
-			verdict = GREY .. zone .. ": fishing level unknown. Getaways here will show if your skill is too low.|r"
+			verdict = GREY .. zone .. "：钓鱼等级未知。若此处脱钩，会提示技能是否不足。|r"
 		end
 	elseif effective >= needed then
-		verdict = string.format("|cff1eff00%s needs %d: no fish should get away.|r", zone, needed)
+		verdict = string.format("|cff1eff00%s 需要 %d：鱼不应脱钩。|r", zone, needed)
 	else
 		local short = needed - effective
-		verdict = string.format("|cffff4040%s needs %d: %d short, fish will get away.|r %s~%d catches to go%s.|r",
-			zone, needed, short, GREY, CatchesToGo(rank, short), rank + short > maxRank and " (train first)" or "")
+		verdict = string.format("|cffff4040%s 需要 %d：还差 %d，鱼会脱钩。|r %s约还需 %d 次钓获%s。|r",
+			zone, needed, short, GREY, CatchesToGo(rank, short), rank + short > maxRank and "（请先学技能）" or "")
 	end
 	return rank / math.max(maxRank, 1), value, verdict
 end
@@ -765,7 +765,7 @@ ns.SetPortrait = SetPortrait -- shared with the collection book
 local function CreateShell()
 	local f = TryCreate("Frame", "OneCastStatsFrame", UIParent, "ButtonFrameTemplate")
 	if f then
-		SetTitle(f, "OneCast  " .. GREY .. "v" .. (ns.VERSION or "?") .. "|r")
+		SetTitle(f, (ns.DISPLAY_NAME or "哇，大鱼") .. "  " .. GREY .. "v" .. (ns.VERSION or "?") .. "|r")
 		SetPortrait(f, "Interface\\Icons\\INV_Misc_Fish_68")
 		f.Inset:ClearAllPoints()
 		f.Inset:SetPoint("TOPLEFT", 4, -60)
@@ -780,7 +780,7 @@ local function CreateShell()
 		insets = { left = 6, right = 6, top = 6, bottom = 6 } })
 	local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	title:SetPoint("TOP", 0, -12)
-	title:SetText("OneCast  " .. GREY .. "v" .. (ns.VERSION or "?") .. "|r")
+	title:SetText((ns.DISPLAY_NAME or "哇，大鱼") .. "  " .. GREY .. "v" .. (ns.VERSION or "?") .. "|r")
 	local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
 	close:SetPoint("TOPRIGHT", -2, -2)
 	f.CloseButton = close
@@ -1006,8 +1006,8 @@ end
 local WOWHEAD_ITEM_URL = "https://www.wowhead.com/forever/item=%d"
 
 StaticPopupDialogs["ONECAST_WOWHEAD"] = {
-	text = "%s on Wowhead\nPress Ctrl+C to copy, then paste it into your browser.",
-	button1 = CLOSE or "Close",
+	text = "%s 的 Wowhead 页面\n按 Ctrl+C 复制，再到浏览器中粘贴。",
+	button1 = CLOSE or "关闭",
 	hasEditBox = true,
 	editBoxWidth = 280,
 	timeout = 0,
@@ -1083,11 +1083,11 @@ local function ItemRow(parent, index, y)
 			-- A spot on the Zone tab: its numbers and what bites there.
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			GameTooltip:SetText(self.itemName)
-			GameTooltip:AddDoubleLine("Caught", string.format("%d of %d", t.catches, t.casts), 1, 0.82, 0, 1, 1, 1)
-			GameTooltip:AddDoubleLine("Fishing time", FormatDuration(t.activeTime), 1, 0.82, 0, 1, 1, 1)
+			GameTooltip:AddDoubleLine("钓获", string.format("%d / %d", t.catches, t.casts), 1, 0.82, 0, 1, 1, 1)
+			GameTooltip:AddDoubleLine("钓鱼时间", FormatDuration(t.activeTime), 1, 0.82, 0, 1, 1, 1)
 			local rate = PerHour(t)
-			GameTooltip:AddDoubleLine("Fish per hour", rate and string.format("%.0f", rate) or "-", 1, 0.82, 0, 1, 1, 1)
-			GameTooltip:AddDoubleLine("Vendor value", Coins(TotalValue(t.items, VendorPrice)), 1, 0.82, 0, 1, 1, 1)
+			GameTooltip:AddDoubleLine("每小时鱼数", rate and string.format("%.0f", rate) or "-", 1, 0.82, 0, 1, 1, 1)
+			GameTooltip:AddDoubleLine("商人售价", Coins(TotalValue(t.items, VendorPrice)), 1, 0.82, 0, 1, 1, 1)
 			local list = {}
 			for id, item in pairs(t.items) do
 				list[#list + 1] = { id = id, count = item.count }
@@ -1109,10 +1109,10 @@ local function ItemRow(parent, index, y)
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			GameTooltip:SetItemByID(self.itemID)
 			GameTooltip:AddLine(" ")
-			GameTooltip:AddLine("Click: Wowhead link", 0.6, 0.8, 1)
-			GameTooltip:AddLine("Shift-click: link in chat", 0.6, 0.8, 1)
-			GameTooltip:AddLine(IsWanted(self.itemID) and "Right-click: unmark wanted"
-				or "Right-click: mark as wanted (alert on catch)", 0.6, 0.8, 1)
+			GameTooltip:AddLine("点击：Wowhead 链接", 0.6, 0.8, 1)
+			GameTooltip:AddLine("Shift+点击：在聊天中链接", 0.6, 0.8, 1)
+			GameTooltip:AddLine(IsWanted(self.itemID) and "右键：取消想要标记"
+				or "右键：标记为想要（钓到时提醒）", 0.6, 0.8, 1)
 			GameTooltip:Show()
 		end
 	end)
@@ -1285,8 +1285,8 @@ local function CreateWindow()
 	end)
 	f.listToggle:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
-		GameTooltip:SetText(charDB.zoneList == "spots" and "Show the fish caught here"
-			or "Show each spot in this zone, best fish per hour first")
+		GameTooltip:SetText(charDB.zoneList == "spots" and "显示此处钓到的鱼"
+			or "显示本区域各地点，按每小时鱼数排序")
 		GameTooltip:Show()
 	end)
 	f.listToggle:SetScript("OnLeave", GameTooltip_Hide)
@@ -1297,20 +1297,20 @@ local function CreateWindow()
 	f.more = inset:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 
 	-- Bottom bar: square icon buttons, like the Character frame's model controls.
-	local options = IconButton(f, "Options", "Options", function()
+	local options = IconButton(f, "Options", "选项", function()
 		if ns.OpenSettings then
 			ns.OpenSettings()
 		end
 	end)
 	options:SetPoint("BOTTOMRIGHT", -22, 3)
-	f.gear = IconButton(f, "Weapons", "Re-equip weapons", function()
+	f.gear = IconButton(f, "Weapons", "换回武器", function()
 		OneCast_RestoreWeapons()
 	end)
-	f.scan = IconButton(f, "Scan", "Scan prices with Auctionator", function()
+	f.scan = IconButton(f, "Scan", "用 Auctionator 扫描价格", function()
 		ns.Prices.Scan()
 	end)
-	f.reset = IconButton(f, "Reset", "Reset session", ResetSession)
-	local book = IconButton(f, "Book", "Fishing collection", function()
+	f.reset = IconButton(f, "Reset", "重置会话", ResetSession)
+	local book = IconButton(f, "Book", "钓鱼图鉴", function()
 		ns.Book.Toggle()
 	end)
 	f.bottomButtons = { options, book, f.gear, f.scan, f.reset }
@@ -1336,8 +1336,8 @@ local function CreateWindow()
 	end)
 	grip:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText("Drag to resize")
-		GameTooltip:AddLine("Or Ctrl + mouse wheel over the window.", 0.8, 0.8, 0.8)
+		GameTooltip:SetText("拖动调整大小")
+		GameTooltip:AddLine("或在窗口上按 Ctrl + 鼠标滚轮。", 0.8, 0.8, 0.8)
 		GameTooltip:Show()
 	end)
 	grip:SetScript("OnLeave", GameTooltip_Hide)
@@ -1417,7 +1417,7 @@ function Stats.Refresh()
 
 	frame.listHeader.text:SetText(listTitle)
 	frame.listToggle:SetShown(view == "zone")
-	frame.listToggle:SetText(charDB.zoneList == "spots" and "Fish" or "Spots")
+	frame.listToggle:SetText(charDB.zoneList == "spots" and "渔获" or "地点")
 	for i, row in ipairs(frame.rows) do
 		local r = rows[i]
 		if r then
@@ -1447,7 +1447,7 @@ function Stats.Refresh()
 	if #rows == 0 then
 		frame.more:SetText(emptyText)
 	elseif #rows > MAX_ROWS then
-		frame.more:SetText(string.format("and %d more...", #rows - MAX_ROWS))
+		frame.more:SetText(string.format("还有 %d 项…", #rows - MAX_ROWS))
 	else
 		frame.more:SetText("")
 	end

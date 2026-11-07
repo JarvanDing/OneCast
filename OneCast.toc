@@ -1,6 +1,8 @@
 ## Interface: 16001
-## Title: OneCast
-## Notes: One-button fishing for WoW Forever: the same key (or a double right-click) casts and reels.
+## Title: 哇，大鱼
+## Title-zhCN: 哇，大鱼
+## Notes: 魔兽世界 Forever 一键钓鱼：同一按键（或双击右键）施放并收杆。
+## Notes-zhCN: 魔兽世界 Forever 一键钓鱼：同一按键（或双击右键）施放并收杆。
 ## Author: rynmon
 ## Version: 0.3.1
 ## SavedVariables: OneCastDB

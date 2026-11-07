@@ -13,6 +13,8 @@ local ADDON, ns = ...
 
 -- From the TOC's ## Version line, so there's one place to bump it.
 ns.VERSION = C_AddOns.GetAddOnMetadata(ADDON, "Version") or "?"
+-- Player-facing name (folder / SavedVariables stay OneCast for upstream merges).
+ns.DISPLAY_NAME = "哇，大鱼"
 
 local FISHING_SPELL_IDS = { 7620, 131474 } -- Classic rank 1, modern profession spell
 local DOUBLE_CLICK_WINDOW = 0.4
@@ -42,32 +44,32 @@ local defaults = {
 
 -- Options shown in the settings panel and toggled by /onecast <cmd>, in display order.
 local OPTIONS = {
-	{ cmd = "doubleclick", key = "doubleClick", label = "Double right-click to cast",
-		tooltip = "With a fishing pole equipped, double right-click the world to cast. Right-click the bobber to reel in." },
-	{ cmd = "softinteract", key = "softInteract", label = "Soft-interact while fishing",
-		tooltip = "While the line is out, make the bobber the soft-interact target so the cast key reels it in." },
-	{ cmd = "sound", key = "soundBoost", label = "Louder splash while fishing",
-		tooltip = "While the line is out, turn sound effects up to full so the splash is easy to hear." },
-	{ cmd = "quiet", key = "quietOthers", label = "Quiet other sounds while fishing",
-		tooltip = "While your fishing pole is equipped, turn music, ambience and dialog down (or off) so the splash stands out. They go back to your own levels when your weapons go back on, or if you change them yourself." },
-	{ cmd = "autoequip", key = "autoEquip", label = "Auto-equip fishing pole",
-		tooltip = "If no pole is equipped, the cast key equips the best one in your bags first (press again to cast). Your weapons are saved and put back afterwards." },
-	{ cmd = "combatgear", key = "restoreOnCombat", label = "Re-equip weapons when combat starts",
-		tooltip = "Try to put your weapons back the moment combat starts. Anything the game blocks in combat is finished when combat ends." },
-	{ cmd = "autoopen", key = "openOnCast", label = "Open stats when you cast",
-		tooltip = "Open the stats window when you start fishing. If you close it (X or minimap button), it stays closed until you take a 2-minute break from fishing." },
-	{ cmd = "alert", key = "alert", label = "Rare catch alert",
-		tooltip = "Sound and a raid-warning flash when you catch something at or above the alert quality, or an item you've marked as wanted (right-click it in the stats window)." },
-	{ cmd = "summary", key = "sessionSummary", label = "Session summary in chat",
-		tooltip = "After a 2-minute break from fishing, sum up the session in chat: catches, fish per hour, vendor value, skill gained and new fish for your collection." },
-	{ cmd = "autoloot", key = "autoLootHint", label = "Offer to turn on auto loot",
-		tooltip = "If auto loot is off when you catch something, offer once per login to turn it on, so catches go straight to your bags." },
-	{ cmd = "extravaganza", key = "extravaganza", label = "Fishing Extravaganza reminders",
-		tooltip = "Say in chat shortly before the Stranglethorn Fishing Extravaganza starts, and when it does (Classic's schedule: Sundays 14:00-16:00 realm time)." },
-	{ cmd = "loginmessage", key = "loginMessage", label = "Version in chat at login",
-		tooltip = "Say OneCast's version in chat when you log in, with a link to What's new." },
-	{ cmd = "minimap", key = "minimapButton", label = "Show minimap button",
-		tooltip = "Show the OneCast button on the minimap. Drag it to move it." },
+	{ cmd = "doubleclick", key = "doubleClick", label = "双击右键施放钓鱼",
+		tooltip = "装备鱼竿时，双击右键世界即可施放；右键浮漂收杆。" },
+	{ cmd = "softinteract", key = "softInteract", label = "钓鱼时启用软交互",
+		tooltip = "鱼线抛出后，将浮漂设为软交互目标，以便施法键直接收杆。" },
+	{ cmd = "sound", key = "soundBoost", label = "钓鱼时放大水花音效",
+		tooltip = "鱼线抛出后，将音效调至最大，方便听清水花声。" },
+	{ cmd = "quiet", key = "quietOthers", label = "钓鱼时压低其他声音",
+		tooltip = "装备鱼竿时，降低（或关闭）音乐、环境音和对白，突出水花声。换回武器后，或你手动改音量后，会恢复为你自己的音量。" },
+	{ cmd = "autoequip", key = "autoEquip", label = "自动装备鱼竿",
+		tooltip = "未装备鱼竿时，施法键先从背包装备最好的鱼竿（再按一次才施放）。原武器会记住，之后自动换回。" },
+	{ cmd = "combatgear", key = "restoreOnCombat", label = "进入战斗时换回武器",
+		tooltip = "一进入战斗就尝试换回武器。战斗中被游戏拦住的换装，会在脱战后补完。" },
+	{ cmd = "autoopen", key = "openOnCast", label = "施放时打开统计窗口",
+		tooltip = "开始钓鱼时打开统计窗口。若用关闭按钮或小地图按钮关掉，会保持关闭，直到你暂停钓鱼约 2 分钟。" },
+	{ cmd = "alert", key = "alert", label = "稀有渔获提醒",
+		tooltip = "钓到达到提醒品质或以上的物品，或你标记为想要的物品时，播放音效并闪现团队警告（在统计窗口右键可标记想要）。" },
+	{ cmd = "summary", key = "sessionSummary", label = "聊天中显示会话摘要",
+		tooltip = "暂停钓鱼约 2 分钟后，在聊天汇总本次：渔获、每小时鱼数、商人售价、技能提升和图鉴新鱼。" },
+	{ cmd = "autoloot", key = "autoLootHint", label = "提示开启自动拾取",
+		tooltip = "钓到东西时若未开启自动拾取，每次登录最多提示一次，方便渔获直接进包。" },
+	{ cmd = "extravaganza", key = "extravaganza", label = "荆棘谷钓鱼大赛提醒",
+		tooltip = "荆棘谷钓鱼大赛即将开始及开始时在聊天提示（经典日程：服务器时间周日 14:00–16:00）。" },
+	{ cmd = "loginmessage", key = "loginMessage", label = "登录时在聊天显示版本",
+		tooltip = "登录时在聊天显示插件版本，并附带「更新内容」链接。" },
+	{ cmd = "minimap", key = "minimapButton", label = "显示小地图按钮",
+		tooltip = "在小地图上显示「哇，大鱼」按钮。可拖动调整位置。" },
 }
 
 -- CVars changed only for the length of a cast, and restored afterwards only if
@@ -84,10 +86,10 @@ local SOUND_CVARS = {
 	Sound_SFXVolume = "1",
 }
 
-_G.BINDING_HEADER_ONECAST = "OneCast"
-_G["BINDING_NAME_" .. BINDING_COMMAND] = "Cast / reel (one button fishing)"
-_G.BINDING_NAME_ONECAST_RESTORE = "Re-equip weapons"
-_G.BINDING_NAME_ONECAST_BOOK = "Fishing collection"
+_G.BINDING_HEADER_ONECAST = "哇，大鱼"
+_G["BINDING_NAME_" .. BINDING_COMMAND] = "施放 / 收杆（一键钓鱼）"
+_G.BINDING_NAME_ONECAST_RESTORE = "换回武器"
+_G.BINDING_NAME_ONECAST_BOOK = "钓鱼图鉴"
 
 local db
 local fishingName
@@ -104,7 +106,7 @@ local reelOwner = CreateFrame("Frame")
 local clickOwner = CreateFrame("Frame")
 
 local function Print(msg)
-	DEFAULT_CHAT_FRAME:AddMessage("|cff33bbffOneCast|r: " .. msg)
+	DEFAULT_CHAT_FRAME:AddMessage("|cff33bbff哇，大鱼|r: " .. msg)
 end
 ns.Print = Print
 ns.GetFishingName = function()
@@ -247,7 +249,7 @@ end)
 
 local function BoundKeysText()
 	local keys = { GetBindingKey(BINDING_COMMAND) }
-	return #keys > 0 and table.concat(keys, ", ") or "not bound"
+	return #keys > 0 and table.concat(keys, ", ") or "未绑定"
 end
 
 -- Minimap button: a plain round button orbiting the minimap, dragged to any angle.
@@ -285,7 +287,7 @@ local settingsCategory
 
 local function OpenSettings()
 	if InCombatLockdown() then
-		Print("options can't be opened in combat.")
+		Print("战斗中无法打开选项。")
 		return
 	end
 	Settings.OpenToCategory(settingsCategory:GetID())
@@ -293,17 +295,17 @@ end
 ns.OpenSettings = OpenSettings
 
 local function SetupSettings()
-	local category, layout = Settings.RegisterVerticalLayoutCategory("OneCast")
+	local category, layout = Settings.RegisterVerticalLayoutCategory(ns.DISPLAY_NAME)
 	if CreateSettingsListSectionHeaderInitializer then
-		layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("OneCast v" .. ns.VERSION))
+		layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(ns.DISPLAY_NAME .. " v" .. ns.VERSION))
 	end
 	if CreateSettingsButtonInitializer then
-		layout:AddInitializer(CreateSettingsButtonInitializer("Fishing collection", "Open collection", function()
+		layout:AddInitializer(CreateSettingsButtonInitializer("钓鱼图鉴", "打开图鉴", function()
 			ns.Book.Show()
-		end, "Every fish, which you've caught, and where to find the rest.", true))
-		layout:AddInitializer(CreateSettingsButtonInitializer("What's new", "What's new", function()
+		end, "全部鱼类、你已钓到的，以及其余鱼的出没地点。", true))
+		layout:AddInitializer(CreateSettingsButtonInitializer("更新内容", "更新内容", function()
 			ns.WhatsNew.Show()
-		end, "See what changed in each version of OneCast.", true))
+		end, "查看「哇，大鱼」各版本的改动。", true))
 	end
 
 	-- The cast/reel key, editable right here (same binding as Keybindings > AddOns).
@@ -311,7 +313,7 @@ local function SetupSettings()
 		for i = 1, GetNumBindings() do
 			if GetBinding(i) == BINDING_COMMAND then
 				if CreateSettingsListSectionHeaderInitializer then
-					layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Key"))
+					layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("按键"))
 				end
 				layout:AddInitializer(CreateKeybindingEntryInitializer(i, true))
 				break
@@ -319,7 +321,7 @@ local function SetupSettings()
 		end
 	end
 	if CreateSettingsListSectionHeaderInitializer then
-		layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Options"))
+		layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("选项"))
 	end
 
 	for _, opt in ipairs(OPTIONS) do
@@ -337,36 +339,36 @@ local function SetupSettings()
 
 		if opt.key == "autoEquip" and Settings.CreateSlider and Settings.CreateSliderOptions then
 			local delay = Settings.RegisterAddOnSetting(category, "OneCast_restoreDelay", "restoreDelay",
-				db, "number", "Re-equip weapons after", defaults.restoreDelay)
+				db, "number", "之后换回武器", defaults.restoreDelay)
 			local options = Settings.CreateSliderOptions(0, 300, 15)
 			if MinimalSliderWithSteppersMixin then
 				options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value)
-					return value == 0 and "Never" or (value .. " s")
+					return value == 0 and "从不" or (value .. " 秒")
 				end)
 			end
 			Settings.CreateSlider(category, delay, options,
-				"Seconds without casting before your weapons are put back. 0 keeps the pole on until you re-equip by hand.")
+				"多少秒未施放后换回武器。0 表示一直拿着鱼竿，直到你手动换装。")
 		end
 
 		if opt.key == "quietOthers" and Settings.CreateSlider and Settings.CreateSliderOptions then
 			local level = Settings.RegisterAddOnSetting(category, "OneCast_quietLevel", "quietLevel",
-				db, "number", "Other sounds while fishing", defaults.quietLevel)
+				db, "number", "钓鱼时其他声音", defaults.quietLevel)
 			level:SetValueChangedCallback(function()
 				UpdateQuiet(true)
 			end)
 			local options = Settings.CreateSliderOptions(0, 100, 5)
 			if MinimalSliderWithSteppersMixin then
 				options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value)
-					return value == 0 and "Muted" or (value .. "%")
+					return value == 0 and "静音" or (value .. "%")
 				end)
 			end
 			Settings.CreateSlider(category, level, options,
-				"How loud music, ambience and dialog stay while your pole is equipped, as a share of your own volume. 0 mutes them.")
+				"装备鱼竿时，音乐、环境音和对白保留为你原音量的百分之几。0 为静音。")
 		end
 
 		if opt.key == "openOnCast" then
 			local scale = Settings.RegisterAddOnSetting(category, "OneCast_statsScale", "statsScale",
-				db, "number", "Stats window scale", defaults.statsScale)
+				db, "number", "统计窗口缩放", defaults.statsScale)
 			scale:SetValueChangedCallback(function(_, value)
 				ns.Stats.SetScale(value)
 			end)
@@ -379,22 +381,22 @@ local function SetupSettings()
 					end)
 				end
 				Settings.CreateSlider(category, scale, options,
-					"Size of the stats window. You can also drag its bottom-right corner, or Ctrl + mouse wheel over it.")
+					"统计窗口大小。也可拖动右下角，或在窗口上按 Ctrl + 鼠标滚轮。")
 			end
 		end
 
 		if opt.key == "alert" and Settings.CreateDropdown and Settings.CreateControlTextContainer then
 			local quality = Settings.RegisterAddOnSetting(category, "OneCast_alertQuality", "alertQuality",
-				db, "number", "Alert quality", defaults.alertQuality)
+				db, "number", "提醒品质", defaults.alertQuality)
 			Settings.CreateDropdown(category, quality, function()
 				local container = Settings.CreateControlTextContainer()
 				for q = 2, 5 do
 					local color = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
 					local label = _G["ITEM_QUALITY" .. q .. "_DESC"] or tostring(q)
-					container:Add(q, (color and color.hex or "") .. label .. (color and "|r" or "") .. " or better")
+					container:Add(q, (color and color.hex or "") .. label .. (color and "|r" or "") .. " 及以上")
 				end
 				return container:GetData()
-			end, "The lowest item quality that triggers the rare catch alert.")
+			end, "触发稀有渔获提醒的最低物品品质。")
 		end
 	end
 
@@ -452,17 +454,17 @@ local function SetupMinimapButton()
 
 	b:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-		GameTooltip:AddDoubleLine("OneCast", "v" .. ns.VERSION, nil, nil, nil, 0.6, 0.6, 0.6)
-		GameTooltip:AddLine("Cast / reel: " .. BoundKeysText(), 1, 1, 1)
+		GameTooltip:AddDoubleLine(ns.DISPLAY_NAME, "v" .. ns.VERSION, nil, nil, nil, 0.6, 0.6, 0.6)
+		GameTooltip:AddLine("施放 / 收杆：" .. BoundKeysText(), 1, 1, 1)
 		GameTooltip:AddLine(ns.Stats.Summary(), 1, 1, 1)
 		local contest = ns.Extravaganza and ns.Extravaganza.StatusLine(GetRealZoneText())
 		if contest then
-			GameTooltip:AddLine("Fishing Extravaganza: " .. contest, 1, 1, 1)
+			GameTooltip:AddLine("钓鱼大赛：" .. contest, 1, 1, 1)
 		end
-		GameTooltip:AddLine("Left-click: options", 0.8, 0.8, 0.8)
-		GameTooltip:AddLine("Right-click: session stats", 0.8, 0.8, 0.8)
-		GameTooltip:AddLine("Shift-click: fishing collection", 0.8, 0.8, 0.8)
-		GameTooltip:AddLine("Drag: move", 0.8, 0.8, 0.8)
+		GameTooltip:AddLine("左键：选项", 0.8, 0.8, 0.8)
+		GameTooltip:AddLine("右键：会话统计", 0.8, 0.8, 0.8)
+		GameTooltip:AddLine("Shift+点击：钓鱼图鉴", 0.8, 0.8, 0.8)
+		GameTooltip:AddLine("拖动：移动", 0.8, 0.8, 0.8)
 		GameTooltip:Show()
 	end)
 	b:SetScript("OnLeave", GameTooltip_Hide)
@@ -519,7 +521,7 @@ events:SetScript("OnEvent", function(_, event, ...)
 			UpdateQuiet() -- logged in with the pole on
 		end
 		if event == "PLAYER_LOGIN" and not GetBindingKey(BINDING_COMMAND) then
-			Print("bind a key under Options > Keybindings > AddOns > OneCast, or double right-click with a pole. /onecast for options.")
+			Print("请在 选项 > 按键设置 > 插件 > 哇，大鱼 绑定按键，或装备鱼竿后双击右键。输入 /onecast 打开选项。")
 		end
 	elseif event == "UNIT_SPELLCAST_CHANNEL_START" then
 		local _, _, spellID = ...
@@ -565,7 +567,7 @@ SlashCmdList.ONECAST = function(msg)
 		return
 	elseif cmd == "reset" then
 		ns.Stats.Reset()
-		Print("session stats reset.")
+		Print("会话统计已重置。")
 		return
 	elseif cmd == "gear" then
 		OneCast_RestoreWeapons()
@@ -583,9 +585,9 @@ SlashCmdList.ONECAST = function(msg)
 		local percent = tonumber(cmd:match("^scale%s+(%d+)"))
 		if percent then
 			ns.Stats.SetScale(percent)
-			Print("stats window scale: " .. db.statsScale .. "%")
+			Print("统计窗口缩放：" .. db.statsScale .. "%")
 		else
-			Print("usage: /onecast scale 50-200")
+			Print("用法：/onecast scale 50-200")
 		end
 		return
 	end
@@ -593,20 +595,20 @@ SlashCmdList.ONECAST = function(msg)
 		if opt.cmd == cmd then
 			-- Through the setting, so the panel and its callbacks stay in sync.
 			opt.setting:SetValue(not db[opt.key])
-			Print(opt.label .. ": " .. (db[opt.key] and "on" or "off"))
+			Print(opt.label .. "：" .. (db[opt.key] and "开" or "关"))
 			return
 		end
 	end
-	Print("v" .. ns.VERSION .. " | key: " .. BoundKeysText() .. " | spell: " .. tostring(fishingName))
-	Print("/onecast - open options")
-	Print("/onecast new - what's new in each version")
-	Print("/onecast book - fishing collection")
-	Print("/onecast stats - stats window (or /onecast session|zone|lifetime|log for a tab)")
-	Print("/onecast reset - start a new session")
-	Print("/onecast gear - put your weapons back on")
-	Print("/onecast scan - price your catch with Auctionator (auction house open)")
-	Print("/onecast scale 50-200 - stats window size in percent")
+	Print("v" .. ns.VERSION .. " | 按键：" .. BoundKeysText() .. " | 法术：" .. tostring(fishingName))
+	Print("/onecast - 打开选项")
+	Print("/onecast new - 各版本更新内容")
+	Print("/onecast book - 钓鱼图鉴")
+	Print("/onecast stats - 统计窗口（或 /onecast session|zone|lifetime|log 打开对应标签）")
+	Print("/onecast reset - 开始新会话")
+	Print("/onecast gear - 换回武器")
+	Print("/onecast scan - 用 Auctionator 估价渔获（需打开拍卖行）")
+	Print("/onecast scale 50-200 - 统计窗口缩放百分比")
 	for _, opt in ipairs(OPTIONS) do
-		Print("/onecast " .. opt.cmd .. " - " .. opt.label .. " (" .. (db[opt.key] and "on" or "off") .. ")")
+		Print("/onecast " .. opt.cmd .. " - " .. opt.label .. "（" .. (db[opt.key] and "开" or "关") .. "）")
 	end
 end

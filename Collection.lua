@@ -93,7 +93,7 @@ function Collection.OnCatch(loot, zone)
 		end
 	end
 	for _, l in ipairs(newFish) do
-		ns.Print("new for your collection: " .. (l.link or l.name or "?") .. "!")
+		ns.Print("图鉴新鱼：" .. (l.link or l.name or "?") .. "！")
 	end
 	if ns.Book and ns.Book.RefreshIfShown then
 		ns.Book.RefreshIfShown()

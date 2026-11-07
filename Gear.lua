@@ -111,7 +111,7 @@ function Gear.PreClick()
 	charDB.lastPole = pole
 	Equip(pole, MAIN)
 	pendingUntil = GetTime() + EQUIP_PENDING
-	ns.Print("equipped " .. pole .. ". Press again to cast.")
+	ns.Print("已装备 " .. pole .. "。再按一次即可施放。")
 	return true
 end
 
@@ -139,7 +139,7 @@ local function RestoreStep()
 	end
 	for _, key in ipairs({ "main", "off" }) do
 		if saved[key] and not Wearing(key == "main" and MAIN or OFF, saved[key]) and not Owned(saved[key]) then
-			ns.Print(saved[key] .. " is no longer in your bags, so it can't be re-equipped.")
+			ns.Print(saved[key] .. " 已不在背包中，无法换回。")
 			saved[key] = nil
 		end
 	end
@@ -149,7 +149,7 @@ local function RestoreStep()
 	end
 	if not saved.main and MainHandIsPole() then
 		if not UnequipToBags(MAIN) then
-			ns.Print("no bag space to take off the fishing pole.")
+			ns.Print("背包空间不足，无法卸下鱼竿。")
 			restoring = false
 		end
 		return
@@ -160,7 +160,7 @@ local function RestoreStep()
 	end
 	charDB.savedWeapons = nil
 	restoring = false
-	ns.Print("weapons re-equipped.")
+	ns.Print("已换回武器。")
 end
 
 function Gear.Restore()
@@ -214,7 +214,7 @@ end
 -- Global for the "Re-equip weapons" key binding.
 function OneCast_RestoreWeapons()
 	if not Gear.Restore() then
-		ns.Print("no saved weapons to re-equip.")
+		ns.Print("没有可换回的已存武器。")
 	end
 end
 

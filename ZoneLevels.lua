@@ -46,5 +46,5 @@ ns.ZONE_FISHING_NOTE = {
 	-- Forever bug report (ClassicWoWCommunity/forever-bugs#189, Sept 2026, still open at
 	-- launch): skill 1 catches every time here, though its fish are 225+ tier. Blizzard
 	-- may add a minimum at any time.
-	["Riverglades"] = "no minimum skill reported (open bug, may be fixed)",
+	["Riverglades"] = "据报无最低技能要求（已知漏洞，可能已修复）",
 }

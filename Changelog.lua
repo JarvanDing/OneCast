@@ -7,80 +7,80 @@ local _, ns = ...
 ns.CHANGELOG = {
 	{
 		version = "0.3.1",
-		date = "6 November 2026",
+		date = "2026年11月6日",
 		sections = {
-			{ "New", {
-				{ "Quiet other sounds while fishing.", "An option to turn music, ambience and dialog down or off while your pole is equipped, so the splash stands out. A slider sets how quiet. Everything goes back to your own levels when your weapons go back on. Thanks to paxcow55 for the idea!" },
+			{ "新增", {
+				{ "钓鱼时压低其他声音。", "新增选项：装备鱼竿时降低或关闭音乐、环境音和对白，突出水花声。滑块可调节压低程度。换回武器后恢复为你自己的音量。感谢 paxcow55 提出此想法！" },
 			} },
 		},
 	},
 	{
 		version = "0.3.0",
-		date = "5 November 2026",
+		date = "2026年11月5日",
 		sections = {
-			{ "New", {
-				{ "Skill-ups.", "The Session tab shows the Fishing skill you've gained and about how many catches until the next point. Below a zone's level, the skill bar says roughly how many catches it'll take to get there." },
-				{ "Session summary.", "Take a 2-minute break and chat sums up the session: catches, fish per hour, vendor value, skill gained and new fish for your collection." },
-				{ "Best spots.", "The Zone tab now tracks every spot you fish in a zone, a lake, a coast or a river. Click Spots to compare them, best fish per hour first, and hover one to see what bites there." },
-				{ "Time of day.", "Every catch notes the realm hour, so each fish's page says whether you caught it by day or at night. Nightfin Snapper and Sunscale Salmon say when they bite in Classic." },
-				{ "Find any fish.", "The collection book has a zone filter and a search box. Pick your zone, then Showing: missing, to see what's left to catch here." },
-				{ "Fishing Extravaganza.", "A countdown to Stranglethorn's Sunday contest (Classic's schedule), a Tastyfish counter while it runs, chat reminders, and an alert the moment you hold 40." },
-				{ "Auto loot.", "If auto loot is off, OneCast offers once to turn it on, so catches go straight to your bags." },
+			{ "新增", {
+				{ "技能提升。", "会话标签显示本次获得的钓鱼技能，以及大约再钓多少次可升一点。低于区域等级时，技能条会估算大概还要多少次才能达标。" },
+				{ "会话摘要。", "暂停钓鱼约 2 分钟后，聊天会汇总本次：渔获、每小时鱼数、商人售价、技能提升和图鉴新鱼。" },
+				{ "最佳地点。", "区域标签会记录你在该区域的每个钓鱼点（湖泊、海岸或河流）。点击「地点」按每小时鱼数比较，悬停可查看该处渔获。" },
+				{ "时段。", "每次钓获记录服务器小时，因此每条鱼的详情页会显示你是白天还是夜间钓到。夜鳞鲷鱼与阳鳞鲑鱼会注明经典中的上钩时段。" },
+				{ "查找任意鱼类。", "图鉴支持区域筛选和名称搜索。选中区域后设为「显示：未钓到」，即可查看此处还缺什么。" },
+				{ "荆棘谷钓鱼大赛。", "周日大赛倒计时（经典日程）、进行中的可口鱼计数、聊天提醒，以及凑齐 40 条时的提示。" },
+				{ "自动拾取。", "若未开启自动拾取，插件会提示一次开启，方便渔获直接进包。" },
 			} },
-			{ "Changed", {
-				{ "Auction house.", "The Scan fish prices button on the auction house window is gone. Scan from the stats window's button or /onecast scan instead." },
-				{ "Lifetime tab.", "Shows how much of the collection you've caught." },
+			{ "变更", {
+				{ "拍卖行。", "拍卖行窗口上的「扫描鱼价」按钮已移除。请改用统计窗口按钮或 /onecast scan。" },
+				{ "生涯标签。", "显示图鉴收集进度。" },
 			} },
 		},
 	},
 	{
 		version = "0.2.1",
-		date = "5 November 2026",
+		date = "2026年11月5日",
 		sections = {
-			{ "Updated for launch", {
-				{ "88 catches in the collection.", "Checked against WoW Forever's launch build: 12 more trophy fish, 6 more bloated fish, the new Whimsyfin, the Fishing Extravaganza's Tastyfish and rare fish, and the Artisan quest fish." },
-				{ "Honest about where fish come from.", "Zones not yet seen in Forever are marked as Classic data or player reports. Fish with no known waters fill in from your own catches." },
-				{ "Maps fully revealed.", "The zone map on each fish's page now shows the whole zone, explored or not, instead of blank parchment." },
-				{ "Riverglades.", "Its \"no minimum skill\" bug is still open. If a fish gets away there, OneCast now trusts that over the bug report." },
+			{ "适配正式上线", {
+				{ "图鉴共 88 种渔获。", "对照 WoW Forever 上线版本核对：新增 12 种奖杯鱼、6 种浮肿鱼、新鱼 Whimsyfin、钓鱼大赛的可口鱼与稀有鱼，以及工匠任务鱼。" },
+				{ "诚实标注来源。", "Forever 中尚未确认的区域会标为经典数据或玩家报告。无已知水域的鱼，会根据你自己的钓获补全地点。" },
+				{ "地图完整显示。", "每条鱼详情页的区域地图现在显示整张地图，无论是否探索过，而不再是空白羊皮纸。" },
+				{ "Riverglades。", "「无最低技能」漏洞仍未关闭。若在该处脱钩，插件会以实际脱钩为准，而不再盲信漏洞报告。" },
 			} },
-			{ "Fixed", {
-				{ "Putting weapons back.", "No longer gets stuck after you level up, or when a saved weapon has left your bags. The pole is never put into a herb or other special bag." },
-				{ "Zone while loading.", "Casts made during a loading screen no longer count under a blank zone." },
-				{ "What's new.", "The version list scrolls once there are more versions than fit." },
+			{ "修复", {
+				{ "换回武器。", "升级后或已存武器不在背包时不再卡住。鱼竿也不会再被放进草药袋等特殊背包。" },
+				{ "加载中的区域。", "加载界面期间施放的钓鱼不再计入空白区域。" },
+				{ "更新内容。", "版本列表在条目过多时可以滚动。" },
 			} },
 		},
 	},
 	{
 		version = "0.2.0",
-		date = "23 October 2026",
+		date = "2026年10月23日",
 		sections = {
-			{ "New", {
-				{ "The fishing collection.", "A book of every fish in WoW Forever: 61 catches across fish, special catches, trophy fish and bloated fish. Caught ones show in colour with your count; the rest wait greyed out." },
-				{ "A page for every fish.", "Click any fish for its own page: the game's own description, a summary, your catches on every character, and when and where you first caught it." },
-				{ "Where to catch it.", "Every zone it's caught in, the skill each needs, how many you've caught there, and a map of the zone. Open the full map in one click." },
-				{ "What it's used in.", "The cooking, alchemy and fishing recipes each fish goes into, including WoW Forever's new ones." },
-				{ "Shared across characters.", "The collection counts every character on your account, including everything you caught before this update." },
-				{ "New fish announced.", "Catch a fish none of your characters has caught before and chat tells you it's new for your collection." },
+			{ "新增", {
+				{ "钓鱼图鉴。", "收录 WoW Forever 全部鱼类：61 种，含普通鱼、特殊渔获、奖杯鱼与浮肿鱼。已钓到的彩色显示并带数量；其余灰色待收集。" },
+				{ "每条鱼的详情页。", "点击任意鱼打开专属页面：游戏自带描述、摘要、各角色钓获，以及首次钓到的时间与地点。" },
+				{ "出没地点。", "列出所有可钓区域、各区域所需技能、你在该处钓到的数量，以及区域地图。一键打开完整地图。" },
+				{ "用途。", "该鱼用于的烹饪、炼金与钓鱼配方，含 WoW Forever 新增配方。" },
+				{ "跨角色共享。", "图鉴统计账号下全部角色，包括本更新之前的钓获。" },
+				{ "新鱼提示。", "钓到账号上从未有过的鱼时，聊天会提示图鉴新鱼。" },
 			} },
-			{ "How to open it", {
-				{ "Anywhere you like.", "The book button in the stats window, Shift-click on the minimap button, the Open collection button in options, a key binding, or /onecast book." },
+			{ "如何打开", {
+				{ "多种入口。", "统计窗口的图鉴按钮、Shift+点击小地图按钮、选项中的打开图鉴、按键绑定，或 /onecast book。" },
 			} },
 		},
 	},
 	{
 		version = "0.1.0",
-		date = "22 October 2026",
+		date = "2026年10月22日",
 		sections = {
-			{ "New", {
-				{ "One-button fishing.", "Bind one key (or double right-click with a pole on): the first press casts, the next reels in your bobber. Every cast and every reel is still your own press." },
-				{ "Your pole, equipped for you.", "With no pole on, the key equips the best one in your bags. Your weapons go back after a break, when combat starts, or with the sword button." },
-				{ "Session stats.", "Casts, catches, catch rate, fish per hour and everything you caught, in a window that opens as you cast. Tabs for the session, the zone you're in, lifetime, and a log of recent catches." },
-				{ "Is this zone right for you?", "A skill bar shows your Fishing skill, lure bonus included, against the zone's fishing level, so you know whether fish will get away. Zones without data are judged from your own catches." },
-				{ "What your catch is worth.", "Vendor and auction value on every tab. Open the auction house and scan your catch with Auctionator in one click." },
-				{ "Rare catch alerts.", "A raid-warning flash and sound for anything green or better, or any fish you mark as wanted with a right-click." },
-				{ "Wowhead links.", "Click any caught item for its WoW Forever page on Wowhead, ready to copy. Shift-click links it in chat." },
-				{ "Hear the splash.", "Sound effects turn up while your line is out; music and ambience are left alone." },
-				{ "Make it yours.", "Options in the AddOns settings, a minimap button, and a stats window you can drag, scale and close." },
+			{ "新增", {
+				{ "一键钓鱼。", "绑定一个按键（或装备鱼竿后双击右键）：第一次施放，下一次收杆。每次施放与收杆仍是你自己的按键。" },
+				{ "自动装备鱼竿。", "未装备鱼竿时，按键先从背包装备最好的鱼竿。暂停后、进入战斗时，或点剑形按钮，可换回武器。" },
+				{ "会话统计。", "施放次数、钓获、成功率、每小时鱼数与全部渔获，施放时自动打开窗口。含会话、当前区域、生涯与最近渔获记录标签。" },
+				{ "此区域是否合适？", "技能条显示钓鱼技能（含鱼饵加成）并对照区域等级，判断是否会脱钩。无数据的区域根据你自己的钓获与脱钩判断。" },
+				{ "渔获价值。", "各标签显示商人与拍卖估价。打开拍卖行后可用 Auctionator 一键扫描渔获。" },
+				{ "稀有渔获提醒。", "绿色及以上品质，或右键标记为想要的鱼，会闪现团队警告并播放音效。" },
+				{ "Wowhead 链接。", "点击任意渔获可复制其 WoW Forever Wowhead 页面。Shift+点击可在聊天中链接。" },
+				{ "听清水花。", "鱼线抛出后提高音效；音乐与环境音保持不变。" },
+				{ "随心设置。", "插件选项、小地图按钮，以及可拖动、缩放与关闭的统计窗口。" },
 			} },
 		},
 	},
