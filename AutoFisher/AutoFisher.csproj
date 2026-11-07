@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>AutoFisher</RootNamespace>
+    <AssemblyName>AutoFisher</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ApplicationIcon>Assets\AutoFisher.ico</ApplicationIcon>
+    <StartupObject>AutoFisher.Program</StartupObject>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Version>1.0.0</Version>
+    <Product>OneCast AutoFisher</Product>
+    <AssemblyTitle>OneCast AutoFisher</AssemblyTitle>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Costura.Fody" Version="5.7.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Fody" Version="6.8.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Assets\autofisher-logo.jpg" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\AutoFisher.ico" />
+  </ItemGroup>
+</Project>

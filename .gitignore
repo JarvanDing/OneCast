@@ -3,6 +3,13 @@ dist/
 *.zip
 release-notes.md
 
+# AutoFisher (.NET) build output
+AutoFisher/bin/
+AutoFisher/obj/
+AutoFisher/publish/
+AutoFisher/*.user
+AutoFisher/AutoFisher-portable.zip
+
 # OS and editor clutter
 .DS_Store
 Thumbs.db
