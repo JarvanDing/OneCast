@@ -309,8 +309,8 @@ local function RedrawWindow()
 				row.count:SetTextColor(0.55, 0.55, 0.55)
 			end
 			row.bonus:SetText("+" .. row.lure.bonus)
-			row.minutes:SetText(row.lure.minutes .. "m")
-			row.count:SetText("x" .. count)
+			row.minutes:SetText(row.lure.minutes .. "分钟")
+			row.count:SetText("×" .. count)
 		end
 	end
 	window.autoLure:SetChecked(CharDB().autoLure)

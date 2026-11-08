@@ -7,32 +7,32 @@ local _, ns = ...
 ns.CHANGELOG = {
 	{
 		version = "0.5.0",
-		date = "7 November 2026",
+		date = "2026年11月7日",
 		sections = {
-			{ "New", {
-				{ "The tackle box.", "A small button appears while your pole is in your main hand, with your lure, how many you have and the time left. Left-click applies your lure, right-click opens its settings, Shift-drag moves it, and the Tackle box option hides it. Thanks to raffle0 for the idea!" },
-				{ "You choose the lure.", "Pick one for each character, or \"Best I can use\". Your choice is never swapped for another: if it runs out, you fish without one. Nothing is spent until you choose." },
-				{ "Apply with the cast key.", "An option, off by default. With no lure on, the key applies yours, then casts on the next press. Lures take 5 seconds to go on, and the key waits for that rather than interrupting. Every lure is still your own press." },
-				{ "Remembered pools.", "Hover over a fishing pool with your pole on and cast, and the spot you fished it from is marked on the collection book's zone maps. English pool names only for now." },
-				{ "Bags full warning.", "A warning when you cast with no free bag space, so a catch doesn't surprise you." },
-				{ "Low on lures.", "A vendor selling your lure gets a mention in chat if you have fewer than 5. Buying stays up to you." },
-				{ "Lures in your stats.", "The tackle box compares your fish per hour with and without a lure. The minimap tooltip shows your lure too." },
-				{ "New key bindings.", "Apply lure and Tackle box, under Keybindings > AddOns." },
+			{ "新增", {
+				{ "工具箱。", "主手装备鱼竿时会出现小按钮，显示诱饵、数量与剩余时间。左键上饵，右键打开设置，Shift-拖动可移动；也可在选项中隐藏。感谢 raffle0 提出此想法！" },
+				{ "自选诱饵。", "每个角色可选定一种诱饵，或「能用的最好诱饵」。选定后不会自动换成别的：用完后会不带诱饵继续钓。选定之前不会消耗任何诱饵。" },
+				{ "施法键上饵。", "可选，默认关闭。竿上没有诱饵时，按键先上饵，再按一次才抛竿。上饵约需 5 秒，按键会等其完成而不是打断。每次上饵仍是你自己的按键。" },
+				{ "记住鱼群。", "装备鱼竿并悬停鱼群后抛竿，会在图鉴区域地图上标记你的钓点。目前仅识别英文鱼群名。" },
+				{ "背包已满警告。", "背包没有空位时抛竿会提示，避免渔获无处可放。" },
+				{ "诱饵不足。", "若持有少于 5 个选定诱饵，在售卖该诱饵的商人处聊天会提示。买不买由你决定。" },
+				{ "统计里的诱饵。", "工具箱会比较有饵与无饵时的每小时鱼数。小地图提示也会显示当前诱饵。" },
+				{ "新按键绑定。", "「上饵」与「工具箱」，位于 按键设置 > 插件。" },
 			} },
-			{ "Changed", {
-				{ "A lure that would help.", "When you're short of a zone's level, the verdict names a lure in your bags that would cover it." },
-				{ "Getaways know your skill.", "OneCast now notes your skill when a fish gets away. A zone that got away from you earlier can clear once you've outgrown it or caught 10 in a row there, and a getaway above a zone's listed level says the level may be too low." },
-				{ "Tidier options.", "The options page is grouped into sections." },
+			{ "变更", {
+				{ "可用的合适诱饵。", "技能低于区域等级时，判定会点名背包里能补足差距的诱饵。" },
+				{ "脱钩记录技能。", "脱钩时会记下当时技能。此前会脱钩的区域，在技能超过或连续 10 次无脱钩后可清除；若在标注等级之上仍脱钩，会提示实际等级可能更高。" },
+				{ "更清晰的选项。", "选项页按分组整理。" },
 			} },
 		},
 	},
 	{
 		version = "0.4.0",
-		date = "7 November 2026",
+		date = "2026年11月7日",
 		sections = {
-			{ "New", {
-				{ "Fishing levels for every zone.", "The collection book has a new Zones tab: every zone by the Fishing skill it needs, checked against your own skill, with how many of its fish you've caught. Click a zone to see its fish. These are Classic's numbers, as Forever's aren't published yet, and zones with no known level are judged from your own catches and getaways. Thanks to Lintence for the idea!" },
-				{ "Levels in the zone filter.", "The book's zone menu now shows each zone's level too." },
+			{ "新增", {
+				{ "各区域钓鱼等级。", "图鉴新增「区域」标签：按所需钓鱼技能列出全部区域，对照你的技能，并显示该区已钓到多少种鱼。点击区域可查看其鱼类。目前为经典数据（Forever 尚未公布），无已知等级的区域根据你自己的钓获与脱钩判断。感谢 Lintence 提出此想法！" },
+				{ "区域筛选显示等级。", "图鉴的区域菜单也会显示各区所需等级。" },
 			} },
 		},
 	},

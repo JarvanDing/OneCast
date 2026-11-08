@@ -711,8 +711,8 @@ function Stats.ZoneStatus(zone)
 	-- it could have come from a lure's bonus, or from before a skill-up.
 	local cleared = here and (here.cleanCatches or 0) >= CLEAN_CATCHES
 	local status = {
-		needed = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone],
-		note = ns.ZONE_FISHING_NOTE and ns.ZONE_FISHING_NOTE[zone],
+		needed = ns.ZoneSkill and ns.ZoneSkill(zone) or (ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone]),
+		note = ns.ZoneNote and ns.ZoneNote(zone) or (ns.ZONE_FISHING_NOTE and ns.ZONE_FISHING_NOTE[zone]),
 		escapes = not cleared and here and here.escapes or 0,
 		catches = here and here.catches or 0,
 		escapeSkill = not cleared and here and here.escapeSkill or nil, -- nil for getaways from before 0.5.0
@@ -755,34 +755,35 @@ function Stats.ZoneVerdict(zone)
 	if not rank then
 		return GREY .. "未找到钓鱼技能。|r"
 	end
+	local name = ns.ZoneLabel and ns.ZoneLabel(zone) or zone
 	local status = Stats.ZoneStatus(zone)
 	if status.kind == "note" then
-		return string.format("|cff1eff00%s：%s。|r", zone, status.note)
+		return string.format("|cff1eff00%s：%s。|r", name, status.note)
 	elseif status.kind == "getaways" and status.needed then
 		return string.format("|cffff4040%s 标注需要 %d，但在 %d 技能时此处仍脱钩：实际可能更高。|r",
-			zone, status.needed, status.escapeSkill)
+			name, status.needed, status.escapeSkill)
 	elseif status.kind == "getaways" then
 		return string.format("|cffff4040%s：等级未知，但此处已脱钩 %d 次：技能不足。|r",
-			zone, status.escapes)
+			name, status.escapes)
 	elseif status.kind == "outgrown" then
 		return string.format("%s%s：等级未知。此前在 %d 技能时脱钩过，你现在已超过该技能。|r",
-			GREY, zone, status.escapeSkill)
+			GREY, name, status.escapeSkill)
 	elseif status.kind == "clear" then
 		return string.format("|cff1eff00%s：等级未知，但 %d 次钓获均未脱钩。|r",
-			zone, status.catches)
+			name, status.catches)
 	elseif status.kind == "unknown" then
-		return GREY .. zone .. "：钓鱼等级未知。若此处脱钩，会提示技能是否不足。|r"
+		return GREY .. name .. "：钓鱼等级未知。若此处脱钩，会提示技能是否不足。|r"
 	elseif status.kind == "ok" then
-		return string.format("|cff1eff00%s 需要 %d：鱼不应脱钩。|r", zone, status.needed)
+		return string.format("|cff1eff00%s 需要 %d：鱼不应脱钩。|r", name, status.needed)
 	end
 	-- A lure in the bags that would close the gap is the more useful thing to say.
 	local hint = ns.Lure and ns.Lure.CoverHint(status.short)
 	if hint then
 		return string.format("|cffff4040%s 需要 %d：还差 %d，鱼会脱钩。|r |cffffd100%s|r",
-			zone, status.needed, status.short, hint)
+			name, status.needed, status.short, hint)
 	end
 	return string.format("|cffff4040%s 需要 %d：还差 %d，鱼会脱钩。|r %s约还需 %d 次钓获%s。|r",
-		zone, status.needed, status.short, GREY, CatchesToGo(rank, status.short),
+		name, status.needed, status.short, GREY, CatchesToGo(rank, status.short),
 		rank + status.short > maxRank and "（请先学技能）" or "")
 end
 
@@ -1373,7 +1374,7 @@ local function CreateWindow()
 	CreateTabs(f, inset)
 
 	-- Fishing skill: the professions window's rank bar, then the verdict for this zone.
-	f.skillBar = RankBar(inset, ns.GetFishingName and ns.GetFishingName() or "Fishing")
+	f.skillBar = RankBar(inset, ns.GetFishingName and ns.GetFishingName() or "钓鱼")
 
 	f.verdict = inset:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	f.verdict:SetPoint("TOPLEFT", 14, -50)

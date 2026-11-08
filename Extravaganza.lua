@@ -45,16 +45,16 @@ function X.Status()
 	return false, (start - now) % WEEK
 end
 
--- "2d 4h", "3h 12m" or "12m".
+-- "2天 4小时", "3小时 12分" or "12分钟".
 function X.FormatWait(seconds)
 	seconds = math.max(0, math.floor(seconds))
 	local d, h, m = math.floor(seconds / 86400), math.floor(seconds % 86400 / 3600), math.floor(seconds % 3600 / 60)
 	if d > 0 then
-		return string.format("%dd %dh", d, h)
+		return string.format("%d天 %d小时", d, h)
 	elseif h > 0 then
-		return string.format("%dh %02dm", h, m)
+		return string.format("%d小时 %d分", h, m)
 	end
-	return string.format("%dm", math.max(m, 1))
+	return string.format("%d分钟", math.max(m, 1))
 end
 
 function X.TastyfishInBags()
@@ -74,7 +74,7 @@ function X.StatusLine(zone)
 	if running then
 		return string.format("可口鱼 %d/%d  |cff9d9d9d剩余 %s|r", X.TastyfishInBags(), X.GOAL, X.FormatWait(seconds))
 	end
-	if zone == X.ZONE or seconds <= 3 * 3600 then
+	if (ns.SameZone and ns.SameZone(zone, X.ZONE)) or zone == X.ZONE or seconds <= 3 * 3600 then
 		return X.FormatWait(seconds) .. " 后开始"
 	end
 end

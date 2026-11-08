@@ -45,7 +45,7 @@ namespace AutoFisher.UI
 			_session.ApplySettings(_settings);
 			_uiTimer = new Timer { Interval = 100 };
 
-			Text = "OneCast AutoFisher";
+			Text = "哇，大鱼 · 自动钓鱼";
 			Width = 580;
 			Height = 680;
 			MinimumSize = new Size(540, 600);
@@ -67,7 +67,7 @@ namespace AutoFisher.UI
 			{
 				SafeInvoke(() =>
 				{
-					_lblState.Text = "状态: " + state + " — " + msg;
+					_lblState.Text = "状态: " + StateLabel(state) + " — " + msg;
 					bool running = state != FishingState.Stopped;
 					_btnStart.Enabled = !running;
 					_btnStop.Enabled = running;
@@ -104,6 +104,20 @@ namespace AutoFisher.UI
 				_session.Dispose();
 				_uiTimer.Dispose();
 			};
+		}
+
+		private static string StateLabel(FishingState state)
+		{
+			switch (state)
+			{
+				case FishingState.Stopped: return "已停止";
+				case FishingState.Arming: return "倒计时";
+				case FishingState.Casting: return "抛竿";
+				case FishingState.Listening: return "听竿";
+				case FishingState.Reeling: return "收杆";
+				case FishingState.Waiting: return "等待";
+				default: return state.ToString();
+			}
 		}
 
 		private void TrySetIcon()
@@ -186,7 +200,7 @@ namespace AutoFisher.UI
 				ColumnCount = 1,
 				Padding = new Padding(0, 6, 0, 6)
 			};
-			_lblState = new Label { AutoSize = true, Text = "状态: Stopped" };
+			_lblState = new Label { AutoSize = true, Text = "状态: 已停止" };
 			_lblLevel = new Label { AutoSize = true, Text = "电平: —（有声音时数字应变大）" };
 			_levelBar = new ProgressBar { Width = 520, Height = 18, Maximum = 1000 };
 			status.Controls.Add(_lblState);

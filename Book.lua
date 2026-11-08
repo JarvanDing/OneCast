@@ -46,6 +46,34 @@ local CAT_LEAD = {
 local SHOW = { "all", "caught", "missing" }
 local SHOW_LABEL = { all = "显示：全部", caught = "显示：已钓到", missing = "显示：未钓到" }
 local TAG_LABEL = { classic = "经典", reported = "玩家报告", ["found by you"] = "你发现的" }
+local PROF_LABEL = {
+	Cooking = "烹饪", Alchemy = "炼金", Fishing = "钓鱼",
+	["烹饪"] = "烹饪", ["炼金"] = "炼金", ["钓鱼"] = "钓鱼",
+}
+
+local function ZoneLabel(zone)
+	return ns.ZoneLabel and ns.ZoneLabel(zone) or zone
+end
+
+local function SameZone(a, b)
+	if ns.SameZone then
+		return ns.SameZone(a, b)
+	end
+	return a == b
+end
+
+local function ProfessionLabel(prof)
+	return PROF_LABEL[prof] or prof
+end
+
+local function RecipeName(recipe)
+	local id, fallback = recipe[1], recipe[2]
+	local name = C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(id)
+	if name and name ~= "" then
+		return name
+	end
+	return fallback
+end
 
 -- Parchment ink, as in the What's new window.
 local INK = { 0.18, 0.10, 0.02 }
@@ -97,7 +125,7 @@ end
 local function EasiestSkill(fish)
 	local best
 	for _, zone in ipairs(fish.zones or {}) do
-		local skill = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone]
+		local skill = ns.ZoneSkill and ns.ZoneSkill(zone) or (ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone])
 		if skill and skill > 1 and (not best or skill < best) then
 			best = skill
 		end
@@ -119,16 +147,18 @@ end
 
 -- Whether the fish is known to bite in `zone`, or has been caught there.
 local function FoundIn(fish, info, zone)
-	if info.zones[zone] then
-		return true
+	for z in pairs(info.zones) do
+		if SameZone(z, zone) then
+			return true
+		end
 	end
 	for _, z in ipairs(fish.zones or {}) do
-		if z == zone then
+		if SameZone(z, zone) then
 			return true
 		end
 	end
 	for _, extra in ipairs(fish.more or {}) do
-		if extra[1] == zone then
+		if SameZone(extra[1], zone) then
 			return true
 		end
 	end
@@ -136,21 +166,32 @@ local function FoundIn(fish, info, zone)
 end
 
 -- Every zone a fish is known from or has been caught in, for the zone filter.
+-- Keys are canonical English names so Chinese catches merge with FishData.
 local function ZoneChoices()
-	local set = ns.Collection.CaughtZones()
+	local set = {}
+	local function add(z)
+		if z and z ~= "" then
+			set[ns.ZoneCanon and ns.ZoneCanon(z) or z] = true
+		end
+	end
+	for z in pairs(ns.Collection.CaughtZones()) do
+		add(z)
+	end
 	for _, fish in ipairs(ns.FISH) do
 		for _, z in ipairs(fish.zones or {}) do
-			set[z] = true
+			add(z)
 		end
 		for _, extra in ipairs(fish.more or {}) do
-			set[extra[1]] = true
+			add(extra[1])
 		end
 	end
 	local list = {}
 	for z in pairs(set) do
 		list[#list + 1] = z
 	end
-	table.sort(list)
+	table.sort(list, function(a, b)
+		return ZoneLabel(a) < ZoneLabel(b)
+	end)
 	return list
 end
 
@@ -211,9 +252,9 @@ local function Summary(fish)
 	local first = (fish.zones and fish.zones[1]) or (fish.more and fish.more[1] and fish.more[1][1])
 	local text = CAT_LEAD[fish.cat] or "一种渔获"
 	if zones == 1 then
-		text = text .. "，见于 " .. first
+		text = text .. "，见于 " .. ZoneLabel(first)
 	elseif zones > 1 then
-		text = text .. string.format("，见于 %d 个区域，最常见于 %s", zones, first)
+		text = text .. string.format("，见于 %d 个区域，最常见于 %s", zones, ZoneLabel(first))
 	end
 	text = text .. "。"
 	local skill = EasiestSkill(fish)
@@ -223,10 +264,11 @@ local function Summary(fish)
 	if fish.recipes and #fish.recipes > 0 then
 		local byProf, order = {}, {}
 		for _, recipe in ipairs(fish.recipes) do
-			if not byProf[recipe[3]] then
-				order[#order + 1] = recipe[3]
+			local prof = ProfessionLabel(recipe[3])
+			if not byProf[prof] then
+				order[#order + 1] = prof
 			end
-			byProf[recipe[3]] = (byProf[recipe[3]] or 0) + 1
+			byProf[prof] = (byProf[prof] or 0) + 1
 		end
 		local parts = {}
 		for _, prof in ipairs(order) do
@@ -293,10 +335,15 @@ local function ZoneMapID(zone)
 			zoneMaps[info.name] = zoneMaps[info.name] or info.mapID
 		end
 	end
-	if zone and not zoneMaps[zone] and not scanned then
+	if not zone then
+		return nil
+	end
+	local label = ZoneLabel(zone)
+	local canon = ns.ZoneCanon and ns.ZoneCanon(zone) or zone
+	if not zoneMaps[zone] and not zoneMaps[label] and not zoneMaps[canon] and not scanned then
 		ScanMaps()
 	end
-	return zoneMaps[zone]
+	return zoneMaps[zone] or zoneMaps[label] or zoneMaps[canon]
 end
 
 -- Explored-area overlays on top of the base art, all of them (MapOverlays.lua), so the map
@@ -613,7 +660,7 @@ local function RenderGrid()
 		end
 	end
 	if state.where then
-		label = state.where .. "的" .. label
+		label = ZoneLabel(state.where) .. "的" .. label
 	end
 	frame.pages[1].title:SetText(label)
 	frame.pages[2].title:SetText(#list == 0 and "" or string.format("显示 %d 种", #list))
@@ -634,21 +681,21 @@ end
 
 local function ZoneRows(fish, info)
 	local rows, seen = {}, {}
+	local function add(zone, tag)
+		local key = ns.ZoneCanon and ns.ZoneCanon(zone) or zone
+		if not seen[key] then
+			rows[#rows + 1] = { zone = key, tag = tag }
+			seen[key] = true
+		end
+	end
 	for _, zone in ipairs(fish.zones or {}) do
-		rows[#rows + 1] = { zone = zone }
-		seen[zone] = true
+		add(zone)
 	end
 	for _, extra in ipairs(fish.more or {}) do
-		if not seen[extra[1]] then
-			rows[#rows + 1] = { zone = extra[1], tag = extra[2] }
-			seen[extra[1]] = true
-		end
+		add(extra[1], extra[2])
 	end
 	for zone in pairs(info.zones) do
-		if not seen[zone] then
-			rows[#rows + 1] = { zone = zone, tag = "found by you" }
-			seen[zone] = true
-		end
+		add(zone, "found by you")
 	end
 	return rows
 end
@@ -710,7 +757,7 @@ local function RenderLeft(fish, info)
 		y = y + 6
 		if info.first then
 			Paragraph(string.format("%s首次由 %s 于 %s%s钓到。|r", SOFT, info.first.char or "?",
-				date("%Y年%m月%d日", info.first.time), info.first.zone and ("，地点：" .. info.first.zone) or ""), INK, 4)
+				date("%Y年%m月%d日", info.first.time), info.first.zone and ("，地点：" .. ZoneLabel(info.first.zone)) or ""), INK, 4)
 		end
 		local when = TimeOfDay(info)
 		if when then
@@ -718,7 +765,7 @@ local function RenderLeft(fish, info)
 		end
 	else
 		local tip = (fish.zones and fish.zones[1]) or (fish.more and fish.more[1] and fish.more[1][1])
-		Paragraph("尚未钓到。" .. (tip and (" 可尝试 " .. tip .. "。") or ""), INK)
+		Paragraph("尚未钓到。" .. (tip and (" 可尝试 " .. ZoneLabel(tip) .. "。") or ""), INK)
 	end
 end
 
@@ -745,12 +792,17 @@ local function RenderRight(fish, info)
 		local b = PoolButton(pool)
 		b:SetPoint("TOPLEFT", page, "TOPLEFT", x, -y)
 		b:SetWidth(width)
-		b.bg:SetShown(row.zone == state.zone)
+		b.bg:SetShown(SameZone(row.zone, state.zone))
 		local tag = row.tag and (TAG_LABEL[row.tag] or row.tag)
-		b.left:SetText(row.zone .. (tag and (" " .. SOFT .. "（" .. tag .. "）|r") or ""))
+		b.left:SetText(ZoneLabel(row.zone) .. (tag and (" " .. SOFT .. "（" .. tag .. "）|r") or ""))
 		b.left:SetTextColor(INK[1], INK[2], INK[3])
-		local needs = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[row.zone]
-		local mine = info.zones[row.zone]
+		local needs = ns.ZoneSkill and ns.ZoneSkill(row.zone) or (ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[row.zone])
+		local mine
+		for z, n in pairs(info.zones) do
+			if SameZone(z, row.zone) then
+				mine = (mine or 0) + n
+			end
+		end
 		local right = {}
 		if needs and needs > 1 then
 			right[#right + 1] = "需要 " .. needs
@@ -782,8 +834,8 @@ local function RenderRight(fish, info)
 	map:Show()
 	frame.mapID = DrawMap(map, state.zone)
 	local pools = frame.mapID and #ns.Pools.ForMap(frame.mapID) or 0
-	frame.mapCaption:SetText((state.zone or "") .. (pools > 0
-		and string.format("  ·  %d pool%s you've found", pools, pools == 1 and "" or "s") or ""))
+	frame.mapCaption:SetText((ZoneLabel(state.zone) or "") .. (pools > 0
+		and string.format("  ·  已发现 %d 处鱼群", pools) or ""))
 	frame.openMap:SetEnabled(frame.mapID ~= nil)
 	y = y + MAP_H + 34
 
@@ -802,7 +854,7 @@ local function RenderRight(fish, info)
 		dot:SetPoint("TOPLEFT", page, "TOPLEFT", x, -y - 1)
 		local line = PoolString(pool, QuestFont, 14, INK)
 		local skill = recipe[4] and (" " .. recipe[4]) or ""
-		line:SetText(string.format("%s  %s%s%s|r", recipe[2], SOFT, recipe[3], skill))
+		line:SetText(string.format("%s  %s%s%s|r", RecipeName(recipe), SOFT, ProfessionLabel(recipe[3]), skill))
 		line:SetPoint("TOPLEFT", page, "TOPLEFT", x + 18, -y)
 		y = y + 17
 	end
@@ -858,11 +910,11 @@ local function ZoneGroups()
 		set[zone] = true
 	end
 	for _, zone in ipairs(ZoneChoices()) do
-		set[zone] = true
+		set[ns.ZoneCanon and ns.ZoneCanon(zone) or zone] = true
 	end
 	local byLevel, levels = {}, {}
 	for zone in pairs(set) do
-		local level = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone] or math.huge
+		local level = ns.ZoneSkill and ns.ZoneSkill(zone) or (ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone]) or math.huge
 		if not byLevel[level] then
 			byLevel[level] = {}
 			levels[#levels + 1] = level
@@ -872,7 +924,9 @@ local function ZoneGroups()
 	table.sort(levels)
 	local groups = {}
 	for _, level in ipairs(levels) do
-		table.sort(byLevel[level])
+		table.sort(byLevel[level], function(a, b)
+			return ZoneLabel(a) < ZoneLabel(b)
+		end)
 		groups[#groups + 1] = { level = level ~= math.huge and level or nil, zones = byLevel[level] }
 	end
 	return groups
@@ -950,8 +1004,9 @@ local function RenderZoneRow(pool, zone, count, here, x, y, width)
 	local b = PoolButton(pool)
 	b:SetPoint("TOPLEFT", pool.page, "TOPLEFT", x, -y)
 	b:SetWidth(width)
-	b.bg:SetShown(zone == here)
-	b.left:SetText(zone .. (zone == here and (" " .. SOFT .. "（当前）|r") or ""))
+	b.bg:SetShown(SameZone(zone, here))
+	local label = ZoneLabel(zone)
+	b.left:SetText(label .. (SameZone(zone, here) and (" " .. SOFT .. "（当前）|r") or ""))
 	b.left:SetTextColor(INK[1], INK[2], INK[3])
 	local right = {}
 	if count.total > 0 then
@@ -966,7 +1021,7 @@ local function RenderZoneRow(pool, zone, count, here, x, y, width)
 	end)
 	b:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText(zone)
+		GameTooltip:SetText(label)
 		GameTooltip:AddLine(ns.Stats.ZoneVerdict(zone), 1, 1, 1, true)
 		if count.total > 0 then
 			GameTooltip:AddLine(string.format("你已钓到此处已知 %d 种鱼中的 %d 种。", count.total, count.caught),
@@ -1225,6 +1280,9 @@ local function CreateWindow()
 	f.search:SetSize(150, 20)
 	f.search:SetAutoFocus(false)
 	f.search:SetPoint("LEFT", f.where, "RIGHT", 12, 0)
+	if f.search.Instructions then
+		f.search.Instructions:SetText("搜索")
+	end
 	f.search:HookScript("OnTextChanged", function(self)
 		local text = strtrim(self:GetText() or ""):lower()
 		text = text ~= "" and text or nil
@@ -1313,7 +1371,7 @@ function Book.Refresh()
 	frame.back:SetShown(not showZones)
 	frame.back:SetText(showFish and "返回图鉴" or SHOW_LABEL[state.show])
 	frame.where:SetShown(not showFish and not showZones)
-	frame.where:SetText(state.where or "全部区域")
+	frame.where:SetText(state.where and ZoneLabel(state.where) or "全部区域")
 	frame.search:SetShown(not showFish and not showZones)
 end
 
@@ -1339,19 +1397,23 @@ function Book.OpenZoneMenu(owner)
 	MenuUtil.CreateContextMenu(owner, function(_, root)
 		local function Radio(text, zone)
 			root:CreateRadio(text, function()
-				return state.where == zone
+				if zone == nil then
+					return state.where == nil
+				end
+				return SameZone(state.where, zone)
 			end, function()
 				SetWhere(zone)
 			end)
 		end
 		Radio("全部区域", nil)
 		if here then
-			Radio("此处：" .. here, here)
+			Radio("此处：" .. ZoneLabel(here), ns.ZoneCanon and ns.ZoneCanon(here) or here)
 		end
 		root:CreateDivider()
 		for _, zone in ipairs(ZoneChoices()) do
-			local level = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone]
-			Radio(level and string.format("%s (%d)", zone, level) or zone, zone)
+			local level = ns.ZoneSkill and ns.ZoneSkill(zone) or (ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone])
+			local label = ZoneLabel(zone)
+			Radio(level and string.format("%s (%d)", label, level) or label, zone)
 		end
 		if root.SetScrollMode then
 			root:SetScrollMode(400)
