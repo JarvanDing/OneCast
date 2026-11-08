@@ -39,6 +39,8 @@ local VIEWS = {
 
 local charDB
 local awaitingLoot = false
+local CLEAN_CATCHES = 10 -- catches in a row with no getaway that clear a zone's getaways
+local castLured = "without" -- which of charDB.lureRates this cast counts towards
 local castZone, castSpot -- where the line went out, for the catch it brings in
 local summaryTimer
 local autoLootOffered = false -- once per login
@@ -386,6 +388,13 @@ function Stats.OnCast()
 		zoneTotals.activeTime = zoneTotals.activeTime + gap
 		spotTotals.activeTime = spotTotals.activeTime + gap
 	end
+	-- Fish per hour with and without a lure: this stretch counts as whatever is on now.
+	local lured = ns.Lure and ns.Lure.IsActive()
+	castLured = lured and "with" or "without"
+	local rates = charDB.lureRates
+	if s.lastCast and now - s.lastCast <= ACTIVE_GAP then
+		rates[castLured].time = rates[castLured].time + (now - s.lastCast)
+	end
 	s.start = s.start or now
 	s.lastCast = now
 	s.casts = s.casts + 1
@@ -434,6 +443,8 @@ local function OnLootReady(autoLooted)
 	AddCatch(s, zone, loot)
 	AddCatch(charDB.lifetime, zone, loot)
 	AddCatch(ZoneTotals(zone), zone, loot)
+	local zoneTotals = ZoneTotals(zone)
+	zoneTotals.cleanCatches = (zoneTotals.cleanCatches or 0) + 1
 	AddToLog(zone, loot)
 
 	-- The spot the line went out at, and the realm hour, for each item.
@@ -450,6 +461,7 @@ local function OnLootReady(autoLooted)
 
 	CheckSkill()
 	charDB.skill.catches = (charDB.skill.catches or 0) + 1
+	charDB.lureRates[castLured].catches = charDB.lureRates[castLured].catches + 1
 
 	if ns.Collection then
 		s.newFish = (s.newFish or 0) + (ns.Collection.OnCatch(loot, zone) or 0)
@@ -472,7 +484,31 @@ local function OnFishEscaped()
 	charDB.lifetime.escapes = (charDB.lifetime.escapes or 0) + 1
 	local z = ZoneTotals(CurrentZone())
 	z.escapes = (z.escapes or 0) + 1
+	-- The highest skill a fish has got away at, lure included: later skill-ups can outgrow it.
+	-- An old value a clean run has already cleared doesn't count.
+	if (z.cleanCatches or 0) >= CLEAN_CATCHES then
+		z.escapeSkill = nil
+	end
+	z.cleanCatches = 0
+	local rank, _, modifier = FishingSkill()
+	if rank then
+		z.escapeSkill = math.max(z.escapeSkill or 0, rank + modifier)
+	end
 	RefreshIfShown()
+end
+
+-- Fish per hour with and without a lure, each only after enough fishing to mean something.
+local LURE_RATE_MIN_TIME = 5 * 60
+
+function Stats.LureRates()
+	local rates = { }
+	for _, key in ipairs({ "with", "without" }) do
+		local r = charDB.lureRates[key]
+		if r.time >= LURE_RATE_MIN_TIME then
+			rates[key] = r.catches / r.time * 3600
+		end
+	end
+	return rates
 end
 
 -- One-line summary for the minimap tooltip.
@@ -658,42 +694,109 @@ local function BuildView(view)
 		CountRows(SortedItems(s.items)), "渔获", "尚未钓到任何东西。"
 end
 
+-- What's known about fishing in a zone, for this character. `kind` is:
+--   "note"     a reported quirk (ZONE_FISHING_NOTE), until a fish gets away there
+--   "getaways" fish have got away here at this skill or higher, whatever the level says
+--   "outgrown" no known level, and fish got away, but only at lower skill than this
+--   "clear"    no known level, and 10 or more catches with no getaways
+--   "unknown"  no known level, and too little to go on
+--   "level"    a known level, but this character's skill can't be read
+--   "ok"       skill meets the known level
+--   "short"    skill is `short` points below the known level
+-- Shared by the stats window and the book's Zones view, so the two can't disagree.
+function Stats.ZoneStatus(zone)
+	local rank, _, modifier = FishingSkill()
+	local here = charDB.zoneStats[zone]
+	-- Enough catches in a row since the last getaway and it no longer counts against the zone:
+	-- it could have come from a lure's bonus, or from before a skill-up.
+	local cleared = here and (here.cleanCatches or 0) >= CLEAN_CATCHES
+	local status = {
+		needed = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone],
+		note = ns.ZONE_FISHING_NOTE and ns.ZONE_FISHING_NOTE[zone],
+		escapes = not cleared and here and here.escapes or 0,
+		catches = here and here.catches or 0,
+		escapeSkill = not cleared and here and here.escapeSkill or nil, -- nil for getaways from before 0.5.0
+	}
+	local effective = rank and rank + modifier
+	local outgrown = status.escapeSkill and effective and effective > status.escapeSkill
+	if status.note and status.escapes == 0 then
+		-- A reported quirk, not a measured level, so it gives way to real getaways.
+		status.kind = "note"
+	elseif not status.needed then
+		-- No data for this zone: judge from what has actually happened here.
+		if outgrown then
+			status.kind = "outgrown"
+		elseif status.escapes > 0 then
+			status.kind = "getaways"
+		elseif status.catches >= 10 then
+			status.kind = "clear"
+		else
+			status.kind = "unknown"
+		end
+	elseif not rank then
+		status.kind = "level"
+	elseif effective >= status.needed then
+		-- The level is Classic's: a getaway at this skill or higher says Forever's is higher.
+		if status.escapeSkill and effective <= status.escapeSkill then
+			status.kind = "getaways"
+		else
+			status.kind = "ok"
+		end
+	else
+		status.kind = "short"
+		status.short = status.needed - rank - modifier
+	end
+	return status
+end
+
+-- The zone's status as a coloured sentence, for dark backgrounds.
+function Stats.ZoneVerdict(zone)
+	local rank, maxRank = FishingSkill()
+	if not rank then
+		return GREY .. "未找到钓鱼技能。|r"
+	end
+	local status = Stats.ZoneStatus(zone)
+	if status.kind == "note" then
+		return string.format("|cff1eff00%s：%s。|r", zone, status.note)
+	elseif status.kind == "getaways" and status.needed then
+		return string.format("|cffff4040%s 标注需要 %d，但在 %d 技能时此处仍脱钩：实际可能更高。|r",
+			zone, status.needed, status.escapeSkill)
+	elseif status.kind == "getaways" then
+		return string.format("|cffff4040%s：等级未知，但此处已脱钩 %d 次：技能不足。|r",
+			zone, status.escapes)
+	elseif status.kind == "outgrown" then
+		return string.format("%s%s：等级未知。此前在 %d 技能时脱钩过，你现在已超过该技能。|r",
+			GREY, zone, status.escapeSkill)
+	elseif status.kind == "clear" then
+		return string.format("|cff1eff00%s：等级未知，但 %d 次钓获均未脱钩。|r",
+			zone, status.catches)
+	elseif status.kind == "unknown" then
+		return GREY .. zone .. "：钓鱼等级未知。若此处脱钩，会提示技能是否不足。|r"
+	elseif status.kind == "ok" then
+		return string.format("|cff1eff00%s 需要 %d：鱼不应脱钩。|r", zone, status.needed)
+	end
+	-- A lure in the bags that would close the gap is the more useful thing to say.
+	local hint = ns.Lure and ns.Lure.CoverHint(status.short)
+	if hint then
+		return string.format("|cffff4040%s 需要 %d：还差 %d，鱼会脱钩。|r |cffffd100%s|r",
+			zone, status.needed, status.short, hint)
+	end
+	return string.format("|cffff4040%s 需要 %d：还差 %d，鱼会脱钩。|r %s约还需 %d 次钓获%s。|r",
+		zone, status.needed, status.short, GREY, CatchesToGo(rank, status.short),
+		rank + status.short > maxRank and "（请先学技能）" or "")
+end
+
+Stats.FishingSkill = FishingSkill
+
 -- Skill bar fraction, value text and the verdict for the current zone.
 local function SkillStatus()
 	local rank, maxRank, modifier = FishingSkill()
-	local zone = CurrentZone()
-	local needed = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone]
+	local verdict = Stats.ZoneVerdict(CurrentZone())
 	if not rank then
-		return 0, "?", GREY .. "未找到钓鱼技能。|r"
+		return 0, "?", verdict
 	end
-	local effective = rank + modifier
 	local value = modifier > 0 and string.format("%d|cff1eff00+%d|r/%d", rank, modifier, maxRank)
 		or string.format("%d/%d", rank, maxRank)
-	local verdict
-	local here = charDB.zoneStats[zone]
-	local escapes = here and here.escapes or 0
-	local note = ns.ZONE_FISHING_NOTE and ns.ZONE_FISHING_NOTE[zone]
-	if note and escapes == 0 then
-		-- A reported quirk, not a measured level, so it gives way to real getaways.
-		verdict = string.format("|cff1eff00%s：%s。|r", zone, note)
-	elseif not needed then
-		-- No data for this zone: judge from what has actually happened here.
-		if here and (here.escapes or 0) > 0 then
-			verdict = string.format("|cffff4040%s：等级未知，但此处已脱钩 %d 次：技能不足。|r",
-				zone, here.escapes)
-		elseif here and here.catches >= 10 then
-			verdict = string.format("|cff1eff00%s：等级未知，但 %d 次钓获均未脱钩。|r",
-				zone, here.catches)
-		else
-			verdict = GREY .. zone .. "：钓鱼等级未知。若此处脱钩，会提示技能是否不足。|r"
-		end
-	elseif effective >= needed then
-		verdict = string.format("|cff1eff00%s 需要 %d：鱼不应脱钩。|r", zone, needed)
-	else
-		local short = needed - effective
-		verdict = string.format("|cffff4040%s 需要 %d：还差 %d，鱼会脱钩。|r %s约还需 %d 次钓获%s。|r",
-			zone, needed, short, GREY, CatchesToGo(rank, short), rank + short > maxRank and "（请先学技能）" or "")
-	end
 	return rank / math.max(maxRank, 1), value, verdict
 end
 
@@ -762,11 +865,11 @@ local function SetPortrait(f, texture)
 end
 ns.SetPortrait = SetPortrait -- shared with the collection book
 
-local function CreateShell()
-	local f = TryCreate("Frame", "OneCastStatsFrame", UIParent, "ButtonFrameTemplate")
+local function CreateShell(name, titleText, icon)
+	local f = TryCreate("Frame", name, UIParent, "ButtonFrameTemplate")
 	if f then
-		SetTitle(f, (ns.DISPLAY_NAME or "哇，大鱼") .. "  " .. GREY .. "v" .. (ns.VERSION or "?") .. "|r")
-		SetPortrait(f, "Interface\\Icons\\INV_Misc_Fish_68")
+		SetTitle(f, titleText)
+		SetPortrait(f, icon)
 		f.Inset:ClearAllPoints()
 		f.Inset:SetPoint("TOPLEFT", 4, -60)
 		f.Inset:SetPoint("BOTTOMRIGHT", -6, 28)
@@ -774,13 +877,13 @@ local function CreateShell()
 	end
 
 	-- Fallback: classic dialog frame with a plain inset.
-	f = CreateFrame("Frame", "OneCastStatsFrame", UIParent, "BackdropTemplate")
+	f = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
 	f:SetBackdrop({ bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
 		edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", tile = true, tileSize = 32, edgeSize = 24,
 		insets = { left = 6, right = 6, top = 6, bottom = 6 } })
 	local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	title:SetPoint("TOP", 0, -12)
-	title:SetText((ns.DISPLAY_NAME or "哇，大鱼") .. "  " .. GREY .. "v" .. (ns.VERSION or "?") .. "|r")
+	title:SetText(titleText)
 	local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
 	close:SetPoint("TOPRIGHT", -2, -2)
 	f.CloseButton = close
@@ -1174,6 +1277,15 @@ local function IconButton(parent, art, tooltip, onClick)
 	return b
 end
 
+-- The window's building blocks, shared with the tackle box so the two always match.
+ns.UI = {
+	CreateShell = CreateShell,
+	SectionHeader = SectionHeader,
+	RowBackground = RowBackground,
+	StatRow = StatRow,
+	IconButton = IconButton,
+}
+
 -- Top tabs like the Options window's Game / AddOns, else classic tabs under the frame.
 local function CreateTabs(f, inset)
 	f.Tabs = {}
@@ -1228,7 +1340,9 @@ local function FitTabs(f)
 end
 
 local function CreateWindow()
-	local f, inset = CreateShell()
+	local f, inset = CreateShell("OneCastStatsFrame",
+		(ns.DISPLAY_NAME or "哇，大鱼") .. "  " .. GREY .. "v" .. (ns.VERSION or "?") .. "|r",
+		"Interface\\Icons\\INV_Misc_Fish_68")
 	f:SetSize(WINDOW_WIDTH, WINDOW_HEIGHT)
 	f:SetFrameStrata("DIALOG")
 	f:SetToplevel(true)
@@ -1520,6 +1634,7 @@ events:SetScript("OnEvent", function(_, event, ...)
 			charDB.session = charDB.session or NewTotals()
 			charDB.lifetime = charDB.lifetime or NewTotals()
 			charDB.zoneStats = charDB.zoneStats or {}
+			charDB.lureRates = charDB.lureRates or { with = { time = 0, catches = 0 }, without = { time = 0, catches = 0 } }
 			charDB.log = charDB.log or {}
 			charDB.skill = charDB.skill or {}
 		end

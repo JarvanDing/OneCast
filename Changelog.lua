@@ -6,6 +6,37 @@ local _, ns = ...
 
 ns.CHANGELOG = {
 	{
+		version = "0.5.0",
+		date = "7 November 2026",
+		sections = {
+			{ "New", {
+				{ "The tackle box.", "A small button appears while your pole is in your main hand, with your lure, how many you have and the time left. Left-click applies your lure, right-click opens its settings, Shift-drag moves it, and the Tackle box option hides it. Thanks to raffle0 for the idea!" },
+				{ "You choose the lure.", "Pick one for each character, or \"Best I can use\". Your choice is never swapped for another: if it runs out, you fish without one. Nothing is spent until you choose." },
+				{ "Apply with the cast key.", "An option, off by default. With no lure on, the key applies yours, then casts on the next press. Lures take 5 seconds to go on, and the key waits for that rather than interrupting. Every lure is still your own press." },
+				{ "Remembered pools.", "Hover over a fishing pool with your pole on and cast, and the spot you fished it from is marked on the collection book's zone maps. English pool names only for now." },
+				{ "Bags full warning.", "A warning when you cast with no free bag space, so a catch doesn't surprise you." },
+				{ "Low on lures.", "A vendor selling your lure gets a mention in chat if you have fewer than 5. Buying stays up to you." },
+				{ "Lures in your stats.", "The tackle box compares your fish per hour with and without a lure. The minimap tooltip shows your lure too." },
+				{ "New key bindings.", "Apply lure and Tackle box, under Keybindings > AddOns." },
+			} },
+			{ "Changed", {
+				{ "A lure that would help.", "When you're short of a zone's level, the verdict names a lure in your bags that would cover it." },
+				{ "Getaways know your skill.", "OneCast now notes your skill when a fish gets away. A zone that got away from you earlier can clear once you've outgrown it or caught 10 in a row there, and a getaway above a zone's listed level says the level may be too low." },
+				{ "Tidier options.", "The options page is grouped into sections." },
+			} },
+		},
+	},
+	{
+		version = "0.4.0",
+		date = "7 November 2026",
+		sections = {
+			{ "New", {
+				{ "Fishing levels for every zone.", "The collection book has a new Zones tab: every zone by the Fishing skill it needs, checked against your own skill, with how many of its fish you've caught. Click a zone to see its fish. These are Classic's numbers, as Forever's aren't published yet, and zones with no known level are judged from your own catches and getaways. Thanks to Lintence for the idea!" },
+				{ "Levels in the zone filter.", "The book's zone menu now shows each zone's level too." },
+			} },
+		},
+	},
+	{
 		version = "0.3.1",
 		date = "2026年11月6日",
 		sections = {

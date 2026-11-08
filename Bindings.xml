@@ -2,6 +2,12 @@
 	<Binding name="CLICK OneCastButton:LeftButton" header="ONECAST" category="ADDONS">
 		-- Handled by OneCastButton (SecureActionButtonTemplate).
 	</Binding>
+	<Binding name="CLICK OneCastApplyLureButton:LeftButton" category="ADDONS">
+		-- Handled by OneCastApplyLureButton (SecureActionButtonTemplate).
+	</Binding>
+	<Binding name="ONECAST_TACKLE" category="ADDONS">
+		OneCast_ToggleTackle()
+	</Binding>
 	<Binding name="ONECAST_RESTORE" category="ADDONS">
 		OneCast_RestoreWeapons()
 	</Binding>

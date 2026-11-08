@@ -40,33 +40,52 @@ local defaults = {
 	sessionSummary = true,
 	autoLootHint = true,
 	extravaganza = true,
+	bagWarning = true,
+	tackleBox = true,
+	lureVendorHint = true,
+	rememberPools = true,
+}
+-- Per character: skill and bags differ, and lures get used up.
+local charDefaults = {
+	autoLure = false,
+	lureChoice = 0, -- Lure.NONE
 }
 
 -- Options shown in the settings panel and toggled by /onecast <cmd>, in display order.
 local OPTIONS = {
-	{ cmd = "doubleclick", key = "doubleClick", label = "双击右键施放钓鱼",
+	{ section = "施放", cmd = "doubleclick", key = "doubleClick", label = "双击右键施放钓鱼",
 		tooltip = "装备鱼竿时，双击右键世界即可施放；右键浮漂收杆。" },
 	{ cmd = "softinteract", key = "softInteract", label = "钓鱼时启用软交互",
 		tooltip = "鱼线抛出后，将浮漂设为软交互目标，以便施法键直接收杆。" },
-	{ cmd = "sound", key = "soundBoost", label = "钓鱼时放大水花音效",
+	{ cmd = "bagwarning", key = "bagWarning", label = "背包满时警告",
+		tooltip = "背包没有空位时抛竿会警告一次，以免渔获装不下。" },
+	{ section = "声音", cmd = "sound", key = "soundBoost", label = "钓鱼时放大水花音效",
 		tooltip = "鱼线抛出后，将音效调至最大，方便听清水花声。" },
 	{ cmd = "quiet", key = "quietOthers", label = "钓鱼时压低其他声音",
 		tooltip = "装备鱼竿时，降低（或关闭）音乐、环境音和对白，突出水花声。换回武器后，或你手动改音量后，会恢复为你自己的音量。" },
-	{ cmd = "autoequip", key = "autoEquip", label = "自动装备鱼竿",
+	{ section = "鱼竿与武器", cmd = "autoequip", key = "autoEquip", label = "自动装备鱼竿",
 		tooltip = "未装备鱼竿时，施法键先从背包装备最好的鱼竿（再按一次才施放）。原武器会记住，之后自动换回。" },
 	{ cmd = "combatgear", key = "restoreOnCombat", label = "进入战斗时换回武器",
 		tooltip = "一进入战斗就尝试换回武器。战斗中被游戏拦住的换装，会在脱战后补完。" },
-	{ cmd = "autoopen", key = "openOnCast", label = "施放时打开统计窗口",
+	{ section = "工具箱", cmd = "tacklebox", key = "tackleBox", label = "显示工具箱按钮",
+		tooltip = "主手装备鱼竿时显示小按钮，含诱饵、数量与剩余时间。左键上饵，右键打开设置，Shift-拖动可移动。" },
+	{ cmd = "autolure", key = "autoLure", char = true, label = "用施法键上饵",
+		tooltip = "鱼竿上没有诱饵时，施法键先使用你选定的诱饵，再按一次才抛竿。会消耗诱饵，因此默认关闭。按角色单独设置。" },
+	{ cmd = "lurevendor", key = "lureVendorHint", label = "商人处提示诱饵不足",
+		tooltip = "在售卖你选定诱饵的商人处，若持有少于 5 个会在聊天提示。买不买由你决定。" },
+	{ section = "统计窗口", cmd = "autoopen", key = "openOnCast", label = "施放时打开统计窗口",
 		tooltip = "开始钓鱼时打开统计窗口。若用关闭按钮或小地图按钮关掉，会保持关闭，直到你暂停钓鱼约 2 分钟。" },
-	{ cmd = "alert", key = "alert", label = "稀有渔获提醒",
-		tooltip = "钓到达到提醒品质或以上的物品，或你标记为想要的物品时，播放音效并闪现团队警告（在统计窗口右键可标记想要）。" },
 	{ cmd = "summary", key = "sessionSummary", label = "聊天中显示会话摘要",
 		tooltip = "暂停钓鱼约 2 分钟后，在聊天汇总本次：渔获、每小时鱼数、商人售价、技能提升和图鉴新鱼。" },
 	{ cmd = "autoloot", key = "autoLootHint", label = "提示开启自动拾取",
 		tooltip = "钓到东西时若未开启自动拾取，每次登录最多提示一次，方便渔获直接进包。" },
+	{ section = "图鉴与提醒", cmd = "alert", key = "alert", label = "稀有渔获提醒",
+		tooltip = "钓到达到提醒品质或以上的物品，或你标记为想要的物品时，播放音效并闪现团队警告（在统计窗口右键可标记想要）。" },
+	{ cmd = "pools", key = "rememberPools", label = "记住钓鱼鱼群点",
+		tooltip = "装备鱼竿时将鼠标悬停在鱼群上并抛竿，会把钓点标在图鉴的区域地图上。鱼群会移动，标记表示曾经出现过的位置。目前仅识别英文鱼群名。/onecast forgetpools 可清除。" },
 	{ cmd = "extravaganza", key = "extravaganza", label = "荆棘谷钓鱼大赛提醒",
 		tooltip = "荆棘谷钓鱼大赛即将开始及开始时在聊天提示（经典日程：服务器时间周日 14:00–16:00）。" },
-	{ cmd = "loginmessage", key = "loginMessage", label = "登录时在聊天显示版本",
+	{ section = "界面", cmd = "loginmessage", key = "loginMessage", label = "登录时在聊天显示版本",
 		tooltip = "登录时在聊天显示插件版本，并附带「更新内容」链接。" },
 	{ cmd = "minimap", key = "minimapButton", label = "显示小地图按钮",
 		tooltip = "在小地图上显示「哇，大鱼」按钮。可拖动调整位置。" },
@@ -111,6 +130,9 @@ end
 ns.Print = Print
 ns.GetFishingName = function()
 	return fishingName
+end
+ns.IsFishing = function()
+	return fishing
 end
 
 local function SpellName(spellID)
@@ -189,6 +211,28 @@ local function UpdateQuiet(reapply)
 	end
 end
 
+-- Warn once each time the bags fill up, when a line goes out.
+local bagsFullWarned = false
+
+local function CheckBagSpace()
+	local free = 0
+	for bag = 0, NUM_BAG_SLOTS or 4 do
+		local slots, family = C_Container.GetContainerNumFreeSlots(bag)
+		if (family or 0) == 0 then
+			free = free + (slots or 0)
+		end
+	end
+	if free > 0 then
+		bagsFullWarned = false
+	elseif db.bagWarning and not bagsFullWarned then
+		bagsFullWarned = true
+		Print("背包已满，渔获可能装不下。")
+		if UIErrorsFrame then
+			UIErrorsFrame:AddMessage("背包已满", 1, 0.3, 0.1)
+		end
+	end
+end
+
 local function StartReelMode()
 	if InCombatLockdown() then
 		return
@@ -211,19 +255,42 @@ local function StopReelMode()
 	ReleaseCVars("cast")
 end
 
+local equippingPress = false -- the key went down and equipped a pole, and hasn't come up yet
+
 -- The secure cast button. Attributes are set once, out of combat, at login.
 local button = CreateFrame("Button", BUTTON_NAME, UIParent, "SecureActionButtonTemplate")
 button:RegisterForClicks("AnyUp", "AnyDown")
 button:SetAttribute("type", "spell")
-button:HookScript("PreClick", function(self)
-	-- No pole equipped: this press equips one from the bags (Gear.lua) instead of casting.
-	if not InCombatLockdown() and ns.Gear.PreClick() then
+button:HookScript("PreClick", function(self, _, down)
+	if InCombatLockdown() then
+		return
+	end
+	-- The pole can land before the key comes up: the press that equipped it stays spent.
+	local equippedOnDown = equippingPress
+	equippingPress = false
+	if equippedOnDown and not down then
 		self:SetAttribute("type", nil)
+		return
+	end
+	-- No pole equipped: this press equips one from the bags (Gear.lua) instead of casting.
+	if ns.Gear.PreClick() then
+		self:SetAttribute("type", nil)
+		equippingPress = down
+		return
+	end
+	-- A lure wanted, or one going on: this press applies it or waits, instead of casting.
+	local lure = ns.Lure.CastPress(down)
+	if lure == "wait" then
+		self:SetAttribute("type", nil)
+	elseif lure then
+		self:SetAttribute("type", "macro")
+		self:SetAttribute("macrotext", lure)
 	end
 end)
 button:HookScript("PostClick", function(self)
 	if not InCombatLockdown() then
 		self:SetAttribute("type", "spell")
+		self:SetAttribute("macrotext", nil)
 		-- The double-click override is one-shot: hand right-click back to the camera.
 		ClearOverrideBindings(clickOwner)
 	end
@@ -320,22 +387,49 @@ local function SetupSettings()
 			end
 		end
 	end
-	if CreateSettingsListSectionHeaderInitializer then
-		layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("选项"))
-	end
-
+	ns.optionSettings = {}
 	for _, opt in ipairs(OPTIONS) do
+		if opt.section and CreateSettingsListSectionHeaderInitializer then
+			layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(opt.section))
+		end
+		local default = defaults[opt.key]
+		if opt.char then
+			default = charDefaults[opt.key]
+		end
 		local setting = Settings.RegisterAddOnSetting(category, "OneCast_" .. opt.key, opt.key,
-			db, "boolean", opt.label, defaults[opt.key])
+			opt.char and OneCastCharDB or db, "boolean", opt.label, default)
 		if opt.key == "minimapButton" then
 			setting:SetValueChangedCallback(UpdateMinimapVisibility)
 		elseif opt.key == "quietOthers" then
 			setting:SetValueChangedCallback(function()
 				UpdateQuiet()
 			end)
+		elseif opt.key == "tackleBox" or opt.key == "autoLure" then
+			setting:SetValueChangedCallback(function()
+				ns.Lure.OnSettingChanged()
+			end)
 		end
 		Settings.CreateCheckbox(category, setting, opt.tooltip)
 		opt.setting = setting
+		ns.optionSettings[opt.key] = setting
+
+		if opt.key == "tackleBox" and Settings.CreateDropdown and Settings.CreateControlTextContainer then
+			local choice = Settings.RegisterAddOnSetting(category, "OneCast_lureChoice", "lureChoice",
+				OneCastCharDB, "number", "使用的诱饵", charDefaults.lureChoice)
+			choice:SetValueChangedCallback(function()
+				ns.Lure.OnSettingChanged()
+			end)
+			ns.optionSettings.lureChoice = choice
+			Settings.CreateDropdown(category, choice, function()
+				local container = Settings.CreateControlTextContainer()
+				container:Add(ns.Lure.NONE, "不使用诱饵")
+				container:Add(ns.Lure.BEST, "能用的最好诱饵")
+				for _, lure in ipairs(ns.Lure.LIST) do
+					container:Add(lure.id, string.format("%s（+%d）", ns.Lure.Name(lure), lure.bonus))
+				end
+				return container:GetData()
+			end, "工具箱、「上饵」按键与施法键使用的诱饵。选定后不会自动换成别的：用完后会不带诱饵继续钓。「能用的最好诱饵」可能消耗你最稀有的诱饵。按角色单独设置。")
+		end
 
 		if opt.key == "autoEquip" and Settings.CreateSlider and Settings.CreateSliderOptions then
 			local delay = Settings.RegisterAddOnSetting(category, "OneCast_restoreDelay", "restoreDelay",
@@ -457,6 +551,10 @@ local function SetupMinimapButton()
 		GameTooltip:AddDoubleLine(ns.DISPLAY_NAME, "v" .. ns.VERSION, nil, nil, nil, 0.6, 0.6, 0.6)
 		GameTooltip:AddLine("施放 / 收杆：" .. BoundKeysText(), 1, 1, 1)
 		GameTooltip:AddLine(ns.Stats.Summary(), 1, 1, 1)
+		local lure = ns.Lure.StatusLine()
+		if lure then
+			GameTooltip:AddLine(lure, 1, 1, 1)
+		end
 		local contest = ns.Extravaganza and ns.Extravaganza.StatusLine(GetRealZoneText())
 		if contest then
 			GameTooltip:AddLine("钓鱼大赛：" .. contest, 1, 1, 1)
@@ -508,6 +606,12 @@ events:SetScript("OnEvent", function(_, event, ...)
 			db = OneCastDB
 			db.wanted = db.wanted or {}
 			ns.db = db
+			OneCastCharDB = OneCastCharDB or {}
+			for k, v in pairs(charDefaults) do
+				if OneCastCharDB[k] == nil then
+					OneCastCharDB[k] = v
+				end
+			end
 			SetupSettings()
 			SetupMinimapButton()
 		end
@@ -528,6 +632,8 @@ events:SetScript("OnEvent", function(_, event, ...)
 		if IsFishingSpell(spellID) then
 			fishing = true
 			StartReelMode()
+			CheckBagSpace()
+			ns.Pools.OnCast()
 			ns.Stats.OnCast()
 			ns.Gear.OnCast()
 		end
@@ -581,6 +687,18 @@ SlashCmdList.ONECAST = function(msg)
 	elseif cmd == "new" or cmd == "whatsnew" then
 		ns.WhatsNew.Toggle()
 		return
+	elseif cmd == "tackle" then
+		ns.TackleBox.ToggleWindow()
+		return
+	elseif cmd == "tackle reset" then
+		ns.TackleBox.ResetPosition()
+		Print("工具箱按钮已移回初始位置。")
+		return
+	elseif cmd == "forgetpools" then
+		ns.Pools.Forget()
+		ns.Book.RefreshIfShown()
+		Print("已清除记住的鱼群点。")
+		return
 	elseif cmd:match("^scale") then
 		local percent = tonumber(cmd:match("^scale%s+(%d+)"))
 		if percent then
@@ -594,8 +712,9 @@ SlashCmdList.ONECAST = function(msg)
 	for _, opt in ipairs(OPTIONS) do
 		if opt.cmd == cmd then
 			-- Through the setting, so the panel and its callbacks stay in sync.
-			opt.setting:SetValue(not db[opt.key])
-			Print(opt.label .. "：" .. (db[opt.key] and "开" or "关"))
+			local store = opt.char and OneCastCharDB or db
+			opt.setting:SetValue(not store[opt.key])
+			Print(opt.label .. "：" .. (store[opt.key] and "开" or "关"))
 			return
 		end
 	end
@@ -603,12 +722,15 @@ SlashCmdList.ONECAST = function(msg)
 	Print("/onecast - 打开选项")
 	Print("/onecast new - 各版本更新内容")
 	Print("/onecast book - 钓鱼图鉴")
+	Print("/onecast tackle - 工具箱（/onecast tackle reset 可把按钮移回原位）")
 	Print("/onecast stats - 统计窗口（或 /onecast session|zone|lifetime|log 打开对应标签）")
 	Print("/onecast reset - 开始新会话")
 	Print("/onecast gear - 换回武器")
 	Print("/onecast scan - 用 Auctionator 估价渔获（需打开拍卖行）")
+	Print("/onecast forgetpools - 清除记住的鱼群点")
 	Print("/onecast scale 50-200 - 统计窗口缩放百分比")
 	for _, opt in ipairs(OPTIONS) do
-		Print("/onecast " .. opt.cmd .. " - " .. opt.label .. "（" .. (db[opt.key] and "开" or "关") .. "）")
+		local store = opt.char and OneCastCharDB or db
+		Print("/onecast " .. opt.cmd .. " - " .. opt.label .. "（" .. (store[opt.key] and "开" or "关") .. "）")
 	end
 end

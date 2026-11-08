@@ -1,8 +1,10 @@
 -- Fishing skill needed in each zone so that no fish get away, from Classic Era data
 -- (zone fishing level + 95). Lure and pole bonuses count towards it. Zone skill is set
 -- by the server, not the game data, and no source has published Forever's own numbers as
--- of launch (4 November 2026), so these stay Classic's until someone measures them; the
--- stats window also counts real getaways per zone, and those win over this table.
+-- of launch (4 November 2026), so these stay Classic's until someone measures them. The
+-- stats window also counts real getaways per zone, with the skill they happened at: they judge
+-- zones missing from this table, overrule ZONE_FISHING_NOTE, and overrule this table too when
+-- a fish gets away at or above your current skill.
 -- Keyed by English zone name (GetRealZoneText); other client languages show "unknown".
 
 local _, ns = ...
@@ -39,7 +41,8 @@ end
 
 -- Zones new in Forever (Riverglades, Shen'dralas, Mount Hyjal, Gilneas) have no Classic
 -- level and no published Forever one, so they're left out above: the stats window judges
--- them from your own catches and getaways.
+-- them from your own catches and getaways. The book's Zones view lists them all the same.
+ns.ZONE_FISHING_UNKNOWN = { "Riverglades", "Shen'dralas", "Mount Hyjal", "Gilneas" }
 
 -- Notes shown instead of a level, until a getaway in that zone proves them wrong.
 ns.ZONE_FISHING_NOTE = {

@@ -1,11 +1,13 @@
 # Store text with LF line endings; the game reads either, and diffs stay clean.
 * text=auto
 *.tga binary
+*.png binary
 
 # Left out of the release zip (git archive), which holds only the addon itself.
 /.github export-ignore
 /.gitignore export-ignore
 /.gitattributes export-ignore
+/assets export-ignore
 /DEVELOPMENT.md export-ignore
 /UPSTREAM.md export-ignore
 /pack.ps1 export-ignore

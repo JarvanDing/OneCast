@@ -2,8 +2,9 @@
 -- colour with a tick and your count, missing ones greyed out. Click a fish for its own
 -- spread: the game's flavour text, a summary, your catches by character and time of day,
 -- where to catch it with a map of the zone, and the recipes it's used in. The grid filters
--- by category, caught or missing, zone and a name search. Catch data comes from
--- Collection.lua and is shared by all your characters.
+-- by category, caught or missing, zone and a name search. The Zones tab lists every zone's
+-- fishing level against your skill, and clicking one filters the grid to it. Catch data comes
+-- from Collection.lua and is shared by all your characters.
 
 local ADDON, ns = ...
 
@@ -16,6 +17,10 @@ local PER_PAGE = COLS * ROWS
 local CELL_W, CELL_H = 86, 108
 local MAX_ZONES, MAX_RECIPES, MAX_CHARS = 6, 4, 4
 local MAP_W, MAP_H = 300, 128
+-- Zones view, in pixels: the height a page has for rows, and what each kind of line takes.
+local ZONES_TOP, ZONES_BOTTOM, ZONES_INTRO = 50, 36, 56
+local ZONES_HEIGHT = HEIGHT - 102 - ZONES_TOP - ZONES_BOTTOM
+local ZONE_ROW, ZONE_HEADING = 19, 28
 
 local CATEGORIES = {
 	{ key = "all", label = "全部" },
@@ -23,6 +28,7 @@ local CATEGORIES = {
 	{ key = "special", label = "特殊" },
 	{ key = "trophy", label = "奖杯" },
 	{ key = "bloated", label = "浮肿" },
+	{ key = "zones", label = "区域" },
 }
 local CAT_ORDER = { fish = 1, special = 2, trophy = 3, bloated = 4 }
 -- FishData's `when`: fish that bite only at some hours in Classic.
@@ -46,6 +52,8 @@ local INK = { 0.18, 0.10, 0.02 }
 local INK_SOFT = { 0.36, 0.25, 0.14 }
 local LEAD = "|cff7a2a00"
 local SOFT = "|cff6b5233"
+local GOOD = "|cff1f6b1f"
+local BAD = "|cffa01c1c"
 
 local frame
 -- cat, show, where (zone filter) and search pick the fish; spread is the grid's page pair;
@@ -333,9 +341,39 @@ local function DrawOverlays(box, mapID, scale, offX, offY)
 	end
 end
 
+-- Pools you've found (Pools.lua), as dots on the map, each with a dark edge to stand out.
+local POOL_DOT = 7
+
+local function PoolDot(box, n, size, r, g, b, sublevel)
+	local tex = box.poolDots[n]
+	if not tex then
+		tex = box:CreateTexture(nil, "OVERLAY", nil, sublevel)
+		box.poolDots[n] = tex
+	end
+	tex:SetColorTexture(r, g, b, 1)
+	tex:SetSize(size, size)
+	tex:Show()
+	return tex
+end
+
+local function DrawPools(box, mapID, width, height, offX, offY)
+	local n = 0
+	for _, pool in ipairs(ns.Pools.ForMap(mapID)) do
+		local x, y = offX + pool.x * width, -(offY + pool.y * height)
+		n = n + 1
+		local edge = PoolDot(box, n, POOL_DOT + 2, 0, 0, 0, 1)
+		edge:ClearAllPoints()
+		edge:SetPoint("CENTER", box, "TOPLEFT", x, y)
+		n = n + 1
+		local dot = PoolDot(box, n, POOL_DOT, 0.25, 0.7, 1, 2)
+		dot:ClearAllPoints()
+		dot:SetPoint("CENTER", box, "TOPLEFT", x, y)
+	end
+end
+
 -- Draw a zone's map art, scaled to fit the box. Returns the map ID, or nil if none.
 local function DrawMap(box, zone)
-	for _, list in ipairs({ box.tiles, box.overlays }) do
+	for _, list in ipairs({ box.tiles, box.overlays, box.poolDots }) do
 		for _, tex in ipairs(list) do
 			tex:Hide()
 		end
@@ -368,6 +406,7 @@ local function DrawMap(box, zone)
 		tile:Show()
 	end
 	DrawOverlays(box, mapID, scale, offX, offY)
+	DrawPools(box, mapID, layer.layerWidth * scale, layer.layerHeight * scale, offX, offY)
 	return mapID
 end
 
@@ -742,7 +781,9 @@ local function RenderRight(fish, info)
 	map:SetPoint("TOP", page, "TOP", 0, -y)
 	map:Show()
 	frame.mapID = DrawMap(map, state.zone)
-	frame.mapCaption:SetText(state.zone or "")
+	local pools = frame.mapID and #ns.Pools.ForMap(frame.mapID) or 0
+	frame.mapCaption:SetText((state.zone or "") .. (pools > 0
+		and string.format("  ·  %d pool%s you've found", pools, pools == 1 and "" or "s") or ""))
 	frame.openMap:SetEnabled(frame.mapID ~= nil)
 	y = y + MAP_H + 34
 
@@ -805,6 +846,180 @@ local function RenderFish()
 	return true
 end
 
+-- Zones view -----------------------------------------------------------------------------
+
+-- Every zone worth listing: those with a level, Forever's new ones, and any with known fish.
+local function ZoneGroups()
+	local set = {}
+	for zone in pairs(ns.ZONE_FISHING_SKILL or {}) do
+		set[zone] = true
+	end
+	for _, zone in ipairs(ns.ZONE_FISHING_UNKNOWN or {}) do
+		set[zone] = true
+	end
+	for _, zone in ipairs(ZoneChoices()) do
+		set[zone] = true
+	end
+	local byLevel, levels = {}, {}
+	for zone in pairs(set) do
+		local level = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone] or math.huge
+		if not byLevel[level] then
+			byLevel[level] = {}
+			levels[#levels + 1] = level
+		end
+		table.insert(byLevel[level], zone)
+	end
+	table.sort(levels)
+	local groups = {}
+	for _, level in ipairs(levels) do
+		table.sort(byLevel[level])
+		groups[#groups + 1] = { level = level ~= math.huge and level or nil, zones = byLevel[level] }
+	end
+	return groups
+end
+
+-- Lays the groups out on pages, odd pages being shorter for the intro. A heading is never
+-- left alone at the foot of a page.
+local function ZonePages(groups)
+	local pages, page, used = {}, {}, 0
+	local function Room()
+		return ZONES_HEIGHT - (#pages % 2 == 0 and ZONES_INTRO or 0)
+	end
+	local function NextPage()
+		pages[#pages + 1] = page
+		page, used = {}, 0
+	end
+	for _, group in ipairs(groups) do
+		if used + ZONE_HEADING + ZONE_ROW > Room() then
+			NextPage()
+		end
+		page[#page + 1] = { heading = group.level and (group.level .. " 钓鱼") or "等级未知" }
+		used = used + ZONE_HEADING
+		for _, zone in ipairs(group.zones) do
+			if used + ZONE_ROW > Room() then
+				NextPage()
+			end
+			page[#page + 1] = { zone = zone }
+			used = used + ZONE_ROW
+		end
+	end
+	pages[#pages + 1] = page
+	return pages
+end
+
+-- How many known fish each listed zone has, and how many of those you've caught.
+local function ZoneCounts(groups)
+	local counts = {}
+	local fishes = {}
+	for _, fish in ipairs(AllFish()) do
+		fishes[#fishes + 1] = { fish = fish, info = ns.Collection.Get(fish.id) }
+	end
+	for _, group in ipairs(groups) do
+		for _, zone in ipairs(group.zones) do
+			local count = { caught = 0, total = 0 }
+			for _, entry in ipairs(fishes) do
+				if FoundIn(entry.fish, entry.info, zone) then
+					count.total = count.total + 1
+					count.caught = count.caught + (entry.info.total > 0 and 1 or 0)
+				end
+			end
+			counts[zone] = count
+		end
+	end
+	return counts
+end
+
+-- A row's status, in ink dark enough for parchment.
+local function ZoneStatusText(status)
+	if status.kind == "ok" then
+		return GOOD .. "达标|r"
+	elseif status.kind == "short" then
+		return BAD .. "还差 " .. status.short .. "|r"
+	elseif status.kind == "getaways" then
+		return BAD .. "会脱钩|r"
+	elseif status.kind == "outgrown" then
+		return SOFT .. "曾于 " .. status.escapeSkill .. " 脱钩|r"
+	elseif status.kind == "clear" then
+		return GOOD .. "无脱钩|r"
+	elseif status.kind == "note" then
+		return GOOD .. "无最低要求|r"
+	end
+end
+
+local function RenderZoneRow(pool, zone, count, here, x, y, width)
+	local b = PoolButton(pool)
+	b:SetPoint("TOPLEFT", pool.page, "TOPLEFT", x, -y)
+	b:SetWidth(width)
+	b.bg:SetShown(zone == here)
+	b.left:SetText(zone .. (zone == here and (" " .. SOFT .. "（当前）|r") or ""))
+	b.left:SetTextColor(INK[1], INK[2], INK[3])
+	local right = {}
+	if count.total > 0 then
+		right[#right + 1] = SOFT .. count.caught .. "/" .. count.total .. " 种鱼|r"
+	end
+	right[#right + 1] = ZoneStatusText(ns.Stats.ZoneStatus(zone))
+	b.right:SetText(table.concat(right, "  ·  "))
+	b.right:SetTextColor(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3])
+	b:SetScript("OnClick", function()
+		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		Book.ShowZoneFish(zone)
+	end)
+	b:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText(zone)
+		GameTooltip:AddLine(ns.Stats.ZoneVerdict(zone), 1, 1, 1, true)
+		if count.total > 0 then
+			GameTooltip:AddLine(string.format("你已钓到此处已知 %d 种鱼中的 %d 种。", count.total, count.caught),
+				1, 1, 1, true)
+		else
+			GameTooltip:AddLine("此处尚无已知鱼类。", 0.7, 0.7, 0.7, true)
+		end
+		GameTooltip:AddLine("点击查看该区域的鱼", 0.6, 0.8, 1)
+		GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", GameTooltip_Hide)
+end
+
+local function RenderZones()
+	local groups = ZoneGroups()
+	local pages = ZonePages(groups)
+	local counts = ZoneCounts(groups)
+	local spreads = math.max(1, math.ceil(#pages / 2))
+	state.spread = math.min(state.spread, spreads)
+	local here = GetRealZoneText()
+	for p, page in ipairs(frame.pages) do
+		local pool = frame.zonePools[p]
+		ResetPool(pool)
+		local x, width = 32, math.max(pool.page:GetWidth(), 400) - 64
+		local y = ZONES_TOP
+		if p == 1 then
+			local intro = PoolString(pool, QuestFont, 13, INK_SOFT)
+			intro:SetWidth(width)
+			intro:SetText("各区域不脱钩所需的钓鱼技能（含诱饵与鱼竿加成）。"
+				.. "数据来自经典版，Forever 可能不同。点击区域可查看该处鱼类。")
+			intro:SetPoint("TOPLEFT", pool.page, "TOPLEFT", x, -y)
+			y = y + ZONES_INTRO
+		end
+		for _, entry in ipairs(pages[(state.spread - 1) * 2 + p] or {}) do
+			if entry.heading then
+				Heading(pool, entry.heading, x, y + 6, 32)
+				y = y + ZONE_HEADING
+			else
+				RenderZoneRow(pool, entry.zone, counts[entry.zone], here, x, y, width)
+				y = y + ZONE_ROW
+			end
+		end
+		page.number:SetText((state.spread - 1) * 2 + p)
+	end
+	frame.pages[1].title:SetText("各区域钓鱼等级")
+	local rank, _, modifier = ns.Stats.FishingSkill()
+	frame.pages[2].title:SetText(rank and string.format("你的钓鱼：%d%s", rank,
+		modifier > 0 and (" +" .. modifier) or "") or "")
+	frame.pageLabel:SetText(string.format("第 %d–%d 页，共 %d 页", state.spread * 2 - 1, state.spread * 2, spreads * 2))
+	frame.prev:SetEnabled(state.spread > 1)
+	frame.next:SetEnabled(state.spread < spreads)
+end
+
 -- Window ---------------------------------------------------------------------------------
 
 local function CreatePage(parent)
@@ -839,6 +1054,8 @@ local function CreatePage(parent)
 	end
 	page.detail = CreateFrame("Frame", nil, page)
 	page.detail:SetAllPoints()
+	page.zones = CreateFrame("Frame", nil, page)
+	page.zones:SetAllPoints()
 	return page
 end
 
@@ -932,6 +1149,7 @@ local function CreateWindow()
 	end
 	f.leftPool = NewPool(f.pages[1].detail)
 	f.rightPool = NewPool(f.pages[2].detail)
+	f.zonePools = { NewPool(f.pages[1].zones), NewPool(f.pages[2].zones) }
 
 	f.empty = f.pages[1].grid:CreateFontString(nil, "OVERLAY")
 	SizedFont(f.empty, QuestFont, 15)
@@ -947,7 +1165,7 @@ local function CreateWindow()
 	f.map:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
 	f.map:SetBackdropColor(0.10, 0.08, 0.05, 0.25)
 	f.map:SetBackdropBorderColor(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3], 0.8)
-	f.map.tiles, f.map.overlays = {}, {}
+	f.map.tiles, f.map.overlays, f.map.poolDots = {}, {}, {}
 	f.map.empty = f.map:CreateFontString(nil, "OVERLAY")
 	SizedFont(f.map.empty, QuestFont, 13)
 	f.map.empty:SetTextColor(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3])
@@ -1079,24 +1297,35 @@ function Book.Refresh()
 
 	state.list = state.list or Filtered()
 	local showFish = state.fishID ~= nil and RenderFish()
-	if not showFish then
+	local showZones = not showFish and state.cat == "zones"
+	if showZones then
+		RenderZones()
+	elseif not showFish then
 		RenderGrid()
 	end
 	for _, page in ipairs(frame.pages) do
-		page.grid:SetShown(not showFish)
+		page.grid:SetShown(not showFish and not showZones)
 		page.detail:SetShown(showFish)
+		page.zones:SetShown(showZones)
 		page.title:SetShown(not showFish)
 		page.number:SetShown(not showFish)
 	end
+	frame.back:SetShown(not showZones)
 	frame.back:SetText(showFish and "返回图鉴" or SHOW_LABEL[state.show])
-	frame.where:SetShown(not showFish)
+	frame.where:SetShown(not showFish and not showZones)
 	frame.where:SetText(state.where or "全部区域")
-	frame.search:SetShown(not showFish)
+	frame.search:SetShown(not showFish and not showZones)
 end
 
 local function SetWhere(zone)
 	state.where, state.spread, state.fishID = zone, 1, nil
 	Book.Refresh()
+end
+
+-- From the Zones view: every fish of that zone, whatever the category was.
+function Book.ShowZoneFish(zone)
+	state.cat = "all"
+	SetWhere(zone)
 end
 
 function Book.OpenZoneMenu(owner)
@@ -1121,7 +1350,8 @@ function Book.OpenZoneMenu(owner)
 		end
 		root:CreateDivider()
 		for _, zone in ipairs(ZoneChoices()) do
-			Radio(zone, zone)
+			local level = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone]
+			Radio(level and string.format("%s (%d)", zone, level) or zone, zone)
 		end
 		if root.SetScrollMode then
 			root:SetScrollMode(400)
