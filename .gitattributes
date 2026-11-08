@@ -7,4 +7,6 @@
 /.gitignore export-ignore
 /.gitattributes export-ignore
 /DEVELOPMENT.md export-ignore
+/UPSTREAM.md export-ignore
+/pack.ps1 export-ignore
 /AutoFisher export-ignore
