@@ -39,6 +39,7 @@ local VIEWS = {
 
 local charDB
 local awaitingLoot = false
+local FULL_REDRAW_SECONDS = 30 -- the open session tab redraws in full this often
 local CLEAN_CATCHES = 10 -- catches in a row with no getaway that clear a zone's getaways
 local castLured = "without" -- which of charDB.lureRates this cast counts towards
 local castZone, castSpot -- where the line went out, for the catch it brings in
@@ -221,9 +222,11 @@ local function Coins(copper)
 	return format and format(math.floor(copper)) or string.format("%.2fg", copper / 10000)
 end
 
+local itemRequests = {} -- itemID -> true while loading, false if it can't be loaded
 local function VendorPrice(itemID)
 	local sellPrice = select(11, C_Item.GetItemInfo(itemID))
-	if sellPrice == nil and C_Item.RequestLoadItemDataByID then
+	if sellPrice == nil and C_Item.RequestLoadItemDataByID and itemRequests[itemID] == nil then
+		itemRequests[itemID] = true
 		C_Item.RequestLoadItemDataByID(itemID)
 	end
 	return sellPrice
@@ -641,6 +644,10 @@ end
 
 -- Returns a view's section title, summary pairs, item rows, list title and empty-list text.
 -- A row is { id, name, icon, quality, right } where `right` is the right-hand text.
+local function SessionTitle(s)
+	return "会话  " .. FormatDuration(s.start and GetServerTime() - s.start or 0)
+end
+
 local function BuildView(view)
 	local zone = CurrentZone()
 	if view == "zone" then
@@ -690,7 +697,7 @@ local function BuildView(view)
 	if contest then
 		stats[#stats + 1] = { "钓鱼大赛", contest }
 	end
-	return "会话  " .. FormatDuration(s.start and GetServerTime() - s.start or 0), stats,
+	return SessionTitle(s), stats,
 		CountRows(SortedItems(s.items)), "渔获", "尚未钓到任何东西。"
 end
 
@@ -1278,8 +1285,49 @@ local function IconButton(parent, art, tooltip, onClick)
 	return b
 end
 
--- The window's building blocks, shared with the tackle box so the two always match.
+-- Font object, at a given size. The font comes from the object, not the string: a reused string
+-- can keep the font it was last given, which would put a heading's font on body text.
+local function SizedFont(fs, fontObject, size)
+	fs:SetFontObject(fontObject)
+	local path, _, flags = fontObject:GetFont()
+	if path then
+		fs:SetFont(path, size, flags)
+	end
+end
+
+-- Closing the options goes back to the game menu, which first hides everything in
+-- UISpecialFrames, as Escape does. So windows named here step off that list as the options
+-- close, and back on the next frame: they stay open, and Escape still closes them.
+local keepOpen = {}
+
+local function KeepOpenThroughOptions(frameName)
+	keepOpen[frameName] = true
+end
+
+if EventRegistry then
+	EventRegistry:RegisterCallback("SettingsPanel.OnHide", function()
+		local removed = {}
+		for i = #UISpecialFrames, 1, -1 do
+			if keepOpen[UISpecialFrames[i]] then
+				removed[#removed + 1] = table.remove(UISpecialFrames, i)
+			end
+		end
+		if #removed > 0 then
+			C_Timer.After(0, function()
+				for _, name in ipairs(removed) do
+					tinsert(UISpecialFrames, name)
+				end
+			end)
+		end
+	end, keepOpen)
+end
+
+-- The window's building blocks, shared by every window so they always match.
 ns.UI = {
+	KeepOpenThroughOptions = KeepOpenThroughOptions,
+	TryCreate = TryCreate,
+	HasAtlas = HasAtlas,
+	SizedFont = SizedFont,
 	CreateShell = CreateShell,
 	SectionHeader = SectionHeader,
 	RowBackground = RowBackground,
@@ -1365,6 +1413,7 @@ local function CreateWindow()
 		f:SetPoint("CENTER")
 	end
 	tinsert(UISpecialFrames, f:GetName()) -- Escape closes it
+	KeepOpenThroughOptions(f:GetName())
 	if f.CloseButton then
 		f.CloseButton:HookScript("OnClick", function()
 			dismissed = true
@@ -1466,12 +1515,21 @@ local function CreateWindow()
 
 	-- Keep the session's elapsed time ticking. The other tabs change only on events.
 	local elapsed = 0
+	-- The session clock ticks every second. Only its title changes that often: the rest, which
+	-- prices every item, redraws on events and now and then for the Extravaganza countdown.
+	local sinceFull = 0
 	f:SetScript("OnUpdate", function(_, dt)
 		elapsed = elapsed + dt
 		if elapsed >= 1 then
 			elapsed = 0
 			if (charDB.view or "session") == "session" then
-				Stats.Refresh()
+				sinceFull = sinceFull + 1
+				if sinceFull >= FULL_REDRAW_SECONDS then
+					sinceFull = 0
+					Stats.Refresh()
+				else
+					f.summaryHeader.text:SetText(SessionTitle(Session()))
+				end
 			end
 		end
 	end)
@@ -1627,6 +1685,8 @@ events:RegisterEvent("LOOT_READY")
 events:RegisterEvent("UI_ERROR_MESSAGE")
 events:RegisterEvent("ITEM_DATA_LOAD_RESULT")
 events:RegisterEvent("SKILL_LINES_CHANGED")
+events:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+events:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 events:SetScript("OnEvent", function(_, event, ...)
 	if event == "ADDON_LOADED" then
 		if ... == ADDON then
@@ -1638,6 +1698,7 @@ events:SetScript("OnEvent", function(_, event, ...)
 			charDB.lureRates = charDB.lureRates or { with = { time = 0, catches = 0 }, without = { time = 0, catches = 0 } }
 			charDB.log = charDB.log or {}
 			charDB.skill = charDB.skill or {}
+			ns.Lure.OnChange(ScheduleRefresh) -- a lure changes the zone verdict
 		end
 	elseif event == "LOOT_READY" then
 		OnLootReady(...)
@@ -1646,8 +1707,19 @@ events:SetScript("OnEvent", function(_, event, ...)
 		if ERR_FISH_ESCAPED and message == ERR_FISH_ESCAPED then
 			OnFishEscaped()
 		end
+	elseif event == "ITEM_DATA_LOAD_RESULT" then
+		-- Every addon's items report here: only ours matter, and a failed one isn't retried.
+		local itemID, success = ...
+		if itemRequests[itemID] then
+			if success then
+				itemRequests[itemID] = nil
+				ScheduleRefresh()
+			else
+				itemRequests[itemID] = false
+			end
+		end
 	else
-		-- Item prices finished loading, or the skill changed: redraw.
+		-- The skill, zone or gear changed: redraw.
 		if event == "SKILL_LINES_CHANGED" and charDB then
 			CheckSkill()
 		end

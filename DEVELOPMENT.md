@@ -7,7 +7,7 @@
 Forever 使用现代（Midnight 时代）插件 API，但缺少 `loadstring_untainted`，因此 SecureHandler 片段无法使用。OneCast 的规避方式如下：
 
 1. `OneCastButton` 是一个 `SecureActionButtonTemplate` 按钮，`type=spell`，`spell=<钓鱼>`（由法术 ID 7620 解析名称，失败则回退到 131474）。
-2. 在钓鱼的 `UNIT_SPELLCAST_CHANNEL_START` 时，将该按钮绑定的按键覆盖为 `INTERACTTARGET`，并设置 `SoftTargetInteract=3`、`SoftTargetInteractArc=2` 与 `SoftTargetInteractRange=30`，使浮漂成为软交互目标。可选地，在施法期间将音效音量提到最大。
+2. 在钓鱼的 `UNIT_SPELLCAST_CHANNEL_START` 时，将该按钮绑定的按键覆盖为 `INTERACTTARGET`，并设置 `SoftTargetInteract=3`、`SoftTargetInteractArc=2` 与 `SoftTargetInteractRange=30`，使浮漂成为软交互目标。开启「标记自己的浮漂」（默认关闭）时，还会设置 `SoftTargetIconGameObject` 与 `SoftTargetIconInteract`，在浮漂上显示游戏的装备图标。可选地，在施法期间将音效音量提到最大。
 3. 在 `UNIT_SPELLCAST_CHANNEL_STOP` 时清除覆盖；每个 CVar 仅在仍保持 OneCast 写入的值时才还原。
 4. `PLAYER_REGEN_DISABLED` 在进入战斗锁定前卸下所有覆盖；`PLAYER_LOGOUT` 还原 CVar，避免被持久化保存。
 5. 开启「压低其他声音」时，装备鱼竿期间（在 `PLAYER_EQUIPMENT_CHANGED` 上检查）会将 `Sound_MusicVolume`、`Sound_AmbienceVolume` 与 `Sound_DialogVolume` 降到各自原值的 `quietLevel` 百分比。它们与每次施法的 CVar 属于不同的租约组：收竿或开战不会把它们还回去，只有卸下鱼竿才会。
@@ -26,6 +26,7 @@ Forever 使用现代（Midnight 时代）插件 API，但缺少 `loadstring_unta
 | `Stats.lua` | 会话、区域、生涯与日志统计，以及统计窗口 |
 | `Prices.lua` | 将渔获交给 Auctionator 搜索 |
 | `ZoneLevels.lua` | 区域钓鱼等级（经典旧世数据）以及 Forever 区域备注 |
+| `ZoneNames.lua` | 各区域的 Area ID，在非英文客户端上翻译区域表 |
 | `FishData.lua` | 图鉴中的全部鱼类：分类、区域（最常见优先）与配方 |
 | `Collection.lua` | 账号范围的各角色渔获记录，从各角色统计同步 |
 | `Extravaganza.lua` | 荆棘谷钓鱼大赛：赛程（经典版）、美味鱼计数与提醒 |
@@ -45,7 +46,7 @@ Forever 使用现代（Midnight 时代）插件 API，但缺少 `loadstring_unta
 - **随抛竿打开：** 用窗口的 X 或小地图按钮关闭后会保持关闭，直到连续 2 分钟不钓鱼；Esc、Alt+Z 与过场动画不算关闭。
 - **钓点、时段与技能提升：** 各区域总计按子区域（抛竿时的 `GetSubZoneText`）记录 `spots`。生涯物品记录 `hours`——按服务器小时（`GetGameTime`）的渔获，图鉴会复制用于时段显示。`OneCastCharDB.skill` 统计自上次技能提升以来的渔获次数；下一点估算沿用经典版经验法则（到 75 点每点 1 次渔获，之后每 25 点多 1 次）。
 - **会话摘要** 在 `ACTIVE_GAP`（2 分钟）内无抛竿后打印，每个有新渔获的时段只打印一次。
-- **区域等级** 以英文区域名（`GetRealZoneText`）为键。区域页统计真实脱钩（`ERR_FISH_ESCAPED`），没有数据的区域据此判断。`Stats.ZoneStatus` 保存该判定，统计窗口与图鉴区域页共用。
+- **区域等级** 以英文区域名为键，`ZoneNames.lua` 在加载时按 Area ID（`C_Map.GetAreaInfo`）换成客户端语言，以匹配任意语言下的 `GetRealZoneText`。新增区域需在该文件补 ID。区域页统计真实脱钩（`ERR_FISH_ESCAPED`），没有数据的区域据此判断。`Stats.ZoneStatus` 保存该判定，统计窗口与图鉴区域页共用。
 - **拍卖价格** 来自 Auctionator（`GetAuctionPriceByItemID`）或 TSM（`dbmarket`）。扫描会把所有渔获交给 Auctionator 的 `MultiSearchExact`。
 - **想要的物品** 为账号范围（`OneCastDB.wanted`）；统计为角色范围（`OneCastCharDB`）。
 - **图鉴：** `OneCastDB.collection.items[itemID].byChar[character]` 保存各角色的数量与区域，在登录时及每次渔获后从该角色的 `OneCastCharDB` 复制，使安装前的渔获也计入且不重复计数。钓到但不在 `FishData.lua` 中的「肉类」贸易品会作为新发现的鱼加入图鉴。

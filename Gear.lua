@@ -21,6 +21,8 @@ local Equip = (C_Item and C_Item.EquipItemByName) or EquipItemByName
 
 local charDB
 local pendingUntil = 0
+local pendingPole            -- item ID of the pole last asked for
+local failedPoles = {}       -- poles the game wouldn't equip this session (skill too low, say)
 local restoring = false
 local restoreTimer
 
@@ -44,11 +46,12 @@ end
 -- Best pole in the bags: the one used last time if it's there, else the highest item level.
 local function FindPoleInBags()
 	local best, bestScore
+	local lastID = charDB.lastPole and C_Item.GetItemInfoInstant(charDB.lastPole)
 	for bag = 0, NUM_BAG_SLOTS or 4 do
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
 			local link = C_Container.GetContainerItemLink(bag, slot)
-			if link and Gear.IsPole(link) then
-				local score = ItemLevel(link) + (link == charDB.lastPole and 10000 or 0)
+			if link and Gear.IsPole(link) and not failedPoles[C_Item.GetItemInfoInstant(link)] then
+				local score = ItemLevel(link) + (lastID and C_Item.GetItemInfoInstant(link) == lastID and 10000 or 0)
 				if not bestScore or score > bestScore then
 					best, bestScore = link, score
 				end
@@ -92,6 +95,10 @@ function Gear.PreClick()
 	if GetTime() < pendingUntil then
 		return not ns.HasFishingPole()
 	end
+	if pendingPole and not ns.HasFishingPole() then
+		failedPoles[pendingPole] = true
+	end
+	pendingPole = nil
 	if ns.HasFishingPole() then
 		return false
 	end
@@ -111,6 +118,7 @@ function Gear.PreClick()
 	charDB.lastPole = pole
 	Equip(pole, MAIN)
 	pendingUntil = GetTime() + EQUIP_PENDING
+	pendingPole = C_Item.GetItemInfoInstant(pole)
 	ns.Print("已装备 " .. pole .. "。再按一次即可施放。")
 	return true
 end
@@ -200,8 +208,16 @@ function Gear.OnFishingStopped()
 end
 
 function Gear.OnCombatStart()
+	if not ns.db.restoreOnCombat then
+		-- Nothing else will put them back, and a line that was out never reports coming in.
+		-- A timer that fires during the fight waits for it to end.
+		if not restoreTimer then
+			Gear.OnFishingStopped()
+		end
+		return
+	end
 	CancelRestoreTimer()
-	if ns.db.restoreOnCombat and Gear.HasSaved() then
+	if Gear.HasSaved() then
 		-- Last moment before lockdown; anything left is finished when combat ends.
 		restoring = true
 		local saved = charDB.savedWeapons
@@ -213,6 +229,9 @@ end
 
 -- Global for the "Re-equip weapons" key binding.
 function OneCast_RestoreWeapons()
+	if InCombatLockdown() and Gear.HasSaved() then
+		ns.Print("战斗结束后会换回武器。")
+	end
 	if not Gear.Restore() then
 		ns.Print("没有可换回的已存武器。")
 	end

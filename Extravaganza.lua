@@ -95,7 +95,7 @@ end
 -- bags change rather than at the catch, since the fish isn't in the bags until it's looted.
 local announcedGoal = false
 local function CheckGoal()
-	if announcedGoal or not X.Status() or X.TastyfishInBags() < X.GOAL then
+	if announcedGoal or not (ns.db and ns.db.extravaganza) or not X.Status() or X.TastyfishInBags() < X.GOAL then
 		return
 	end
 	announcedGoal = true
@@ -111,7 +111,7 @@ local bagWatch = CreateFrame("Frame")
 bagWatch:SetScript("OnEvent", CheckGoal)
 function X.OnCatch(loot)
 	for _, l in ipairs(loot) do
-		if l.id == X.TASTYFISH and not announcedGoal and X.Status() then
+		if l.id == X.TASTYFISH and ns.db.extravaganza and not announcedGoal and X.Status() then
 			bagWatch:RegisterEvent("BAG_UPDATE_DELAYED")
 		end
 	end
@@ -121,7 +121,14 @@ end
 local wasRunning, remindedSoon
 local function Tick()
 	local running, seconds = X.Status()
-	if running == nil or not (ns.db and ns.db.extravaganza) then
+	if running == nil then
+		return
+	end
+	if not running then
+		announcedGoal = false
+		bagWatch:UnregisterEvent("BAG_UPDATE_DELAYED")
+	end
+	if not (ns.db and ns.db.extravaganza) then
 		return
 	end
 	if running and not wasRunning then
@@ -133,10 +140,6 @@ local function Tick()
 	end
 	if not running and seconds > REMIND_BEFORE then
 		remindedSoon = false
-	end
-	if not running then
-		announcedGoal = false
-		bagWatch:UnregisterEvent("BAG_UPDATE_DELAYED")
 	end
 	wasRunning = running
 end

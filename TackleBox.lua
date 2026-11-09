@@ -337,6 +337,7 @@ local function CreateWindow()
 		CharDB().tackleWindowPoint = { point, relPoint, x, y }
 	end)
 	tinsert(UISpecialFrames, f:GetName())
+	UI.KeepOpenThroughOptions(f:GetName())
 
 	-- Where the stats window has its tabs: right of the portrait, above the inset.
 	f.status = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -440,11 +441,16 @@ function TackleBox.ToggleWindow()
 	window:SetShown(not window:IsShown())
 end
 
+-- False if it can't be done now: the button can't move during a fight.
 function TackleBox.ResetPosition()
+	if InCombatLockdown() then
+		return false
+	end
 	CharDB().tacklePoint = nil
-	if button and not InCombatLockdown() then
+	if button then
 		PlaceButton()
 	end
+	return true
 end
 
 -- Global for the "Tackle box" key binding.
@@ -457,16 +463,22 @@ Lure.OnChange(function()
 	RedrawWindow()
 end)
 
--- Made at login, out of combat, and never again: a secure frame can't be created in a fight.
+-- Made once, out of combat: a reload during a fight waits for it to end.
+local function BuildButton()
+	if not button and not InCombatLockdown() then
+		button = CreateButton()
+		PlaceButton()
+	end
+end
+
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_LOGIN")
 events:RegisterEvent("PLAYER_REGEN_DISABLED")
 events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:SetScript("OnEvent", function(_, event)
 	if event == "PLAYER_LOGIN" then
-		button = CreateButton()
-		PlaceButton()
 		inCombat = InCombatLockdown()
+		BuildButton()
 		UpdateVisibility()
 	elseif event == "PLAYER_REGEN_DISABLED" then
 		-- The last moment before lockdown.
@@ -476,6 +488,7 @@ events:SetScript("OnEvent", function(_, event)
 		end
 	else
 		inCombat = false
+		BuildButton()
 		UpdateVisibility()
 	end
 end)

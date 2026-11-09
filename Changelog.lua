@@ -6,6 +6,36 @@ local _, ns = ...
 
 ns.CHANGELOG = {
 	{
+		version = "0.5.2",
+		date = "8 November 2026",
+		sections = {
+			{ "Fixed", {
+				{ "Searching the options.", "OneCast's buttons and key entry no longer appear in the game's settings search, which could raise an error. They're still on OneCast's own options page, and the key is still on the Keybindings page. Thanks to onkl for the report and the fix!" },
+			} },
+		},
+	},
+	{
+		version = "0.5.1",
+		date = "8 November 2026",
+		sections = {
+			{ "New", {
+				{ "Mark your bobber.", "An option, off by default: while your line is out, the game's gear icon shows over your bobber, so you can tell your splash from other people's. Turn on Mark your bobber in the options. Thanks to insertnamehere255 for the idea!" },
+			} },
+			{ "Fixed", {
+				{ "Zones in every language.", "Fishing levels, fish locations and the Fishing Extravaganza now work on non-English clients, using the game's own zone names." },
+				{ "Lures and reeling in.", "Letting go of the key after reeling in could count as a failed lure, or recast if your keys act on release." },
+				{ "Weapons after a fight.", "With Re-equip weapons when combat starts off, your weapons now still go back after your usual break." },
+				{ "Your usual pole.", "The cast key keeps picking the pole you used last, even after you level up." },
+				{ "Extravaganza reminders off.", "Turning them off now also stops the raid warning at 40 Tastyfish." },
+				{ "Lighter stats window.", "The open Session tab no longer re-prices your whole catch every second." },
+				{ "Closing the options.", "OneCast windows now stay open when you close the options." },
+				{ "A fight with your line out.", "If your line is still out when combat ends, your key reels it in again instead of recasting." },
+				{ "Poles you can't use.", "If the game won't equip a pole, the cast key moves on to your next one." },
+				{ "Fonts on fish pages.", "Moving between fish pages could put a heading's font on ordinary text, and the other way round." },
+			} },
+		},
+	},
+	{
 		version = "0.5.0",
 		date = "2026年11月7日",
 		sections = {

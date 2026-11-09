@@ -4,7 +4,7 @@
 ## Notes: 魔兽世界 Forever 一键钓鱼：同一按键（或双击右键）施放并收杆。
 ## Notes-zhCN: 魔兽世界 Forever 一键钓鱼：同一按键（或双击右键）施放并收杆。
 ## Author: rynmon
-## Version: 0.5.0
+## Version: 0.5.2
 ## SavedVariables: OneCastDB
 ## SavedVariablesPerCharacter: OneCastCharDB
 ## IconTexture: Interface\Icons\INV_Misc_Fish_68
@@ -17,6 +17,7 @@ FishData.lua
 Collection.lua
 MapOverlays.lua
 Extravaganza.lua
+ZoneNames.lua
 Stats.lua
 Gear.lua
 Lure.lua

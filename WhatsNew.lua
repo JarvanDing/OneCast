@@ -23,16 +23,7 @@ local LEAD = "|cff7a2a00" -- the bold-ish opening phrase of each bullet
 local frame
 local selected = 1
 
-local function TryCreate(frameType, name, parent, template)
-	local ok, f = pcall(CreateFrame, frameType, name, parent, template)
-	if ok then
-		return f
-	end
-end
-
-local function HasAtlas(atlas)
-	return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas) ~= nil
-end
+local TryCreate, HasAtlas, SizedFont = ns.UI.TryCreate, ns.UI.HasAtlas, ns.UI.SizedFont
 
 local function CountChanges(release)
 	local n = 0
@@ -62,14 +53,6 @@ local function Inset(parent)
 end
 
 -- Font of a font object at another size, for the page's big headings.
-local function SizedFont(fs, fontObject, size)
-	fs:SetFontObject(fontObject)
-	local path, _, flags = fs:GetFont()
-	if path then
-		fs:SetFont(path, size, flags)
-	end
-end
-
 -- Page --------------------------------------------------------------------------------
 
 local pool = { strings = {}, textures = {}, used = { strings = 0, textures = 0 } }
@@ -233,6 +216,7 @@ local function CreateWindow()
 	f:SetScript("OnDragStart", f.StartMoving)
 	f:SetScript("OnDragStop", f.StopMovingOrSizing)
 	tinsert(UISpecialFrames, f:GetName())
+	ns.UI.KeepOpenThroughOptions(f:GetName())
 
 	-- Top line: "Versions: N" box and the change count.
 	local versions = CreateFrame("Frame", nil, f, "BackdropTemplate")

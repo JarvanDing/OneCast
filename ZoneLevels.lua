@@ -5,9 +5,8 @@
 -- stats window also counts real getaways per zone, with the skill they happened at: they judge
 -- zones missing from this table, overrule ZONE_FISHING_NOTE, and overrule this table too when
 -- a fish gets away at or above your current skill.
---
--- Data keys stay English (FishData / Classic sources). ZONE_LABEL maps them for display;
--- ZONE_ALIAS maps Chinese GetRealZoneText() names back so skill lookups work on zhCN.
+-- Keyed by English zone name; ZoneNames.lua swaps them for the client's own at load.
+-- ZONE_LABEL / ZONE_ALIAS keep Chinese display names and map GetRealZoneText() back for lookups.
 
 local _, ns = ...
 
