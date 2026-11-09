@@ -17,12 +17,15 @@ namespace AutoFisher.Fishing
 
 	public sealed class FishingSession : IDisposable
 	{
+		private const int GameMissingStopMs = 3000;
+
 		private readonly SplashDetector _detector;
 		private readonly Timer _timer;
 		private readonly Random _rng = new Random();
 		private AppSettings _settings;
 		private FishingState _state = FishingState.Stopped;
 		private DateTime _phaseUntilUtc = DateTime.MinValue;
+		private DateTime? _gameMissingSinceUtc;
 		private int _armSecondsLeft;
 		private bool _keySentInPhase;
 
@@ -66,6 +69,7 @@ namespace AutoFisher.Fishing
 
 			_detector.ResetBaseline();
 			_detector.Disarm();
+			_gameMissingSinceUtc = null;
 			_armSecondsLeft = Math.Max(0, _settings.StartDelaySeconds);
 			if (_armSecondsLeft > 0)
 			{
@@ -109,6 +113,11 @@ namespace AutoFisher.Fishing
 		private void OnTick(object sender, EventArgs e)
 		{
 			if (!IsRunning)
+			{
+				return;
+			}
+
+			if (!EnsureGamePresentOrStop())
 			{
 				return;
 			}
@@ -198,14 +207,47 @@ namespace AutoFisher.Fishing
 			_phaseUntilUtc = DateTime.UtcNow.AddMilliseconds(_settings.LootSettleMs);
 		}
 
+		/// <summary>
+		/// Stops after the game window stays missing for <see cref="GameMissingStopMs"/>.
+		/// Covers client close / crash / many disconnect cases where the window disappears.
+		/// </summary>
+		private bool EnsureGamePresentOrStop()
+		{
+			var hwnd = ForegroundChecker.FindGameWindow(_settings.GameTitleContains);
+			if (hwnd != IntPtr.Zero)
+			{
+				_gameMissingSinceUtc = null;
+				return true;
+			}
+
+			if (_gameMissingSinceUtc == null)
+			{
+				_gameMissingSinceUtc = DateTime.UtcNow;
+				EmitLog("未找到游戏窗口（标题需含: " + _settings.GameTitleContains + "），持续丢失将自动停止…");
+				return true;
+			}
+
+			double missingMs = (DateTime.UtcNow - _gameMissingSinceUtc.Value).TotalMilliseconds;
+			if (missingMs >= GameMissingStopMs)
+			{
+				Stop("游戏窗口消失，已自动停止（可能已掉线或关闭）");
+				return false;
+			}
+
+			return true;
+		}
+
 		private bool TryPress(string action)
 		{
+			if (!EnsureGamePresentOrStop())
+			{
+				return false;
+			}
+
 			var hwnd = ForegroundChecker.FindGameWindow(_settings.GameTitleContains);
 			if (hwnd == IntPtr.Zero)
 			{
-				EmitLog(action + "：未找到游戏窗口（标题需含: " + _settings.GameTitleContains + "），稍后重试");
-				// Keep running — retry on next cast/timeout cycle.
-				_phaseUntilUtc = DateTime.UtcNow.AddMilliseconds(1500);
+				_phaseUntilUtc = DateTime.UtcNow.AddMilliseconds(500);
 				return false;
 			}
 

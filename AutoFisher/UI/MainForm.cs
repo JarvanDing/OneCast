@@ -165,7 +165,7 @@ namespace AutoFisher.UI
 			{
 				AutoSize = true,
 				MaximumSize = new Size(540, 0),
-				Text = "每次按键前会自动聚焦游戏。OneCast 绑 F8，开「提升音效」+「压低其他声音」。F9 启停。可先点「测试 F8」。"
+				Text = "每次按键前会自动聚焦游戏。游戏窗口消失约 3 秒会自动停止。OneCast 绑 F8，开「提升音效」+「压低其他声音」。F9 启停。可先点「测试 F8」。"
 			};
 			root.Controls.Add(_hint, 0, 0);
 
