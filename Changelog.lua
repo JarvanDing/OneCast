@@ -6,6 +6,15 @@ local _, ns = ...
 
 ns.CHANGELOG = {
 	{
+		version = "0.7.3",
+		date = "10 November 2026",
+		sections = {
+			{ "Fixed", {
+				{ "An error at login.", "OneCast asked the game for an event it no longer has, which showed an error and stopped the camp buff tracking from starting. It now uses the event's current name. Thanks to meleegod for reporting it with the full error!" },
+			} },
+		},
+	},
+	{
 		version = "0.7.2",
 		date = "10 November 2026",
 		sections = {

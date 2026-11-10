@@ -169,6 +169,27 @@ local function Print(msg)
 end
 ns.Print = Print
 
+-- Register the first of `names` the game knows, for an event whose name has changed between
+-- game versions. Registering an unknown event is an error that stops the rest of the file
+-- loading, so each is checked first. Returns the name registered, or nil.
+function ns.RegisterAnyEvent(frame, names)
+	for _, name in ipairs(names) do
+		local valid
+		if C_EventUtils and C_EventUtils.IsEventValid then
+			valid = C_EventUtils.IsEventValid(name)
+		else
+			valid = pcall(frame.RegisterEvent, frame, name)
+			if valid then
+				return name
+			end
+		end
+		if valid then
+			frame:RegisterEvent(name)
+			return name
+		end
+	end
+end
+
 -- How many of an item are in the bags.
 function ns.ItemCount(item)
 	return (C_Item.GetItemCount or GetItemCount)(item) or 0
