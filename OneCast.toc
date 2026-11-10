@@ -2,7 +2,7 @@
 ## Title: OneCast
 ## Notes: One-button fishing for WoW Forever: the same key (or a double right-click) casts and reels.
 ## Author: rynmon
-## Version: 0.7.3
+## Version: 0.7.4
 ## SavedVariables: OneCastDB
 ## SavedVariablesPerCharacter: OneCastCharDB
 ## IconTexture: Interface\Icons\INV_Misc_Fish_68

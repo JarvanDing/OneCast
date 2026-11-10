@@ -6,6 +6,17 @@ local _, ns = ...
 
 ns.CHANGELOG = {
 	{
+		version = "0.7.4",
+		date = "10 November 2026",
+		sections = {
+			{ "Reported by pysznyhanys", {
+				{ "Raw Sagefish in Silverpine Forest.", "It can be caught at Lordamere Lake, so the collection now lists it there." },
+				{ "Orgrimmar confirmed at 75.", "Fish got away below 75 Fishing skill, and not once in 178 catches at 75 or above." },
+				{ "Thank you!", "This was OneCast's first data report." },
+			} },
+		},
+	},
+	{
 		version = "0.7.3",
 		date = "10 November 2026",
 		sections = {

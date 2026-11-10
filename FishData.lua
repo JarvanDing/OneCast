@@ -270,6 +270,7 @@ ns.FISH = {
 	},
 	{ id = 21071, name = "Raw Sagefish", cat = "fish",
 		zones = { "Hillsbrad Foothills", "Loch Modan", "Stonetalon Mountains" },
+		more = { { "Silverpine Forest", "reported" } },
 		recipes = { { 25704, "Smoked Sagefish", "Cooking", 80 } },
 	},
 	{ id = 6303, name = "Raw Slitherskin Mackerel", cat = "fish",
