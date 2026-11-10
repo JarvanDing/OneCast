@@ -45,6 +45,7 @@ local defaults = {
 	lureVendorHint = true,
 	rememberPools = true,
 	bobberMarker = false,
+	theme = "forever",
 }
 -- Per character: skill and bags differ, and lures get used up.
 local charDefaults = {
@@ -52,9 +53,9 @@ local charDefaults = {
 	lureChoice = 0, -- Lure.NONE
 }
 
--- Options shown in the settings panel and toggled by /onecast <cmd>, in display order.
+-- Checkboxes in the settings panel, each also toggled by /onecast <cmd>.
 local OPTIONS = {
-	{ section = "施放", cmd = "doubleclick", key = "doubleClick", label = "双击右键施放钓鱼",
+	{ cmd = "doubleclick", key = "doubleClick", label = "双击右键施放钓鱼",
 		tooltip = "装备鱼竿时，双击右键世界即可施放；右键浮漂收杆。" },
 	{ cmd = "softinteract", key = "softInteract", label = "钓鱼时启用软交互",
 		tooltip = "鱼线抛出后，将浮漂设为软交互目标，以便施法键直接收杆。" },
@@ -62,36 +63,63 @@ local OPTIONS = {
 		tooltip = "鱼线抛出后，在自己的浮漂上显示游戏的装备图标，方便区分别人的水花。鱼咬钩时无法显示：游戏不会把咬钩告诉插件。" },
 	{ cmd = "bagwarning", key = "bagWarning", label = "背包满时警告",
 		tooltip = "背包没有空位时抛竿会警告一次，以免渔获装不下。" },
-	{ section = "声音", cmd = "sound", key = "soundBoost", label = "钓鱼时放大水花音效",
+	{ cmd = "sound", key = "soundBoost", label = "钓鱼时放大水花音效",
 		tooltip = "鱼线抛出后，将音效调至最大，方便听清水花声。" },
 	{ cmd = "quiet", key = "quietOthers", label = "钓鱼时压低其他声音",
 		tooltip = "装备鱼竿时，降低（或关闭）音乐、环境音和对白，突出水花声。换回武器后，或你手动改音量后，会恢复为你自己的音量。" },
-	{ section = "鱼竿与武器", cmd = "autoequip", key = "autoEquip", label = "自动装备鱼竿",
+	{ cmd = "autoequip", key = "autoEquip", label = "自动装备鱼竿",
 		tooltip = "未装备鱼竿时，施法键先从背包装备最好的鱼竿（再按一次才施放）。原武器会记住，之后自动换回。" },
 	{ cmd = "combatgear", key = "restoreOnCombat", label = "进入战斗时换回武器",
 		tooltip = "一进入战斗就尝试换回武器。战斗中被游戏拦住的换装，会在脱战后补完。" },
-	{ section = "工具箱", cmd = "tacklebox", key = "tackleBox", label = "显示工具箱按钮",
+	{ cmd = "tacklebox", key = "tackleBox", label = "显示工具箱按钮",
 		tooltip = "主手装备鱼竿时显示小按钮，含诱饵、数量与剩余时间。左键上饵，右键打开设置，Shift-拖动可移动。" },
 	{ cmd = "autolure", key = "autoLure", char = true, label = "用施法键上饵",
 		tooltip = "鱼竿上没有诱饵时，施法键先使用你选定的诱饵，再按一次才抛竿。会消耗诱饵，因此默认关闭。按角色单独设置。" },
 	{ cmd = "lurevendor", key = "lureVendorHint", label = "商人处提示诱饵不足",
 		tooltip = "在售卖你选定诱饵的商人处，若持有少于 5 个会在聊天提示。买不买由你决定。" },
-	{ section = "统计窗口", cmd = "autoopen", key = "openOnCast", label = "施放时打开统计窗口",
+	{ cmd = "autoopen", key = "openOnCast", label = "施放时打开统计窗口",
 		tooltip = "开始钓鱼时打开统计窗口。若用关闭按钮或小地图按钮关掉，会保持关闭，直到你暂停钓鱼约 2 分钟。" },
 	{ cmd = "summary", key = "sessionSummary", label = "聊天中显示会话摘要",
 		tooltip = "暂停钓鱼约 2 分钟后，在聊天汇总本次：渔获、每小时鱼数、商人售价、技能提升和图鉴新鱼。" },
 	{ cmd = "autoloot", key = "autoLootHint", label = "提示开启自动拾取",
 		tooltip = "钓到东西时若未开启自动拾取，每次登录最多提示一次，方便渔获直接进包。" },
-	{ section = "图鉴与提醒", cmd = "alert", key = "alert", label = "稀有渔获提醒",
+	{ cmd = "alert", key = "alert", label = "稀有渔获提醒",
 		tooltip = "钓到达到提醒品质或以上的物品，或你标记为想要的物品时，播放音效并闪现团队警告（在统计窗口右键可标记想要）。" },
 	{ cmd = "pools", key = "rememberPools", label = "记住钓鱼鱼群点",
 		tooltip = "装备鱼竿时将鼠标悬停在鱼群上并抛竿，会把钓点标在图鉴的区域地图上。鱼群会移动，标记表示曾经出现过的位置。目前仅识别英文鱼群名。/onecast forgetpools 可清除。" },
 	{ cmd = "extravaganza", key = "extravaganza", label = "荆棘谷钓鱼大赛提醒",
 		tooltip = "荆棘谷钓鱼大赛即将开始及开始时在聊天提示（经典日程：服务器时间周日 14:00–16:00）。" },
-	{ section = "界面", cmd = "loginmessage", key = "loginMessage", label = "登录时在聊天显示版本",
+	{ cmd = "loginmessage", key = "loginMessage", label = "登录时在聊天显示版本",
 		tooltip = "登录时在聊天显示插件版本，并附带「更新内容」链接。" },
 	{ cmd = "minimap", key = "minimapButton", label = "显示小地图按钮",
 		tooltip = "在小地图上显示「哇，大鱼」按钮。可拖动调整位置。" },
+}
+
+-- The sub-pages under OneCast in the options, each a list of { heading, keys... }. A key is an
+-- OPTIONS entry, or one of the sliders and dropdowns built in SetupSettings.
+local OPTION_PAGES = {
+	{ name = "钓鱼",
+		{ "施放", "doubleClick", "softInteract", "bobberMarker" },
+		{ "鱼竿与武器", "autoEquip", "restoreDelay", "restoreOnCombat" },
+		{ "提醒", "bagWarning", "autoLootHint" },
+	},
+	{ name = "诱饵",
+		{ "你的诱饵", "lureChoice", "autoLure" },
+		{ "工具箱", "tackleBox", "lureVendorHint" },
+	},
+	{ name = "声音",
+		{ "钓鱼时", "soundBoost", "quietOthers", "quietLevel" },
+	},
+	{ name = "统计与提醒",
+		{ "统计窗口", "openOnCast", "statsScale", "sessionSummary" },
+		{ "提醒", "alert", "alertQuality", "extravaganza" },
+		{ "图鉴", "rememberPools" },
+	},
+}
+-- Greyed out and indented while the option they belong to is off.
+local OPTION_PARENT = {
+	quietLevel = "quietOthers",
+	alertQuality = "alert",
 }
 
 -- CVars changed only for the length of a cast, and restored afterwards only if
@@ -381,29 +409,151 @@ ns.OpenSettings = OpenSettings
 
 local function SetupSettings()
 	local category, layout = Settings.RegisterVerticalLayoutCategory(ns.DISPLAY_NAME)
-	if CreateSettingsListSectionHeaderInitializer then
-		layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(ns.DISPLAY_NAME .. " v" .. ns.VERSION))
+	local optionByKey = {}
+	for _, opt in ipairs(OPTIONS) do
+		optionByKey[opt.key] = opt
 	end
-	-- Kept out of the settings search (the last argument here, SetSearchIgnoredInLayout on the
-	-- key below): Blizzard does the same for its own buttons that open something, and addon
-	-- entries in the search results were reported to raise ADDON_ACTION_FORBIDDEN.
-	if CreateSettingsButtonInitializer then
-		layout:AddInitializer(CreateSettingsButtonInitializer("钓鱼图鉴", "打开图鉴", function()
-			ns.Book.Show()
-		end, "全部鱼类、你已钓到的，以及其余鱼的出没地点。", false))
-		layout:AddInitializer(CreateSettingsButtonInitializer("更新内容", "更新内容", function()
-			ns.WhatsNew.Show()
-		end, "查看「哇，大鱼」各版本的改动。", false))
+	ns.optionSettings = {}
+
+	local function Header(pageLayout, text)
+		pageLayout:AddInitializer(CreateSettingsListSectionHeaderInitializer(text))
 	end
+
+	local function Register(page, key, kind, label, store, default)
+		local setting = Settings.RegisterAddOnSetting(page, "OneCast_" .. key, key, store, kind, label, default)
+		ns.optionSettings[key] = setting
+		return setting
+	end
+
+	local function Choices(fill)
+		return function()
+			local container = Settings.CreateControlTextContainer()
+			fill(container)
+			return container:GetData()
+		end
+	end
+
+	local function Slider(page, setting, low, high, step, format, tooltip)
+		local options = Settings.CreateSliderOptions(low, high, step)
+		if MinimalSliderWithSteppersMixin then
+			options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, format)
+		end
+		return Settings.CreateSlider(page, setting, options, tooltip)
+	end
+
+	-- Everything that isn't a plain checkbox.
+	local CONTROLS = {
+		theme = function(page)
+			local setting = Register(page, "theme", "string", "主题", db, defaults.theme)
+			setting:SetValueChangedCallback(function()
+				ns.Theme.Apply()
+			end)
+			return Settings.CreateDropdown(page, setting, Choices(function(container)
+				for _, id in ipairs(ns.Theme.ORDER) do
+					container:Add(id, ns.Theme.LIST[id].label)
+				end
+			end), "「哇，大鱼」各窗口的配色。选定后立即生效。")
+		end,
+		lureChoice = function(page)
+			local setting = Register(page, "lureChoice", "number", "使用的诱饵", OneCastCharDB, charDefaults.lureChoice)
+			setting:SetValueChangedCallback(function()
+				ns.Lure.OnSettingChanged()
+			end)
+			return Settings.CreateDropdown(page, setting, Choices(function(container)
+				container:Add(ns.Lure.NONE, "不使用诱饵")
+				container:Add(ns.Lure.BEST, "能用的最好诱饵")
+				for _, lure in ipairs(ns.Lure.LIST) do
+					container:Add(lure.id, string.format("%s（+%d）", ns.Lure.Name(lure), lure.bonus))
+				end
+			end), "工具箱、「上饵」按键与施法键使用的诱饵。选定后不会自动换成别的：用完后会不带诱饵继续钓。「能用的最好诱饵」可能消耗你最稀有的诱饵。按角色单独设置。")
+		end,
+		restoreDelay = function(page)
+			local setting = Register(page, "restoreDelay", "number", "之后换回武器", db, defaults.restoreDelay)
+			return Slider(page, setting, 0, 300, 15, function(value)
+				return value == 0 and "从不" or (value .. " 秒")
+			end, "多少秒未施放后换回武器。0 表示一直拿着鱼竿，直到你手动换装。")
+		end,
+		quietLevel = function(page)
+			local setting = Register(page, "quietLevel", "number", "钓鱼时其他声音", db, defaults.quietLevel)
+			setting:SetValueChangedCallback(function()
+				UpdateQuiet(true)
+			end)
+			return Slider(page, setting, 0, 100, 5, function(value)
+				return value == 0 and "静音" or (value .. "%")
+			end, "装备鱼竿时，音乐、环境音和对白保留为你原音量的百分之几。0 为静音。")
+		end,
+		statsScale = function(page)
+			local setting = Register(page, "statsScale", "number", "统计窗口缩放", db, defaults.statsScale)
+			setting:SetValueChangedCallback(function(_, value)
+				ns.Stats.SetScale(value)
+			end)
+			ns.scaleSetting = setting
+			return Slider(page, setting, 50, 200, 5, function(value)
+				return value .. "%"
+			end, "统计窗口大小。也可拖动右下角，或在窗口上按 Ctrl + 鼠标滚轮。")
+		end,
+		alertQuality = function(page)
+			local setting = Register(page, "alertQuality", "number", "提醒品质", db, defaults.alertQuality)
+			return Settings.CreateDropdown(page, setting, Choices(function(container)
+				for q = 2, 5 do
+					local color = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+					local label = _G["ITEM_QUALITY" .. q .. "_DESC"] or tostring(q)
+					container:Add(q, (color and color.hex or "") .. label .. (color and "|r" or "") .. " 及以上")
+				end
+			end), "触发稀有渔获提醒的最低物品品质。")
+		end,
+	}
+
+	local ON_CHANGE = {
+		minimapButton = UpdateMinimapVisibility,
+		quietOthers = function()
+			UpdateQuiet()
+		end,
+		tackleBox = function()
+			ns.Lure.OnSettingChanged()
+		end,
+		autoLure = function()
+			ns.Lure.OnSettingChanged()
+		end,
+	}
+
+	local initializers = {}
+	local function AddControl(page, key)
+		local initializer
+		if CONTROLS[key] then
+			initializer = CONTROLS[key](page)
+		else
+			local opt = optionByKey[key]
+			local setting = Register(page, key, "boolean", opt.label, opt.char and OneCastCharDB or db,
+				opt.char and charDefaults[key] or defaults[key])
+			if ON_CHANGE[key] then
+				setting:SetValueChangedCallback(ON_CHANGE[key])
+			end
+			opt.setting = setting
+			initializer = Settings.CreateCheckbox(page, setting, opt.tooltip)
+		end
+		initializers[key] = initializer
+		local parent = OPTION_PARENT[key]
+		if parent then
+			initializer:SetParentInitializer(initializers[parent], function()
+				return ns.optionSettings[parent]:GetValue()
+			end)
+		end
+	end
+
+	-- The main page: how it looks, the one key you need, and a way into every window.
+	Header(layout, "外观")
+	AddControl(category, "theme")
 
 	-- The cast/reel key, editable right here (same binding as Keybindings > AddOns).
 	if CreateKeybindingEntryInitializer then
 		for i = 1, GetNumBindings() do
 			if GetBinding(i) == BINDING_COMMAND then
-				if CreateSettingsListSectionHeaderInitializer then
-					layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("按键"))
-				end
+				Header(layout, "按键")
 				local keyEntry = CreateKeybindingEntryInitializer(i, true)
+				-- Kept out of the settings search, as are the buttons below: Blizzard does the
+				-- same for its own buttons that open something, and addon entries in the search
+				-- results were reported to raise ADDON_ACTION_FORBIDDEN.
 				if keyEntry.SetSearchIgnoredInLayout then
 					keyEntry:SetSearchIgnoredInLayout(layout)
 				end
@@ -412,110 +562,28 @@ local function SetupSettings()
 			end
 		end
 	end
-	ns.optionSettings = {}
-	for _, opt in ipairs(OPTIONS) do
-		if opt.section and CreateSettingsListSectionHeaderInitializer then
-			layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(opt.section))
-		end
-		local default = defaults[opt.key]
-		if opt.char then
-			default = charDefaults[opt.key]
-		end
-		local setting = Settings.RegisterAddOnSetting(category, "OneCast_" .. opt.key, opt.key,
-			opt.char and OneCastCharDB or db, "boolean", opt.label, default)
-		if opt.key == "minimapButton" then
-			setting:SetValueChangedCallback(UpdateMinimapVisibility)
-		elseif opt.key == "quietOthers" then
-			setting:SetValueChangedCallback(function()
-				UpdateQuiet()
-			end)
-		elseif opt.key == "tackleBox" or opt.key == "autoLure" then
-			setting:SetValueChangedCallback(function()
-				ns.Lure.OnSettingChanged()
-			end)
-		end
-		Settings.CreateCheckbox(category, setting, opt.tooltip)
-		opt.setting = setting
-		ns.optionSettings[opt.key] = setting
 
-		if opt.key == "tackleBox" and Settings.CreateDropdown and Settings.CreateControlTextContainer then
-			local choice = Settings.RegisterAddOnSetting(category, "OneCast_lureChoice", "lureChoice",
-				OneCastCharDB, "number", "使用的诱饵", charDefaults.lureChoice)
-			choice:SetValueChangedCallback(function()
-				ns.Lure.OnSettingChanged()
-			end)
-			ns.optionSettings.lureChoice = choice
-			Settings.CreateDropdown(category, choice, function()
-				local container = Settings.CreateControlTextContainer()
-				container:Add(ns.Lure.NONE, "不使用诱饵")
-				container:Add(ns.Lure.BEST, "能用的最好诱饵")
-				for _, lure in ipairs(ns.Lure.LIST) do
-					container:Add(lure.id, string.format("%s（+%d）", ns.Lure.Name(lure), lure.bonus))
-				end
-				return container:GetData()
-			end, "工具箱、「上饵」按键与施法键使用的诱饵。选定后不会自动换成别的：用完后会不带诱饵继续钓。「能用的最好诱饵」可能消耗你最稀有的诱饵。按角色单独设置。")
-		end
+	Header(layout, "打开")
+	for _, entry in ipairs({
+		{ "统计窗口", "打开统计", function() ns.Stats.Toggle() end, "本次会话、当前区域与生涯渔获。" },
+		{ "工具箱", "打开工具箱", function() ns.TackleBox.ToggleWindow() end, "选择诱饵，并对比有饵与无饵时的每小时鱼数。" },
+		{ "钓鱼图鉴", "打开图鉴", function() ns.Book.Show() end, "全部鱼类、你已钓到的，以及其余鱼的出没地点。" },
+		{ "更新内容", "版本 " .. ns.VERSION, function() ns.WhatsNew.Show() end, "查看「哇，大鱼」各版本的改动。" },
+	}) do
+		layout:AddInitializer(CreateSettingsButtonInitializer(entry[1], entry[2], entry[3], entry[4], false))
+	end
 
-		if opt.key == "autoEquip" and Settings.CreateSlider and Settings.CreateSliderOptions then
-			local delay = Settings.RegisterAddOnSetting(category, "OneCast_restoreDelay", "restoreDelay",
-				db, "number", "之后换回武器", defaults.restoreDelay)
-			local options = Settings.CreateSliderOptions(0, 300, 15)
-			if MinimalSliderWithSteppersMixin then
-				options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value)
-					return value == 0 and "从不" or (value .. " 秒")
-				end)
+	Header(layout, "常规")
+	AddControl(category, "minimapButton")
+	AddControl(category, "loginMessage")
+
+	for _, pageInfo in ipairs(OPTION_PAGES) do
+		local page, pageLayout = Settings.RegisterVerticalLayoutSubcategory(category, pageInfo.name)
+		for _, section in ipairs(pageInfo) do
+			Header(pageLayout, section[1])
+			for i = 2, #section do
+				AddControl(page, section[i])
 			end
-			Settings.CreateSlider(category, delay, options,
-				"多少秒未施放后换回武器。0 表示一直拿着鱼竿，直到你手动换装。")
-		end
-
-		if opt.key == "quietOthers" and Settings.CreateSlider and Settings.CreateSliderOptions then
-			local level = Settings.RegisterAddOnSetting(category, "OneCast_quietLevel", "quietLevel",
-				db, "number", "钓鱼时其他声音", defaults.quietLevel)
-			level:SetValueChangedCallback(function()
-				UpdateQuiet(true)
-			end)
-			local options = Settings.CreateSliderOptions(0, 100, 5)
-			if MinimalSliderWithSteppersMixin then
-				options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value)
-					return value == 0 and "静音" or (value .. "%")
-				end)
-			end
-			Settings.CreateSlider(category, level, options,
-				"装备鱼竿时，音乐、环境音和对白保留为你原音量的百分之几。0 为静音。")
-		end
-
-		if opt.key == "openOnCast" then
-			local scale = Settings.RegisterAddOnSetting(category, "OneCast_statsScale", "statsScale",
-				db, "number", "统计窗口缩放", defaults.statsScale)
-			scale:SetValueChangedCallback(function(_, value)
-				ns.Stats.SetScale(value)
-			end)
-			ns.scaleSetting = scale
-			if Settings.CreateSlider and Settings.CreateSliderOptions then
-				local options = Settings.CreateSliderOptions(50, 200, 5)
-				if MinimalSliderWithSteppersMixin then
-					options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value)
-						return value .. "%"
-					end)
-				end
-				Settings.CreateSlider(category, scale, options,
-					"统计窗口大小。也可拖动右下角，或在窗口上按 Ctrl + 鼠标滚轮。")
-			end
-		end
-
-		if opt.key == "alert" and Settings.CreateDropdown and Settings.CreateControlTextContainer then
-			local quality = Settings.RegisterAddOnSetting(category, "OneCast_alertQuality", "alertQuality",
-				db, "number", "提醒品质", defaults.alertQuality)
-			Settings.CreateDropdown(category, quality, function()
-				local container = Settings.CreateControlTextContainer()
-				for q = 2, 5 do
-					local color = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
-					local label = _G["ITEM_QUALITY" .. q .. "_DESC"] or tostring(q)
-					container:Add(q, (color and color.hex or "") .. label .. (color and "|r" or "") .. " 及以上")
-				end
-				return container:GetData()
-			end, "触发稀有渔获提醒的最低物品品质。")
 		end
 	end
 
@@ -645,6 +713,7 @@ events:SetScript("OnEvent", function(_, event, ...)
 					OneCastCharDB[k] = v
 				end
 			end
+			ns.Theme.Init()
 			SetupSettings()
 			SetupMinimapButton()
 		end
@@ -741,6 +810,11 @@ SlashCmdList.ONECAST = function(msg)
 		ns.Book.RefreshIfShown()
 		Print("已清除记住的鱼群点。")
 		return
+	elseif cmd:match("^theme") then
+		local name = cmd:match("^theme%s+(%a+)")
+		local label = ns.Theme.Choose(name)
+		Print(label and ("主题：" .. label) or ("没有名为 " .. tostring(name) .. " 的主题。可试：" .. table.concat(ns.Theme.ORDER, ", ") .. "。"))
+		return
 	elseif cmd:match("^scale") then
 		local percent = tonumber(cmd:match("^scale%s+(%d+)"))
 		if percent then
@@ -764,6 +838,7 @@ SlashCmdList.ONECAST = function(msg)
 	Print("/onecast - 打开选项")
 	Print("/onecast new - 各版本更新内容")
 	Print("/onecast book - 钓鱼图鉴")
+	Print("/onecast theme [" .. table.concat(ns.Theme.ORDER, "|") .. "] - 窗口主题（不带名称则切换到下一个）")
 	Print("/onecast tackle - 工具箱（/onecast tackle reset 可把按钮移回原位）")
 	Print("/onecast stats - 统计窗口（或 /onecast session|zone|lifetime|log 打开对应标签）")
 	Print("/onecast reset - 开始新会话")

@@ -43,7 +43,9 @@ end
 
 local function Inset(parent)
 	local f = TryCreate("Frame", nil, parent, "InsetFrameTemplate")
-	if not f then
+	if f then
+		ns.Theme.Panel(f)
+	else
 		f = CreateFrame("Frame", nil, parent, "BackdropTemplate")
 		f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
 			edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
@@ -216,6 +218,7 @@ local function CreateWindow()
 	f:SetScript("OnDragStart", f.StartMoving)
 	f:SetScript("OnDragStop", f.StopMovingOrSizing)
 	tinsert(UISpecialFrames, f:GetName())
+	ns.Theme.Frame(f, f.Inset)
 	ns.UI.KeepOpenThroughOptions(f:GetName())
 
 	-- Top line: "Versions: N" box and the change count.
@@ -279,6 +282,7 @@ local function CreateWindow()
 	page:SetPoint("BOTTOMRIGHT", -12, 64)
 	local parchment = page:CreateTexture(nil, "BACKGROUND")
 	parchment:SetAllPoints()
+	ns.Theme.Register(parchment, "parchment")
 	if HasAtlas("QuestBG-Parchment") then
 		parchment:SetAtlas("QuestBG-Parchment")
 	else
@@ -304,16 +308,19 @@ local function CreateWindow()
 
 	-- Bottom: Newer / Older on the left, Close on the right.
 	f.newer = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+	ns.Theme.Register(f.newer, "button")
 	f.newer:SetSize(110, 22)
 	f.newer:SetPoint("BOTTOMLEFT", 12, 36)
 	f.newer:SetText("更新版本")
 	f.newer:SetScript("OnClick", function() Select(selected - 1) end)
 	f.older = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+	ns.Theme.Register(f.older, "button")
 	f.older:SetSize(110, 22)
 	f.older:SetPoint("LEFT", f.newer, "RIGHT", 12, 0)
 	f.older:SetText("更旧版本")
 	f.older:SetScript("OnClick", function() Select(selected + 1) end)
 	local close = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+	ns.Theme.Register(close, "button")
 	close:SetSize(110, 22)
 	close:SetPoint("BOTTOMRIGHT", -12, 36)
 	close:SetText(CLOSE or "关闭")
@@ -395,4 +402,17 @@ events:SetScript("OnEvent", function()
 			ns.Print(string.format("|cffffffffv%s|r 已加载。%s  输入 /onecast 打开选项", ns.VERSION, ChatLink()))
 		end
 	end)
+end)
+
+-- This window's soft ink is a touch darker than the book's on the game's own parchment.
+local FOREVER_SOFT = { INK_SOFT[1], INK_SOFT[2], INK_SOFT[3] }
+
+ns.Theme.OnChange(function(theme)
+	local soft = theme.id == ns.Theme.DEFAULT and FOREVER_SOFT or theme.inkSoft
+	INK[1], INK[2], INK[3] = theme.ink[1], theme.ink[2], theme.ink[3]
+	INK_SOFT[1], INK_SOFT[2], INK_SOFT[3] = soft[1], soft[2], soft[3]
+	LEAD = theme.lead
+	if frame and frame:IsShown() then
+		RenderPage()
+	end
 end)

@@ -881,6 +881,7 @@ local function CreateShell(name, titleText, icon)
 		f.Inset:ClearAllPoints()
 		f.Inset:SetPoint("TOPLEFT", 4, -60)
 		f.Inset:SetPoint("BOTTOMRIGHT", -6, 28)
+		ns.Theme.Frame(f, f.Inset)
 		return f, f.Inset
 	end
 
@@ -898,6 +899,7 @@ local function CreateShell(name, titleText, icon)
 	local inset = TryCreate("Frame", nil, f, "InsetFrameTemplate") or CreateFrame("Frame", nil, f)
 	inset:SetPoint("TOPLEFT", 10, -60)
 	inset:SetPoint("BOTTOMRIGHT", -10, 32)
+	ns.Theme.Frame(f, inset)
 	return f, inset
 end
 
@@ -1079,6 +1081,7 @@ local function SectionHeader(parent, y)
 	else
 		bg:SetColorTexture(0.25, 0.18, 0.10, 0.9)
 	end
+	ns.Theme.Register(bg, "header")
 	h.text = h:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 	h.text:SetPoint("CENTER", 0, 1)
 	return h
@@ -1264,6 +1267,7 @@ local function IconButton(parent, art, tooltip, onClick)
 		b.icon:SetPoint("CENTER")
 	end
 	b:SetSize(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE)
+	ns.Theme.Register(b, "button", { [b.icon] = true })
 	b.icon:ClearAllPoints()
 	b.icon:SetPoint("CENTER")
 	b.icon:SetSize(ICON_BUTTON_SIZE - 6, ICON_BUTTON_SIZE - 6)
@@ -1345,6 +1349,7 @@ local function CreateTabs(f, inset)
 			top = false
 			tab = CreateFrame("Button", "OneCastStatsFrameTab" .. i, f, "PanelTabButtonTemplate")
 		end
+		ns.Theme.Register(tab, "button")
 		tab:SetID(i)
 		tab:SetText(v.label)
 		tab.view = v.key
@@ -1440,6 +1445,7 @@ local function CreateWindow()
 	f.listHeader = SectionHeader(inset, LIST_TOP)
 	-- Zone tab: switch the list between the fish caught here and the spots fished.
 	f.listToggle = CreateFrame("Button", nil, f.listHeader, "UIPanelButtonTemplate")
+	ns.Theme.Register(f.listToggle, "button")
 	f.listToggle:SetSize(64, 18)
 	f.listToggle:SetPoint("RIGHT", -4, 1)
 	f.listToggle:SetScript("OnClick", function()

@@ -83,6 +83,23 @@ local SOFT = "|cff6b5233"
 local GOOD = "|cff1f6b1f"
 local BAD = "|cffa01c1c"
 
+-- Strings coloured once at creation, redone when the theme changes.
+local inkedStrings = {}
+local function Ink(fontString, color)
+	fontString:SetTextColor(color[1], color[2], color[3])
+	inkedStrings[#inkedStrings + 1] = { fontString, color }
+end
+
+local function ApplyPalette(theme)
+	INK[1], INK[2], INK[3] = theme.ink[1], theme.ink[2], theme.ink[3]
+	INK_SOFT[1], INK_SOFT[2], INK_SOFT[3] = theme.inkSoft[1], theme.inkSoft[2], theme.inkSoft[3]
+	LEAD, SOFT, GOOD, BAD = theme.lead, theme.soft, theme.good, theme.bad
+	for _, entry in ipairs(inkedStrings) do
+		local color = entry[2]
+		entry[1]:SetTextColor(color[1], color[2], color[3])
+	end
+end
+
 local frame
 -- cat, show, where (zone filter) and search pick the fish; spread is the grid's page pair;
 -- fishID and zone are the open fish page and its selected zone.
@@ -1064,6 +1081,7 @@ local function CreatePage(parent)
 	local page = CreateFrame("Frame", nil, parent)
 	local parchment = page:CreateTexture(nil, "BACKGROUND")
 	parchment:SetAllPoints()
+	ns.Theme.Register(parchment, "parchment")
 	if HasAtlas("QuestBG-Parchment") then
 		parchment:SetAtlas("QuestBG-Parchment")
 	else
@@ -1072,12 +1090,12 @@ local function CreatePage(parent)
 	end
 	page.title = page:CreateFontString(nil, "OVERLAY")
 	SizedFont(page.title, QuestTitleFont, 18)
-	page.title:SetTextColor(INK[1], INK[2], INK[3])
+	Ink(page.title, INK)
 	page.title:SetShadowOffset(0, 0)
 	page.title:SetPoint("TOP", 0, -20)
 	page.number = page:CreateFontString(nil, "OVERLAY")
 	SizedFont(page.number, QuestFont, 12)
-	page.number:SetTextColor(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3])
+	Ink(page.number, INK_SOFT)
 	page.number:SetShadowOffset(0, 0)
 	page.number:SetPoint("BOTTOM", 0, 14)
 	page.grid = CreateFrame("Frame", nil, page)
@@ -1130,12 +1148,14 @@ local function CreateWindow()
 	inset:ClearAllPoints()
 	inset:SetPoint("TOPLEFT", 4, -60)
 	inset:SetPoint("BOTTOMRIGHT", -6, 30)
+	ns.Theme.Frame(f, inset)
 
 	-- Category tabs, like the stats window's.
 	f.Tabs = {}
 	for i, cat in ipairs(CATEGORIES) do
 		local tab = TryCreate("Button", "OneCastBookFrameTab" .. i, f, "PanelTopTabButtonTemplate")
 			or CreateFrame("Button", "OneCastBookFrameTab" .. i, f, "UIPanelButtonTemplate")
+		ns.Theme.Register(tab, "button")
 		tab:SetID(i)
 		tab:SetText(cat.label)
 		if not tab.Text and tab:GetWidth() < 10 then
@@ -1192,7 +1212,7 @@ local function CreateWindow()
 
 	f.empty = f.pages[1].grid:CreateFontString(nil, "OVERLAY")
 	SizedFont(f.empty, QuestFont, 15)
-	f.empty:SetTextColor(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3])
+	Ink(f.empty, INK_SOFT)
 	f.empty:SetShadowOffset(0, 0)
 	f.empty:SetPoint("TOP", 0, -80)
 	f.empty:SetText("这里还没有内容。")
@@ -1207,16 +1227,17 @@ local function CreateWindow()
 	f.map.tiles, f.map.overlays, f.map.poolDots = {}, {}, {}
 	f.map.empty = f.map:CreateFontString(nil, "OVERLAY")
 	SizedFont(f.map.empty, QuestFont, 13)
-	f.map.empty:SetTextColor(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3])
+	Ink(f.map.empty, INK_SOFT)
 	f.map.empty:SetShadowOffset(0, 0)
 	f.map.empty:SetPoint("CENTER")
 	f.map.empty:SetText("此区域无地图。")
 	f.mapCaption = f.pages[2].detail:CreateFontString(nil, "OVERLAY")
 	SizedFont(f.mapCaption, QuestFont, 13)
-	f.mapCaption:SetTextColor(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3])
+	Ink(f.mapCaption, INK_SOFT)
 	f.mapCaption:SetShadowOffset(0, 0)
 	f.mapCaption:SetPoint("TOPLEFT", f.map, "BOTTOMLEFT", 0, -8)
 	f.openMap = CreateFrame("Button", nil, f.pages[2].detail, "UIPanelButtonTemplate")
+	ns.Theme.Register(f.openMap, "button")
 	f.openMap:SetSize(96, 20)
 	f.openMap:SetPoint("TOPRIGHT", f.map, "BOTTOMRIGHT", 0, -4)
 	f.openMap:SetText("打开地图")
@@ -1226,6 +1247,7 @@ local function CreateWindow()
 
 	-- Bottom bar.
 	f.back = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+	ns.Theme.Register(f.back, "button")
 	f.back:SetSize(150, 22)
 	f.back:SetPoint("BOTTOMLEFT", 10, 4)
 	f.back:SetScript("OnClick", function()
@@ -1244,6 +1266,7 @@ local function CreateWindow()
 	end)
 	-- Zone filter: a menu of every zone, with this one first ("what's left here?").
 	f.where = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+	ns.Theme.Register(f.where, "button")
 	f.where:SetSize(170, 22)
 	f.where:SetPoint("LEFT", f.back, "RIGHT", 4, 0)
 	f.where:SetScript("OnClick", function(self)
@@ -1279,6 +1302,7 @@ local function CreateWindow()
 
 	f.pageLabel = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 	f.next = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+	ns.Theme.Register(f.next, "button")
 	f.next:SetSize(100, 22)
 	f.next:SetPoint("BOTTOMRIGHT", -10, 4)
 	f.next:SetText("下一页")
@@ -1291,6 +1315,7 @@ local function CreateWindow()
 		Book.Refresh()
 	end)
 	f.prev = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+	ns.Theme.Register(f.prev, "button")
 	f.prev:SetSize(100, 22)
 	f.prev:SetPoint("RIGHT", f.next, "LEFT", -4, 0)
 	f.prev:SetText("上一页")
@@ -1452,4 +1477,13 @@ events:SetScript("OnEvent", function()
 			Book.RefreshIfShown()
 		end)
 	end
+end)
+
+-- A new theme: the palette, then whatever's drawn with it.
+ns.Theme.OnChange(function(theme)
+	ApplyPalette(theme)
+	if frame then
+		frame.map:SetBackdropBorderColor(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3], 0.8)
+	end
+	Book.RefreshIfShown()
 end)

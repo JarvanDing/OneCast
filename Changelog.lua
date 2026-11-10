@@ -6,32 +6,44 @@ local _, ns = ...
 
 ns.CHANGELOG = {
 	{
-		version = "0.5.2",
-		date = "8 November 2026",
+		version = "0.6.0",
+		date = "2026年11月9日",
 		sections = {
-			{ "Fixed", {
-				{ "Searching the options.", "OneCast's buttons and key entry no longer appear in the game's settings search, which could raise an error. They're still on OneCast's own options page, and the key is still on the Keybindings page. Thanks to onkl for the report and the fix!" },
+			{ "新增", {
+				{ "主题。", "在选项中选择「哇，大鱼」窗口外观：Forever（游戏原风格，仍为默认）、暗黑、潮汐、深渊、黄金时刻、沼泽、月夜、木板风渔夫小屋，或跟随当前角色的职业颜色。选定后立即生效，也可用 /onecast theme。" },
+			} },
+			{ "变更", {
+					{ "更清晰的选项菜单。", "主题现在排在最上方，下面是施法键和各窗口入口。其余设置移到侧边栏短页：钓鱼、诱饵、声音、统计与提醒。依赖其他选项的设置在关闭时会灰显。你已有的设置不会改变。" },
+			} },
+		},
+	},
+	{
+		version = "0.5.2",
+		date = "2026年11月8日",
+		sections = {
+			{ "修复", {
+				{ "搜索选项。", "「哇，大鱼」的按钮与按键条目不再出现在游戏的设置搜索中，以免触发错误。它们仍在插件自己的选项页，按键仍在按键设置页。感谢 onkl 的报告与修复！" },
 			} },
 		},
 	},
 	{
 		version = "0.5.1",
-		date = "8 November 2026",
+		date = "2026年11月8日",
 		sections = {
-			{ "New", {
-				{ "Mark your bobber.", "An option, off by default: while your line is out, the game's gear icon shows over your bobber, so you can tell your splash from other people's. Turn on Mark your bobber in the options. Thanks to insertnamehere255 for the idea!" },
+			{ "新增", {
+				{ "标记自己的浮漂。", "可选，默认关闭：鱼线抛出后，在自己的浮漂上显示游戏的装备图标，方便区分别人的水花。在选项中开启「标记自己的浮漂」。感谢 insertnamehere255 提出此想法！" },
 			} },
-			{ "Fixed", {
-				{ "Zones in every language.", "Fishing levels, fish locations and the Fishing Extravaganza now work on non-English clients, using the game's own zone names." },
-				{ "Lures and reeling in.", "Letting go of the key after reeling in could count as a failed lure, or recast if your keys act on release." },
-				{ "Weapons after a fight.", "With Re-equip weapons when combat starts off, your weapons now still go back after your usual break." },
-				{ "Your usual pole.", "The cast key keeps picking the pole you used last, even after you level up." },
-				{ "Extravaganza reminders off.", "Turning them off now also stops the raid warning at 40 Tastyfish." },
-				{ "Lighter stats window.", "The open Session tab no longer re-prices your whole catch every second." },
-				{ "Closing the options.", "OneCast windows now stay open when you close the options." },
-				{ "A fight with your line out.", "If your line is still out when combat ends, your key reels it in again instead of recasting." },
-				{ "Poles you can't use.", "If the game won't equip a pole, the cast key moves on to your next one." },
-				{ "Fonts on fish pages.", "Moving between fish pages could put a heading's font on ordinary text, and the other way round." },
+			{ "修复", {
+				{ "各语言区域。", "钓鱼等级、鱼类出没与钓鱼大赛在非英文客户端上也能工作，使用游戏自身的区域名。" },
+				{ "诱饵与收竿。", "收竿后松开按键可能被当成上饵失败，或在按键抬起触发时再次抛竿。" },
+				{ "战后换回武器。", "关闭「进入战斗时换回武器」时，武器仍会在你设定的休息时间后换回。" },
+				{ "常用鱼竿。", "施法键会继续选用你上次用的鱼竿，即使升级之后。" },
+				{ "关闭大赛提醒。", "关闭后也会停止 40 条美味鱼时的团队警告。" },
+				{ "更轻的统计窗口。", "打开的「会话」标签不再每秒重算全部渔获价值。" },
+				{ "关闭选项。", "关闭选项时，「哇，大鱼」窗口会保持打开。" },
+				{ "线还在水里时开战。", "脱战后若线仍在水中，按键会再次收竿而不是重新抛竿。" },
+				{ "用不了的鱼竿。", "若游戏无法装备某根鱼竿，施法键会改用下一根。" },
+				{ "鱼类页面字体。", "在鱼类页面间切换时，标题字体可能落到正文上，或反过来。" },
 			} },
 		},
 	},
