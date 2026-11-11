@@ -27,6 +27,10 @@ local defaults = {
 	quietLevel = 0, -- percent of the player's own music, ambience and dialog volume
 	minimapButton = true,
 	minimapAngle = 225,
+	closeOnDone = true,
+	fadeStats = false,
+	lockWindow = false,
+	tabSide = "right", -- the OneCast window's side tabs: "right" or "left"
 	alert = true,
 	alertQuality = 2, -- Uncommon
 	openOnCast = true,
@@ -77,6 +81,12 @@ local OPTIONS = {
 		tooltip = "With no lure on your pole, the cast key applies your chosen lure first, then casts on the next press. It uses up the lure, so it's off until you turn it on. Set for each character." },
 	{ cmd = "lurevendor", key = "lureVendorHint", label = "Low lure hint at vendors",
 		tooltip = "At a vendor selling your chosen lure, say so in chat if you have fewer than 5. Buying stays up to you." },
+	{ cmd = "autoclose", key = "closeOnDone", label = "Close stats when you stop fishing",
+		tooltip = "When your weapons go back on, close the stats window, if it opened by itself when you cast. A window you opened yourself stays open." },
+	{ cmd = "fade", key = "fadeStats", label = "Fade stats while fishing",
+		tooltip = "While you're fishing, the stats window fades to see-through when your mouse isn't over it, so it hides less of the water." },
+	{ cmd = "lock", key = "lockWindow", label = "Lock the window",
+		tooltip = "Stop OneCast's window being moved or resized by accident. Turn it off to move it again." },
 	{ cmd = "autoopen", key = "openOnCast", label = "Open stats when you cast",
 		tooltip = "Open the stats window when you start fishing. If you close it (X or minimap button), it stays closed until you take a 2-minute break from fishing." },
 	{ cmd = "summary", key = "sessionSummary", label = "Session summary in chat",
@@ -90,7 +100,7 @@ local OPTIONS = {
 	{ cmd = "campreminder", key = "campReminder", label = "Camp buff reminders",
 		tooltip = "Say in chat when the Uncommon or Rare Fishing buff from a Fishing Rack or Fishing Hut wears off. The collection book's Camp tab has more on camps." },
 	{ cmd = "reporthint", key = "reportHint", label = "Tell me about data to share",
-		tooltip = "Say in chat when your fishing shows something OneCast doesn't know yet, like a zone with no known level or a fish somewhere new, so you can share it with /onecast report." },
+		tooltip = "Say in chat when your fishing shows something OneCast doesn't know yet, like a zone with no known level or a fish the collection doesn't have, so you can share it with /onecast report." },
 	{ cmd = "extravaganza", key = "extravaganza", label = "Fishing Extravaganza reminders",
 		tooltip = "Say in chat shortly before the Stranglethorn Fishing Extravaganza starts, and when it does (Classic's schedule: Sundays 14:00-16:00 realm time)." },
 	{ cmd = "loginmessage", key = "loginMessage", label = "Version in chat at login",
@@ -115,7 +125,7 @@ local OPTION_PAGES = {
 		{ "While fishing", "soundBoost", "quietOthers", "quietLevel" },
 	},
 	{ name = "Stats and alerts",
-		{ "Stats window", "openOnCast", "statsScale", "sessionSummary" },
+		{ "Stats window", "openOnCast", "closeOnDone", "fadeStats", "sessionSummary" },
 		{ "Alerts", "alert", "alertQuality", "extravaganza", "campReminder", "reportHint" },
 		{ "Collection", "rememberPools" },
 	},
@@ -124,6 +134,84 @@ local OPTION_PAGES = {
 local OPTION_PARENT = {
 	quietLevel = "quietOthers",
 	alertQuality = "alert",
+}
+
+local UpdateQuiet -- below: quiet other sounds while fishing
+
+-- Every setting that isn't a checkbox, described once: the options panel and the window's Options
+-- page are both built from this. A `list` setting is a dropdown of { value, text } pairs; the others
+-- are sliders from `min` to `max` in `step`s, shown with `format`. `char` keeps it per character.
+local CHOICES = {
+	theme = { label = "Theme", kind = "string",
+		tooltip = "The colours of OneCast's windows. Changes as soon as you pick one.",
+		list = function()
+			local list = {}
+			for _, id in ipairs(ns.Theme.ORDER) do
+				list[#list + 1] = { id, ns.Theme.LIST[id].label }
+			end
+			return list
+		end,
+		onChange = function()
+			ns.Theme.Apply()
+		end },
+	tabSide = { label = "Side tabs", kind = "string",
+		tooltip = "Which side of the OneCast window its tabs sit on.",
+		list = function()
+			return { { "right", "Right" }, { "left", "Left" } }
+		end,
+		onChange = function()
+			ns.Hub.UpdateSide()
+		end },
+	statsScale = { label = "Window scale", kind = "number", min = 50, max = 200, step = 5,
+		tooltip = "Size of OneCast's window, every page of it. You can also drag any page's bottom-right corner, or Ctrl + mouse wheel over the stats page.",
+		format = function(value)
+			return value .. "%"
+		end,
+		onChange = function(_, value)
+			ns.Stats.SetScale(value)
+		end },
+	lureChoice = { label = "Lure to use", kind = "number", char = true,
+		tooltip = "The lure the tackle box, the Apply lure key and the cast key use. Your choice is never swapped for another: if it runs out, OneCast fishes without one. \"Best I can use\" can spend your rarest lures. Set for each character.",
+		list = function()
+			local list = { { ns.Lure.NONE, "No lure" }, { ns.Lure.BEST, "Best I can use" } }
+			for _, lure in ipairs(ns.Lure.LIST) do
+				list[#list + 1] = { lure.id, string.format("%s (+%d)", ns.Lure.Name(lure), lure.bonus) }
+			end
+			return list
+		end,
+		onChange = function()
+			ns.Lure.OnSettingChanged()
+		end },
+	restoreDelay = { label = "Re-equip weapons after", kind = "number", min = 0, max = 300, step = 15,
+		tooltip = "Seconds without casting before your weapons are put back. 0 keeps the pole on until you re-equip by hand.",
+		format = function(value)
+			return value == 0 and "Never" or (value .. " s")
+		end },
+	quietLevel = { label = "Other sounds while fishing", kind = "number", min = 0, max = 100, step = 5,
+		tooltip = "How loud music, ambience and dialog stay while your pole is equipped, as a share of your own volume. 0 mutes them.",
+		format = function(value)
+			return value == 0 and "Muted" or (value .. "%")
+		end,
+		onChange = function()
+			UpdateQuiet(true)
+		end },
+	alertQuality = { label = "Alert quality", kind = "number",
+		tooltip = "The lowest item quality that triggers the rare catch alert.",
+		list = function()
+			local list = {}
+			for q = 2, 5 do
+				local color = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+				local label = _G["ITEM_QUALITY" .. q .. "_DESC"] or tostring(q)
+				list[#list + 1] = { q, (color and color.hex or "") .. label .. (color and "|r" or "") .. " or better" }
+			end
+			return list
+		end },
+}
+
+-- The options on the main page, before OPTION_PAGES, for the window's Options page.
+local OPTION_MAIN = {
+	{ "Look", "theme", "tabSide", "statsScale" },
+	{ "General", "lockWindow", "minimapButton", "loginMessage" },
 }
 
 -- CVars changed only for the length of a cast, and restored afterwards only if
@@ -149,6 +237,7 @@ _G.BINDING_HEADER_ONECAST = "OneCast"
 _G["BINDING_NAME_" .. BINDING_COMMAND] = "Cast / reel (one button fishing)"
 _G.BINDING_NAME_ONECAST_RESTORE = "Re-equip weapons"
 _G.BINDING_NAME_ONECAST_BOOK = "Fishing collection"
+_G.BINDING_NAME_ONECAST_WINDOW = "OneCast window (the page you last used)"
 
 local db
 local fishingName
@@ -257,7 +346,7 @@ local function ReleaseCVars(group)
 end
 
 -- Quiet music, ambience and dialog while a pole is equipped, if the option is on.
-local function UpdateQuiet(reapply)
+function UpdateQuiet(reapply)
 	local want = db and db.quietOthers and HasFishingPole()
 	local active = next(leases.quiet) ~= nil
 	if active and (reapply or not want) then
@@ -481,6 +570,11 @@ if GameMenuFrame then
 	end)
 end
 ns.OpenSettings = OpenSettings
+ns.OPTIONS = OPTIONS
+ns.OPTION_CHOICES = CHOICES
+ns.OPTION_MAIN = OPTION_MAIN
+ns.OPTION_PAGES = OPTION_PAGES
+ns.OPTION_PARENT = OPTION_PARENT
 
 local function SetupSettings()
 	local category, layout = Settings.RegisterVerticalLayoutCategory("OneCast")
@@ -516,68 +610,32 @@ local function SetupSettings()
 		return Settings.CreateSlider(page, setting, options, tooltip)
 	end
 
-	-- Everything that isn't a plain checkbox.
-	local CONTROLS = {
-		theme = function(page)
-			local setting = Register(page, "theme", "string", "Theme", db, defaults.theme)
-			setting:SetValueChangedCallback(function()
-				ns.Theme.Apply()
-			end)
-			return Settings.CreateDropdown(page, setting, Choices(function(container)
-				for _, id in ipairs(ns.Theme.ORDER) do
-					container:Add(id, ns.Theme.LIST[id].label)
-				end
-			end), "The colours of OneCast's windows. Changes as soon as you pick one.")
-		end,
-		lureChoice = function(page)
-			local setting = Register(page, "lureChoice", "number", "Lure to use", OneCastCharDB, charDefaults.lureChoice)
-			setting:SetValueChangedCallback(function()
-				ns.Lure.OnSettingChanged()
-			end)
-			return Settings.CreateDropdown(page, setting, Choices(function(container)
-				container:Add(ns.Lure.NONE, "No lure")
-				container:Add(ns.Lure.BEST, "Best I can use")
-				for _, lure in ipairs(ns.Lure.LIST) do
-					container:Add(lure.id, string.format("%s (+%d)", ns.Lure.Name(lure), lure.bonus))
-				end
-			end), "The lure the tackle box, the Apply lure key and the cast key use. Your choice is never swapped for another: if it runs out, OneCast fishes without one. \"Best I can use\" can spend your rarest lures. Set for each character.")
-		end,
-		restoreDelay = function(page)
-			local setting = Register(page, "restoreDelay", "number", "Re-equip weapons after", db, defaults.restoreDelay)
-			return Slider(page, setting, 0, 300, 15, function(value)
-				return value == 0 and "Never" or (value .. " s")
-			end, "Seconds without casting before your weapons are put back. 0 keeps the pole on until you re-equip by hand.")
-		end,
-		quietLevel = function(page)
-			local setting = Register(page, "quietLevel", "number", "Other sounds while fishing", db, defaults.quietLevel)
-			setting:SetValueChangedCallback(function()
-				UpdateQuiet(true)
-			end)
-			return Slider(page, setting, 0, 100, 5, function(value)
-				return value == 0 and "Muted" or (value .. "%")
-			end, "How loud music, ambience and dialog stay while your pole is equipped, as a share of your own volume. 0 mutes them.")
-		end,
-		statsScale = function(page)
-			local setting = Register(page, "statsScale", "number", "Stats window scale", db, defaults.statsScale)
-			setting:SetValueChangedCallback(function(_, value)
-				ns.Stats.SetScale(value)
-			end)
+	-- Everything that isn't a plain checkbox, from CHOICES.
+	local function ChoiceControl(page, key)
+		local spec = CHOICES[key]
+		local setting = Register(page, key, spec.kind, spec.label, spec.char and OneCastCharDB or db,
+			spec.char and charDefaults[key] or defaults[key])
+		if spec.onChange then
+			setting:SetValueChangedCallback(spec.onChange)
+		end
+		if key == "statsScale" then
 			ns.scaleSetting = setting
-			return Slider(page, setting, 50, 200, 5, function(value)
-				return value .. "%"
-			end, "Size of the stats window. You can also drag its bottom-right corner, or Ctrl + mouse wheel over it.")
-		end,
-		alertQuality = function(page)
-			local setting = Register(page, "alertQuality", "number", "Alert quality", db, defaults.alertQuality)
+		end
+		if spec.list then
 			return Settings.CreateDropdown(page, setting, Choices(function(container)
-				for q = 2, 5 do
-					local color = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
-					local label = _G["ITEM_QUALITY" .. q .. "_DESC"] or tostring(q)
-					container:Add(q, (color and color.hex or "") .. label .. (color and "|r" or "") .. " or better")
+				for _, choice in ipairs(spec.list()) do
+					container:Add(choice[1], choice[2])
 				end
-			end), "The lowest item quality that triggers the rare catch alert.")
-		end,
-	}
+			end), spec.tooltip)
+		end
+		return Slider(page, setting, spec.min, spec.max, spec.step, spec.format, spec.tooltip)
+	end
+	local CONTROLS = {}
+	for key in pairs(CHOICES) do
+		CONTROLS[key] = function(page)
+			return ChoiceControl(page, key)
+		end
+	end
 
 	local ON_CHANGE = {
 		minimapButton = UpdateMinimapVisibility,
@@ -589,6 +647,9 @@ local function SetupSettings()
 		end,
 		autoLure = function()
 			ns.Lure.OnSettingChanged()
+		end,
+		lockWindow = function()
+			ns.Hub.UpdateLock()
 		end,
 	}
 
@@ -619,6 +680,8 @@ local function SetupSettings()
 	-- The main page: how it looks, the one key you need, and a way into every window.
 	Header(layout, "Look")
 	AddControl(category, "theme")
+	AddControl(category, "tabSide")
+	AddControl(category, "statsScale")
 
 	-- The cast/reel key, editable right here (same binding as Keybindings > AddOns).
 	if CreateKeybindingEntryInitializer then
@@ -640,7 +703,7 @@ local function SetupSettings()
 
 	Header(layout, "Open")
 	for _, entry in ipairs({
-		{ "Stats window", "Open stats", function() ns.Stats.Toggle() end, "Your catches this session, in this zone and over your lifetime." },
+		{ "Stats window", "Open stats", function() ns.Stats.Toggle() end, "This session and your skill, where fish bite best, and your records." },
 		{ "Tackle box", "Open tackle box", function() ns.TackleBox.ToggleWindow() end, "Choose your lure and compare fish per hour with and without one." },
 		{ "Fishing collection", "Open collection", function() ns.Book.Show() end, "Every fish, which you've caught, and where to find the rest." },
 		{ "Data report", "Open report", function() ns.Report.Show() end, "Your catches and getaways as text, to share so OneCast can learn Forever's real fishing levels." },
@@ -650,6 +713,7 @@ local function SetupSettings()
 	end
 
 	Header(layout, "General")
+	AddControl(category, "lockWindow")
 	AddControl(category, "minimapButton")
 	AddControl(category, "loginMessage")
 
@@ -728,7 +792,7 @@ local MENU = {
 	{ "Data report", function() ns.Report.Toggle() end },
 	{ "What's new", function() ns.WhatsNew.Toggle() end },
 	false, -- a divider
-	{ "Options", function() OpenSettings() end },
+	{ "Options", function() ns.Hub.ShowOptions() end },
 }
 local MENU_WIDTH, MENU_ROW, MENU_PAD = 170, 20, 10
 
@@ -885,7 +949,7 @@ end
 
 -- Addon compartment (the addons dropdown by the minimap), declared in the TOC.
 function OneCast_OnAddonCompartmentClick()
-	OpenSettings()
+	ns.Hub.ShowOptions()
 end
 
 function OneCast_OnAddonCompartmentEnter(_, menuButtonFrame)
@@ -1048,12 +1112,16 @@ SLASH_ONECAST1 = "/onecast"
 SlashCmdList.ONECAST = function(msg)
 	local cmd = strlower(strtrim(msg or ""))
 	if cmd == "" then
-		OpenSettings()
+		ns.Hub.ShowOptions()
+		return
+	elseif cmd == "keys" or cmd == "settings" then
+		OpenSettings() -- the game's options: the cast key is set there
 		return
 	elseif cmd == "stats" then
 		ns.Stats.Toggle()
 		return
-	elseif cmd == "session" or cmd == "zone" or cmd == "lifetime" or cmd == "log" then
+	elseif cmd == "spots" or cmd == "alltime" or cmd == "now" or cmd == "farm" or cmd == "records"
+		or cmd == "session" or cmd == "zone" or cmd == "lifetime" or cmd == "log" then
 		ns.Stats.Toggle(cmd)
 		return
 	elseif cmd == "reset" then
@@ -1099,7 +1167,7 @@ SlashCmdList.ONECAST = function(msg)
 		local percent = tonumber(cmd:match("^scale%s+(%d+)"))
 		if percent then
 			ns.Stats.SetScale(percent)
-			Print("stats window scale: " .. db.statsScale .. "%")
+			Print("window scale: " .. db.statsScale .. "%")
 		else
 			Print("usage: /onecast scale 50-200")
 		end
@@ -1115,17 +1183,17 @@ SlashCmdList.ONECAST = function(msg)
 		end
 	end
 	Print("v" .. ns.VERSION .. " | key: " .. BoundKeysText() .. " | spell: " .. tostring(fishingName))
-	Print("/onecast - open options")
+	Print("/onecast - open options (/onecast keys for the cast key)")
 	Print("/onecast new - what's new in each version")
 	Print("/onecast book - fishing collection (/onecast camp for its Camp tab)")
 	Print("/onecast report - your fishing data as text, to share and help fill in Forever's numbers")
 	Print("/onecast theme [" .. table.concat(ns.Theme.ORDER, "|") .. "] - window colours (no name: the next one)")
 	Print("/onecast tackle - tackle box (/onecast tackle reset moves its button back)")
-	Print("/onecast stats - stats window (or /onecast session|zone|lifetime|log for a tab)")
+	Print("/onecast stats - stats window (or /onecast session|spots|alltime for a tab)")
 	Print("/onecast reset - start a new session")
 	Print("/onecast gear - put your weapons back on")
 	Print("/onecast scan - price your catch with Auctionator (auction house open)")
-	Print("/onecast scale 50-200 - stats window size in percent")
+	Print("/onecast scale 50-200 - window size in percent")
 	for _, opt in ipairs(OPTIONS) do
 		local store = opt.char and OneCastCharDB or db
 		Print("/onecast " .. opt.cmd .. " - " .. opt.label .. " (" .. (store[opt.key] and "on" or "off") .. ")")

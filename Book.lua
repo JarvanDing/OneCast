@@ -524,6 +524,9 @@ local function PoolButton(pool)
 		b.left:SetPoint("LEFT", 6, 0)
 		b.right = b:CreateFontString(nil, "OVERLAY")
 		b.right:SetPoint("RIGHT", -6, 0)
+		b.left:SetPoint("RIGHT", b.right, "LEFT", -8, 0)
+		b.left:SetJustifyH("LEFT")
+		b.left:SetWordWrap(false)
 		for _, fs in ipairs({ b.left, b.right }) do
 			SizedFont(fs, QuestFont, 13)
 			fs:SetShadowOffset(0, 0)
@@ -866,6 +869,10 @@ local function RenderRight(fish, info)
 		end
 		b.right:SetText(table.concat(right, "  ·  "))
 		b.right:SetTextColor(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3])
+		local nameWidth = (b.left.GetUnboundedStringWidth and b.left:GetUnboundedStringWidth()) or b.left:GetStringWidth() or 0
+		if needs and mine and nameWidth + (b.right:GetStringWidth() or 0) + 20 > width then
+			b.right:SetText(LEAD .. mine .. " caught|r")
+		end
 		b:SetScript("OnClick", function(_, mouseButton)
 			if mouseButton == "RightButton" then
 				OpenZoneByName(row.zone)
@@ -903,7 +910,7 @@ local function RenderRight(fish, info)
 	frame.mapID = DrawMap(map, state.zone)
 	local pools = frame.mapID and #ns.Pools.ForMap(frame.mapID) or 0
 	frame.mapCaption:SetText((state.zone or "") .. (pools > 0
-		and string.format("  ·  %d pool%s you've found", pools, pools == 1 and "" or "s") or ""))
+		and string.format("  ·  %d pool%s found", pools, pools == 1 and "" or "s") or ""))
 	frame.openMap:SetEnabled(frame.mapID ~= nil)
 	y = y + MAP_H + 34
 
@@ -1524,6 +1531,9 @@ local function CreateWindow()
 	ns.Theme.Register(f.openMap, "button")
 	f.openMap:SetSize(96, 20)
 	f.openMap:SetPoint("TOPRIGHT", f.map, "BOTTOMRIGHT", 0, -4)
+	f.mapCaption:SetPoint("RIGHT", f.openMap, "LEFT", -8, 0)
+	f.mapCaption:SetJustifyH("LEFT")
+	f.mapCaption:SetWordWrap(false)
 	f.openMap:SetText("Open map")
 	f.openMap:SetScript("OnClick", function()
 		OpenZoneMap(frame.mapID)
@@ -1600,7 +1610,7 @@ local function CreateWindow()
 	f.next = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 	ns.Theme.Register(f.next, "button")
 	f.next:SetSize(100, 22)
-	f.next:SetPoint("BOTTOMRIGHT", -10, 4)
+	f.next:SetPoint("BOTTOMRIGHT", -22, 4) -- clear of the resize grip
 	f.next:SetText("Next")
 	f.next:SetScript("OnClick", function()
 		if state.fishID and state.index then
@@ -1635,6 +1645,9 @@ local function CreateWindow()
 	end)
 
 	f:Hide()
+	ns.Hub.Attach("collection", f, function()
+		return state.cat == "camp" and "camp" or "collection"
+	end)
 	return f
 end
 
@@ -1642,6 +1655,7 @@ function Book.Refresh()
 	if not frame then
 		return
 	end
+	ns.Hub.UpdateTabs()
 	for i, tab in ipairs(frame.Tabs) do
 		if tab.cat == state.cat then
 			if PanelTemplates_SetTab then
@@ -1741,6 +1755,14 @@ function Book.ShowCamp()
 	Book.Show()
 	state.cat, state.fishID, state.spread = "camp", nil, 1
 	Book.Refresh()
+end
+
+-- The collection, leaving the Camp tab if it was on it.
+function Book.ShowCollection()
+	if state.cat == "camp" then
+		state.cat, state.fishID, state.spread = "all", nil, 1
+	end
+	Book.Show()
 end
 
 -- Bags or recipes changed: only the Camp tab shows those.

@@ -1,6 +1,6 @@
 -- OneCast report: this character's fishing data as plain text, to copy and share.
 --
--- Nobody has published Forever's real zone fishing levels or which fish live where, and the
+-- Nobody has published Forever's real zone fishing levels or all of its fish, and the
 -- game doesn't tell addons either. OneCast already sees every catch and getaway, and the skill
 -- each happened at, so players can pass that on: OneCast's numbers can then become Forever's
 -- own. The text holds fishing numbers only: no character name, realm or guild.
@@ -10,7 +10,7 @@ local _, ns = ...
 local Report = {}
 ns.Report = Report
 
-local MAX_FISH = 15 -- items listed per zone, most caught first
+local MAX_FISH = 15 -- items listed per camp buff, most caught first
 
 -- The area ID for a zone name as the game gives it, in any client language.
 local function AreaID(zone)
@@ -81,21 +81,12 @@ end
 
 local MIN_UNKNOWN_LEVEL = 10 -- catches in a zone with no known level
 local MIN_BELOW_LEVEL = 20   -- catches without a getaway below a zone's listed level
-local MIN_NEW_PLACE = 3      -- of one collection fish in a zone OneCast doesn't list for it
 local MIN_CAMP = 5           -- catches under a camp buff
 
-local function Listed(fish, zone)
-	for _, z in ipairs(fish.zones or {}) do
-		if z == zone then
-			return true
-		end
-	end
-	for _, extra in ipairs(fish.more or {}) do
-		if extra[1] == zone then
-			return true
-		end
-	end
-	return false
+-- A collection fish the book can't say where to find: no zones at all, from any source. Only
+-- these are worth a report when caught: a known fish in one more zone helps nobody find it.
+local function Unplaced(fish)
+	return not (fish.zones and fish.zones[1]) and not (fish.more and fish.more[1])
 end
 
 local function ItemName(id, item)
@@ -168,21 +159,32 @@ Findings = function()
 					below, zone, lowest, listed), zone)
 			end
 		end
-		for id, item in pairs(z.items or {}) do
-			local fish = ns.FISH_BY_ID and ns.FISH_BY_ID[id]
-			if fish and (item.count or 0) >= MIN_NEW_PLACE and not Listed(fish, zone) then
-				add("place:" .. id .. ":" .. zone, string.format("%s caught in %s, where OneCast doesn't list it",
-					ItemName(id, item), zone), zone)
-			end
-		end
 	end
 	for _, entry in ipairs(ns.Collection and ns.Collection.Discovered() or {}) do
-		add("fish:" .. entry.id, string.format("%s, which isn't in OneCast's collection", entry.name or ("item " .. entry.id)))
+		-- Where this character caught it, so the finding says everything on its own.
+		local where = {}
+		for _, zone in ipairs(zoneNames) do
+			local item = OneCastCharDB.zoneStats[zone].items and OneCastCharDB.zoneStats[zone].items[entry.id]
+			if item and (item.count or 0) > 0 then
+				where[#where + 1] = string.format("%s x%d", zone, item.count)
+			end
+		end
+		add("fish:" .. entry.id, string.format("%s, which isn't in OneCast's collection%s", entry.name or ("item " .. entry.id),
+			#where > 0 and (" (caught in " .. table.concat(where, ", ") .. ")") or ""))
 	end
 	for _, craft in ipairs(ns.Camp and ns.Camp.CRAFTS or {}) do
 		local r = craft.buff and ns.Camp.Record(craft.key)
 		if r and r.catches >= MIN_CAMP then
 			add("camp:" .. craft.key, string.format("%d catches with %s on", r.catches, craft.buffName))
+		end
+	end
+	for _, zone in ipairs(zoneNames) do
+		for id, item in pairs(OneCastCharDB.zoneStats[zone].items or {}) do
+			local fish = ns.FISH_BY_ID and ns.FISH_BY_ID[id]
+			if fish and Unplaced(fish) and (item.count or 0) > 0 then
+				add("place:" .. id .. ":" .. zone, string.format("%s caught in %s: OneCast doesn't know where it's found yet",
+					ItemName(id, item), zone), zone)
+			end
 		end
 	end
 	return found
@@ -234,6 +236,12 @@ end
 -- After a catch or getaway: say anything newly found, once each.
 function Report.Check()
 	Report.Forget()
+	if ns.Hub and ns.Hub.UpdateBadges then
+		ns.Hub.UpdateBadges()
+	end
+	if Report.RefreshIfShown then
+		Report.RefreshIfShown()
+	end
 	if not (OneCastCharDB and ns.db and ns.db.reportHint) then
 		return
 	end
@@ -264,6 +272,37 @@ function Report.MarkShared()
 		seen.shared[f.key] = true
 		seen.said[f.key] = true
 	end
+	if ns.Hub and ns.Hub.UpdateBadges then
+		ns.Hub.UpdateBadges()
+	end
+end
+
+-- The report text ---------------------------------------------------------------------------
+-- Only what OneCast can learn from: what's new, the evidence for zone levels, what camp buffs
+-- bring in, and any fishing messages OneCast didn't recognise. Zones whose catches only agree
+-- with the level OneCast already lists say nothing new, so they're left out.
+
+-- Whether a zone's catches and getaways say anything about its fishing level.
+local function Telling(zone, z)
+	if (z.casts or 0) == 0 then
+		return false
+	end
+	local listed = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone]
+	if not listed then
+		return (z.catches or 0) > 0 or (z.escapes or 0) > 0
+	end
+	for _, n in pairs(z.skillGetaways or {}) do
+		if n > 0 then
+			return true -- getaways bound the level, above or below the listed one
+		end
+	end
+	local step = ns.Stats.SKILL_STEP
+	for bucket, n in pairs(z.skillCatches or {}) do
+		if n > 0 and bucket + step <= listed then
+			return true -- caught below the listed level
+		end
+	end
+	return (z.escapeSkill or 0) > 0 -- a getaway from before 0.7.0
 end
 
 function Report.Text()
@@ -278,72 +317,39 @@ function Report.Text()
 	local rank, maxRank, modifier = ns.Stats.FishingSkill()
 	add(rank and string.format("Fishing %d/%d%s", rank, maxRank,
 		modifier > 0 and string.format(" (+%d from lure or pole right now)", modifier) or "") or "Fishing skill not found")
+
 	local findings = Report.Findings()
+	add("")
 	if #findings > 0 then
-		add("")
-		add("New to OneCast:")
+		add(string.format("New to OneCast (%d):", #findings))
 		for _, f in ipairs(findings) do
 			add("- " .. f.text)
 		end
+	else
+		add("New to OneCast: nothing yet.")
 	end
-	add("")
-	add("Per zone: catches and getaways at each effective skill (lure and pole included).")
 
 	local zones = {}
 	for zone, z in pairs(charDB.zoneStats or {}) do
-		if (z.casts or 0) > 0 then
+		if Telling(zone, z) then
 			zones[#zones + 1] = { zone = zone, z = z }
 		end
 	end
 	table.sort(zones, function(a, b)
-		return (a.z.catches or 0) > (b.z.catches or 0)
+		return a.zone < b.zone
 	end)
-	for _, entry in ipairs(zones) do
-		local zone, z = entry.zone, entry.z
-		local id = AreaID(zone)
+	if #zones > 0 then
 		add("")
-		add(string.format("%s%s: %d caught from %d casts, %d got away", zone, id and (" [" .. id .. "]") or "",
-			z.catches or 0, z.casts or 0, z.escapes or 0))
-		-- Casts that brought nothing back and weren't a getaway: reeled too early (counted from
-		-- 0.7.0), or no bite reeled in before the line came back on its own or was moved.
-		local empty = (z.casts or 0) - (z.catches or 0) - (z.escapes or 0)
-		if empty > 0 then
-			local early = math.min(z.early or 0, empty)
-			add(string.format("  empty casts: %d%s", empty,
-				early > 0 and string.format(" (%d reeled before a bite)", early) or ""))
-		end
-		local listed = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone]
-		add("  OneCast lists: " .. (listed and (listed .. " for no getaways") or "no level"))
-		if not SkillLines(z, add) and z.escapeSkill then
-			add(string.format("  highest skill a fish got away at: %d (from before 0.7.0)", z.escapeSkill))
-		end
-		local spots = {}
-		for name, t in pairs(z.spots or {}) do
-			if name ~= zone and (t.catches or 0) > 0 then
-				spots[#spots + 1] = string.format("%s %d", name, t.catches)
+		add("Zone levels: catches and getaways at each effective skill (lure and pole included).")
+		for _, entry in ipairs(zones) do
+			local zone, z = entry.zone, entry.z
+			local id = AreaID(zone)
+			local listed = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone]
+			add(string.format("%s%s, %s", zone, id and (" [" .. id .. "]") or "",
+				listed and ("OneCast lists " .. listed) or "no level known"))
+			if not SkillLines(z, add) and z.escapeSkill then
+				add(string.format("  a fish got away at %d (before 0.7.0)", z.escapeSkill))
 			end
-		end
-		if #spots > 0 then
-			table.sort(spots)
-			add("  spots: " .. table.concat(spots, ", "))
-		end
-		if next(z.items or {}) then
-			add("  caught: " .. ItemLine(z.items))
-		end
-	end
-	if #zones == 0 then
-		add("")
-		add("No fishing recorded on this character yet.")
-	end
-
-	-- Messages the game showed while a line was out that OneCast doesn't recognise: they show
-	-- what to match if getaways or other fishing messages are ever missed.
-	local messages = charDB.messagesWhileFishing
-	if messages and #messages > 0 then
-		add("")
-		add("Messages seen while fishing:")
-		for _, m in ipairs(messages) do
-			add(string.format("- %q x%d (%s%s)", m.text, m.count, m.event, m.id and (", " .. m.id) or ""))
 		end
 	end
 
@@ -365,42 +371,39 @@ function Report.Text()
 			table.sort(zonesHere)
 			add(string.format("%s (%s): %d caught, in %s", entry.craft.buffName, entry.craft.name, entry.r.catches,
 				table.concat(zonesHere, ", ")))
-			add("  caught: " .. ItemLine(entry.r.items))
+			add("  " .. ItemLine(entry.r.items))
+		end
+	end
+
+	-- Fishing messages OneCast didn't recognise: what to match if one is ever being missed.
+	local messages = charDB.messagesWhileFishing
+	if messages and #messages > 0 then
+		add("")
+		add("Unrecognised fishing messages:")
+		for _, m in ipairs(messages) do
+			add(string.format("- %q x%d (%s%s)", m.text, m.count, m.event, m.id and (", " .. m.id) or ""))
 		end
 	end
 	return table.concat(out, "\n")
 end
 
--- What the report holds, for the window's summary rows.
-function Report.Summary()
-	local s = { zones = 0, catches = 0, escapes = 0 }
-	for _, z in pairs(OneCastCharDB and OneCastCharDB.zoneStats or {}) do
-		if (z.casts or 0) > 0 then
-			s.zones = s.zones + 1
-			s.catches = s.catches + (z.catches or 0)
-			s.escapes = s.escapes + (z.escapes or 0)
-		end
-	end
-	return s
-end
-
 -- The window ------------------------------------------------------------------------------
--- Laid out like the tackle box: a status line by the portrait, gold summary rows under a
--- section header, then the text itself in its own panel, and the buttons along the bottom.
+-- Three parts, top to bottom: what you've found, how to share it (the steps, with the button and
+-- links in them, on parchment like the book's pages), and the report text itself.
 
-local WINDOW_WIDTH, WINDOW_HEIGHT = 560, 710
-local BANNER_MIN_HEIGHT = 120
-local STEPS_WIDTH = WINDOW_WIDTH - 100 -- the banner, less its icon and margins
-local LINK_HEIGHT, LINK_GAP = 20, 6
+local WINDOW_WIDTH = 440
+local EDGE, GAP, HEADER_HEIGHT, HEADER_GAP = 10, 8, 24, 4
+local NEW_ROWS, NEW_ROW_HEIGHT = 6, 20
+local SHARE_PAD = 12
+local LINK_HEIGHT, LINK_GAP = 20, 4
 -- Where reports go. The GitHub link opens the repo's Data report issue form.
 Report.WHERE = {
 	{ label = "CurseForge", url = "https://www.curseforge.com/wow/addons/onecast/comments" },
 	{ label = "GitHub", url = "https://github.com/rynmon/OneCast/issues/new?template=data-report.yml" },
 }
-local HEADER_HEIGHT, SECTION_GAP = 26, 6
-local HINT = "Ctrl+C copies it once it's selected."
+local HINT = "Ctrl+C copies the report once it's selected."
 local SELECTED = "|cffffd100Selected! Now press Ctrl+C to copy.|r"
-local COPIED = "|cff1eff00Report copied!|r Now copy a link above, open it in your browser and paste."
+local COPIED = "|cff1eff00Report copied!|r Now copy a link, open it in your browser and paste."
 local LINK_COPIED = "|cff1eff00Link copied!|r Paste it in your browser's address bar."
 
 -- A box holding a web address, read-only, all selected when clicked: WoW can't open links,
@@ -409,7 +412,7 @@ local function LinkBox(parent, url, onCopy)
 	local box = ns.UI.TryCreate("EditBox", nil, parent, "InputBoxTemplate") or CreateFrame("EditBox", nil, parent)
 	box:SetAutoFocus(false)
 	box:SetFontObject(GameFontHighlightSmall)
-	box:SetHeight(20)
+	box:SetHeight(LINK_HEIGHT)
 	box:SetText(url)
 	box:SetCursorPosition(0)
 	box:SetScript("OnTextChanged", function(self, userInput)
@@ -435,14 +438,18 @@ local function LinkBox(parent, url, onCopy)
 	return box
 end
 
--- The banner at the top: how to share, step by step, and where to. On parchment, like the
--- book's pages, so it stands apart from the window's own panels.
-local function Banner(f, inset)
-	local banner = CreateFrame("Frame", nil, inset)
-	banner:SetPoint("TOPLEFT", 8, -6)
-	banner:SetPoint("TOPRIGHT", -8, -6)
-	banner:SetHeight(BANNER_MIN_HEIGHT)
-	local bg = banner:CreateTexture(nil, "BACKGROUND")
+-- Parchment text in the theme's ink.
+local function Ink(fs, size, font)
+	ns.UI.SizedFont(fs, font or QuestFont, size)
+	fs:SetShadowOffset(0, 0)
+	fs:SetJustifyH("LEFT")
+	return fs
+end
+
+-- Share it: three numbered steps, each with what it needs right there, and what a report holds.
+local function SharePanel(f, parent)
+	local panel = CreateFrame("Frame", nil, parent)
+	local bg = panel:CreateTexture(nil, "BACKGROUND")
 	bg:SetAllPoints()
 	if ns.UI.HasAtlas("QuestBG-Parchment") then
 		bg:SetAtlas("QuestBG-Parchment")
@@ -451,94 +458,89 @@ local function Banner(f, inset)
 		bg:SetTexCoord(0, 0.586, 0, 0.65)
 	end
 	ns.Theme.Register(bg, "parchment")
-	local edge = banner:CreateTexture(nil, "BORDER")
+	local edge = panel:CreateTexture(nil, "BORDER")
 	edge:SetColorTexture(0.55, 0.40, 0.15, 0.8)
 	edge:SetPoint("TOPLEFT")
 	edge:SetPoint("BOTTOMLEFT")
 	edge:SetWidth(3)
 
-	local icon = banner:CreateTexture(nil, "ARTWORK")
-	icon:SetSize(36, 36)
-	icon:SetPoint("TOPLEFT", 14, -12)
-	icon:SetTexture("Interface\\Icons\\INV_Letter_15")
-	icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+	local width = WINDOW_WIDTH - 10 - 2 * EDGE - 2 * SHARE_PAD
+	panel.texts = {}
+	local function Text(size, font)
+		local fs = Ink(panel:CreateFontString(nil, "OVERLAY"), size, font)
+		fs:SetWidth(width)
+		panel.texts[#panel.texts + 1] = fs
+		return fs
+	end
 
-	banner.title = banner:CreateFontString(nil, "OVERLAY")
-	ns.UI.SizedFont(banner.title, QuestTitleFont, 17)
-	banner.title:SetShadowOffset(0, 0)
-	banner.title:SetPoint("TOPLEFT", icon, "TOPRIGHT", 10, -1)
-	banner.title:SetText("Share your report")
+	-- 1. Select it, and copy.
+	panel.step1 = Text(12)
+	panel.step1:SetPoint("TOPLEFT", SHARE_PAD, -SHARE_PAD)
+	local select = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	ns.Theme.Register(select, "button")
+	select:SetSize(130, 22)
+	select:SetPoint("TOPLEFT", panel.step1, "BOTTOMLEFT", 16, -4)
+	select:SetText("Select report")
+	select:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		GameTooltip:SetText("Select report")
+		GameTooltip:AddLine("Selects all of it. Then press Ctrl+C to copy: the game doesn't let addons copy for you.",
+			1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	select:SetScript("OnLeave", GameTooltip_Hide)
+	f.select = select
 
-	-- A fixed width, so the steps wrap the same way every time and the banner can be sized to them.
-	banner.steps = banner:CreateFontString(nil, "OVERLAY")
-	ns.UI.SizedFont(banner.steps, QuestFont, 12)
-	banner.steps:SetShadowOffset(0, 0)
-	banner.steps:SetPoint("TOPLEFT", banner.title, "BOTTOMLEFT", 0, -4)
-	banner.steps:SetWidth(STEPS_WIDTH)
-	banner.steps:SetJustifyH("LEFT")
-	banner.steps:SetSpacing(3)
-
-	-- The links flow on under the steps, however many lines those took.
-	banner.links = {}
-	local previous
+	-- 2. Where to post it.
+	panel.step2 = Text(12)
+	panel.step2:SetPoint("TOPLEFT", select, "BOTTOMLEFT", -16, -10)
+	panel.links = {}
+	local previous = panel.step2
 	for i, where in ipairs(Report.WHERE) do
-		local label = banner:CreateFontString(nil, "OVERLAY")
-		ns.UI.SizedFont(label, QuestFont, 13)
-		label:SetShadowOffset(0, 0)
-		label:SetSize(78, LINK_HEIGHT)
-		label:SetJustifyH("LEFT")
+		local label = Text(12)
+		label:SetSize(74, LINK_HEIGHT)
 		label:SetText(where.label)
-		local box = LinkBox(banner, where.url, function()
+		label:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", i == 1 and 16 or 0, i == 1 and -4 or -LINK_GAP)
+		local box = LinkBox(panel, where.url, function()
 			f.hint:SetText(LINK_COPIED)
 		end)
 		box:SetPoint("LEFT", label, "RIGHT", 6, 0)
-		box:SetPoint("RIGHT", banner, "RIGHT", -16, 0)
-		label:SetPoint("LEFT", banner, "LEFT", 20, 0)
-		if previous then
-			label:SetPoint("TOP", previous, "BOTTOM", 0, -LINK_GAP)
-		else
-			label:SetPoint("TOP", banner.steps, "BOTTOM", 0, -10)
-		end
+		box:SetPoint("RIGHT", panel, "RIGHT", -SHARE_PAD - 4, 0)
+		panel.links[i] = { label = label, box = box }
 		previous = label
-		banner.links[i] = { label = label, box = box }
 	end
 
-	-- What's in a report, and what isn't: said plainly, at the foot of the banner.
-	banner.privacy = banner:CreateFontString(nil, "OVERLAY")
-	ns.UI.SizedFont(banner.privacy, QuestFont, 12)
-	banner.privacy:SetShadowOffset(0, 0)
-	banner.privacy:SetPoint("LEFT", banner, "LEFT", 20, 0)
-	banner.privacy:SetPoint("TOP", previous, "BOTTOM", 0, -8)
-	banner.privacy:SetWidth(STEPS_WIDTH + 40)
-	banner.privacy:SetJustifyH("LEFT")
-	banner.privacy:SetText("Your report holds fishing numbers only. It has no character name, realm, guild, account "
-		.. "or anything else that could identify you, and nothing is sent anywhere unless you paste it yourself.")
-	return banner
+	-- 3. Post it.
+	panel.step3 = Text(12)
+	panel.step3:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", -16, -10)
+
+	-- What's in a report, and what isn't: said plainly, at the foot.
+	panel.privacy = Text(11)
+	panel.privacy:SetPoint("TOPLEFT", panel.step3, "BOTTOMLEFT", 0, -8)
+	panel.privacy:SetText("A report holds fishing numbers only: no character name, realm, guild, account or anything "
+		.. "else that could identify you, and nothing is sent unless you paste it yourself.")
+	return panel
 end
 
--- The banner's ink follows the theme, as the book's does, highlights included. Addons can't
--- put text on the clipboard (the game keeps CopyToClipboard for its own UI), so copying is
--- always the player's Ctrl+C, and the first step says so.
-local STEPS = "1.  Click %sSelect report|r below, then press %sCtrl+C|r to copy it.\n"
-	.. "2.  Click a link below, press %sCtrl+C|r, and open it in your browser.\n"
-	.. "3.  Paste your report into a new comment or issue, and post it. Thank you!"
+local STEP1 = "%s1.|r  Select your report, then press %sCtrl+C|r to copy it."
+local STEP2 = "%s2.|r  Click a link, press %sCtrl+C|r, and open it in your browser."
+local STEP3 = "%s3.|r  Paste it into a new comment or issue, and post it. Thank you!"
 
-local function InkBanner(banner)
+-- The panel's ink follows the theme, as the book's does, and it's sized to its text.
+local function InkShare(panel)
 	local theme = ns.Theme.Current()
-	banner.title:SetTextColor(theme.ink[1], theme.ink[2], theme.ink[3])
-	banner.steps:SetTextColor(theme.ink[1], theme.ink[2], theme.ink[3])
-	banner.steps:SetText(string.format(STEPS, theme.lead, theme.lead, theme.lead))
-	for _, link in ipairs(banner.links) do
-		link.label:SetTextColor(theme.ink[1], theme.ink[2], theme.ink[3])
+	for _, fs in ipairs(panel.texts) do
+		fs:SetTextColor(theme.ink[1], theme.ink[2], theme.ink[3])
 	end
-	banner.privacy:SetTextColor(theme.inkSoft[1], theme.inkSoft[2], theme.inkSoft[3])
-	-- Tall enough for the title, the steps as they wrapped, the links and the privacy note.
-	local height = 12 + math.max(banner.title:GetStringHeight(), 18) + 4 + banner.steps:GetStringHeight()
-		+ 10 + #banner.links * (LINK_HEIGHT + LINK_GAP) + 2 + banner.privacy:GetStringHeight() + 12
-	banner:SetHeight(math.max(height, BANNER_MIN_HEIGHT))
+	panel.privacy:SetTextColor(theme.inkSoft[1], theme.inkSoft[2], theme.inkSoft[3])
+	panel.step1:SetText(string.format(STEP1, theme.lead, theme.lead))
+	panel.step2:SetText(string.format(STEP2, theme.lead, theme.lead))
+	panel.step3:SetText(string.format(STEP3, theme.lead))
+	local height = SHARE_PAD + panel.step1:GetStringHeight() + 4 + 22 + 10 + panel.step2:GetStringHeight() + 4
+		+ #panel.links * (LINK_HEIGHT + LINK_GAP) - LINK_GAP + 10 + panel.step3:GetStringHeight()
+		+ 8 + panel.privacy:GetStringHeight() + SHARE_PAD
+	panel:SetHeight(height)
 end
-
-local NEW_ROWS, NEW_ROW_HEIGHT = 6, 18
 
 -- What a finding is about, for its row's icon: the fish's own, the craft's, or a map.
 local MAP_ICON = "Interface\\Icons\\INV_Misc_Map_01"
@@ -560,20 +562,20 @@ local KIND_LABEL = {
 	level = "No known level here",
 	above = "Level may be higher",
 	below = "Level may be lower",
-	place = "A fish somewhere new",
+	place = "Where a fish is found",
 	fish = "A fish OneCast doesn't have",
 	camp = "What a camp buff gives",
 }
 
 local function FindingRow(parent, index, y)
 	local row = CreateFrame("Frame", nil, parent)
-	row:SetPoint("TOPLEFT", 10, y)
-	row:SetPoint("TOPRIGHT", -10, y)
+	row:SetPoint("TOPLEFT", EDGE, y)
+	row:SetPoint("TOPRIGHT", -EDGE, y)
 	row:SetHeight(NEW_ROW_HEIGHT)
 	ns.UI.RowBackground(row, index)
 	row.icon = row:CreateTexture(nil, "ARTWORK")
 	row.icon:SetSize(NEW_ROW_HEIGHT - 4, NEW_ROW_HEIGHT - 4)
-	row.icon:SetPoint("LEFT", 4, 0)
+	row.icon:SetPoint("LEFT", 6, 0)
 	row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 	row.tag = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	row.tag:SetPoint("RIGHT", -6, 0)
@@ -615,7 +617,7 @@ local FillFindings -- below; copying the report redraws the list with it
 local function CreateWindow()
 	local UI = ns.UI
 	local f, inset = UI.CreateShell("OneCastReportFrame", "OneCast data report", "Interface\\Icons\\INV_Misc_Note_01")
-	f:SetSize(WINDOW_WIDTH, WINDOW_HEIGHT)
+	f:SetSize(WINDOW_WIDTH, ns.UI.PAGE_HEIGHT)
 	f:SetPoint("CENTER")
 	f:SetFrameStrata("DIALOG")
 	f:SetToplevel(true)
@@ -628,73 +630,74 @@ local function CreateWindow()
 	tinsert(UISpecialFrames, f:GetName())
 	UI.KeepOpenThroughOptions(f:GetName())
 
-	-- Where the tackle box has its status: right of the portrait, above the inset.
+	-- Right of the portrait, above the inset: what this window is for.
 	f.status = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	f.status:SetPoint("BOTTOMLEFT", inset, "TOPLEFT", 62, 6)
 	f.status:SetPoint("RIGHT", inset, "RIGHT", -6, 0)
 	f.status:SetJustifyH("LEFT")
 	f.status:SetWordWrap(false)
-	f.status:SetText("Help fill in Forever's real fishing numbers.")
 
-	f.banner = Banner(f, inset)
-	InkBanner(f.banner)
-	-- Everything else hangs from the banner's foot, so it moves with the banner's height.
-	local content = CreateFrame("Frame", nil, inset)
-	content:SetPoint("TOPLEFT", f.banner, "BOTTOMLEFT", -8, -SECTION_GAP)
-	content:SetPoint("BOTTOMRIGHT", inset, "BOTTOMRIGHT")
-	local y = 0
-	f.newHeader = UI.SectionHeader(content, y)
-	f.newHeader.text:SetText("New to OneCast")
-	y = y - HEADER_HEIGHT
-	-- What this character's fishing adds to what OneCast knows, one finding a row.
+	-- 1. What you've found.
+	local y = -GAP
+	f.newHeader = UI.SectionHeader(inset, y)
+	y = y - HEADER_HEIGHT - HEADER_GAP
 	f.rows = {}
 	for i = 1, NEW_ROWS do
-		f.rows[i] = FindingRow(content, i, y)
-		y = y - NEW_ROW_HEIGHT
+		f.rows[i] = FindingRow(inset, i, y - (i - 1) * NEW_ROW_HEIGHT)
 	end
-	f.empty = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	f.empty:SetPoint("TOPLEFT", 16, -HEADER_HEIGHT - 6)
-	f.empty:SetPoint("RIGHT", -16, 0)
-	f.empty:SetJustifyH("LEFT")
+	f.empty = inset:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.empty:SetPoint("TOPLEFT", EDGE + 12, y - 16)
+	f.empty:SetPoint("RIGHT", -(EDGE + 12), 0)
+	f.empty:SetJustifyH("CENTER")
 	f.empty:SetWordWrap(true)
-	f.empty:SetSpacing(2)
-	f.empty:SetText("Nothing new yet: everything you've fished matches what OneCast already knows.\n"
-		.. "|cff9d9d9dA zone with no known level, a fish getting away above a listed level, a fish somewhere new "
-		.. "or catches with a camp buff will show here.|r")
+	f.empty:SetSpacing(3)
+	f.empty:SetText("Nothing new yet: everything you've fished matches what OneCast knows.\n"
+		.. "|cff9d9d9dA zone with no known level, a fish getting away above a listed level, a fish the collection "
+		.. "doesn't have or can't place, or catches with a camp buff will show here.|r")
+	y = y - NEW_ROWS * NEW_ROW_HEIGHT - GAP
 
-	y = y - SECTION_GAP
-	UI.SectionHeader(content, y).text:SetText("Report text")
-	y = y - HEADER_HEIGHT - 2
+	-- 2. Share it.
+	UI.SectionHeader(inset, y).text:SetText("Share it")
+	y = y - HEADER_HEIGHT - HEADER_GAP
+	f.share = SharePanel(f, inset)
+	f.share:SetPoint("TOPLEFT", EDGE, y)
+	f.share:SetPoint("TOPRIGHT", -EDGE, y)
+	InkShare(f.share)
 
-	-- The text sits in its own sunken panel, like the What's new list.
-	local panel = UI.TryCreate("Frame", nil, content, "InsetFrameTemplate") or CreateFrame("Frame", nil, content)
-	panel:SetPoint("TOPLEFT", 8, y)
-	panel:SetPoint("BOTTOMRIGHT", -8, 8)
-	ns.Theme.Panel(panel)
+	-- 3. The report text, under the panel, in its own sunken box.
+	local textHeader = UI.SectionHeader(inset, 0)
+	textHeader:ClearAllPoints()
+	textHeader:SetPoint("TOPLEFT", f.share, "BOTTOMLEFT", 0, -GAP)
+	textHeader:SetPoint("TOPRIGHT", f.share, "BOTTOMRIGHT", 0, -GAP)
+	textHeader.text:SetText("Report text")
+	local box = UI.TryCreate("Frame", nil, inset, "InsetFrameTemplate") or CreateFrame("Frame", nil, inset)
+	box:SetPoint("TOPLEFT", textHeader, "BOTTOMLEFT", 0, -HEADER_GAP)
+	box:SetPoint("BOTTOMRIGHT", -EDGE, EDGE)
+	ns.Theme.Panel(box)
 	-- The game's slim modern scroll bar, or the classic one where that template is missing.
-	local scroll = UI.TryCreate("ScrollFrame", "OneCastReportScroll", panel, "ScrollFrameTemplate")
-		or UI.TryCreate("ScrollFrame", "OneCastReportScroll", panel, "UIPanelScrollFrameTemplate")
-		or CreateFrame("ScrollFrame", "OneCastReportScroll", panel)
+	local scroll = UI.TryCreate("ScrollFrame", "OneCastReportScroll", box, "ScrollFrameTemplate")
+		or UI.TryCreate("ScrollFrame", "OneCastReportScroll", box, "UIPanelScrollFrameTemplate")
+		or CreateFrame("ScrollFrame", "OneCastReportScroll", box)
 	scroll:SetPoint("TOPLEFT", 8, -6)
 	scroll:SetPoint("BOTTOMRIGHT", -22, 6)
-	local box = CreateFrame("EditBox", nil, scroll)
-	box:SetMultiLine(true)
-	box:SetAutoFocus(false)
-	box:SetFontObject(GameFontHighlightSmall)
-	box:SetWidth(WINDOW_WIDTH - 72)
-	box:SetMaxLetters(0)
-	box:SetScript("OnEscapePressed", box.ClearFocus)
+	local edit = CreateFrame("EditBox", nil, scroll)
+	edit:SetMultiLine(true)
+	edit:SetAutoFocus(false)
+	edit:SetFontObject(GameFontHighlightSmall)
+	edit:SetWidth(WINDOW_WIDTH - 10 - 2 * EDGE - 30)
+	edit:SetMaxLetters(0)
+	edit:SetScript("OnEscapePressed", edit.ClearFocus)
 	-- Read-only, and all of it selected whenever it's clicked, ready to copy.
-	box:SetScript("OnTextChanged", function(self, userInput)
+	edit:SetScript("OnTextChanged", function(self, userInput)
 		if userInput then
 			self:SetText(f.text or "")
 			self:HighlightText()
 		end
 	end)
-	box:SetScript("OnEditFocusGained", function(self)
+	edit:SetScript("OnEditFocusGained", function(self)
 		self:HighlightText()
 	end)
-	box:SetScript("OnKeyDown", function(_, key)
+	edit:SetScript("OnKeyDown", function(_, key)
 		if key == "C" and IsControlKeyDown() then
 			f.hint:SetText(COPIED)
 			Report.MarkShared()
@@ -707,63 +710,45 @@ local function CreateWindow()
 			end
 		end
 	end)
-	scroll:SetScrollChild(box)
-	-- A click anywhere in the panel, not just on the text, focuses it.
+	scroll:SetScrollChild(edit)
+	-- A click anywhere in the box, not just on the text, focuses it.
 	scroll:EnableMouse(true)
 	scroll:SetScript("OnMouseDown", function()
-		box:SetFocus()
+		edit:SetFocus()
 	end)
-	f.box = box
+	f.box = edit
 
-	local select = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-	ns.Theme.Register(select, "button")
-	select:SetSize(120, 22)
-	select:SetPoint("BOTTOMLEFT", 10, 4)
-	select:SetText("Select report")
-	select:SetScript("OnClick", function()
-		box:SetFocus()
-		box:HighlightText()
+	f.select:SetScript("OnClick", function()
+		edit:SetFocus()
+		edit:HighlightText()
 		f.hint:SetText(SELECTED)
 	end)
-	select:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_TOP")
-		GameTooltip:SetText("Select report")
-		GameTooltip:AddLine("Selects all of it. Then press Ctrl+C to copy: the game doesn't let addons copy for you.",
-			1, 1, 1, true)
-		GameTooltip:Show()
-	end)
-	select:SetScript("OnLeave", GameTooltip_Hide)
-	f.select = select
-	local refresh = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-	ns.Theme.Register(refresh, "button")
-	refresh:SetSize(110, 22)
-	refresh:SetPoint("LEFT", select, "RIGHT", 4, 0)
-	refresh:SetText("Refresh")
-	refresh:SetScript("OnClick", function()
-		Report.Show()
-	end)
+
+	-- Along the bottom: what to do next, as you go.
 	f.hint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-	f.hint:SetPoint("LEFT", refresh, "RIGHT", 10, 0)
-	f.hint:SetPoint("RIGHT", f, "RIGHT", -12, 0)
+	f.hint:SetPoint("BOTTOMLEFT", 14, 9)
+	f.hint:SetPoint("RIGHT", f, "RIGHT", -22, 0) -- clear of the resize grip
 	f.hint:SetJustifyH("LEFT")
-	f.hint:SetWordWrap(true)
+	f.hint:SetWordWrap(false)
 	f:Hide()
+	ns.Hub.Attach("report", f)
 	return f
 end
 
 FillFindings = function(f)
-	local s = Report.Summary()
-	f.status:SetText(string.format("This character: %d zone%s fished  ·  %d catch%s  ·  %d got away",
-		s.zones, s.zones == 1 and "" or "s", s.catches, s.catches == 1 and "" or "es", s.escapes))
 	local findings = Report.Findings()
 	local shared = OneCastCharDB and OneCastCharDB.reportFindings and OneCastCharDB.reportFindings.shared or {}
-	-- Not yet shared first: that's what's worth sending.
+	-- Not yet shared first, as that's what's worth sending; otherwise in the report's order.
+	local order = {}
+	for i, finding in ipairs(findings) do
+		order[finding] = i
+	end
 	table.sort(findings, function(a, b)
 		local sa, sb = shared[a.key] and 1 or 0, shared[b.key] and 1 or 0
 		if sa ~= sb then
 			return sa < sb
 		end
-		return a.key < b.key
+		return order[a] < order[b]
 	end)
 	local fresh = 0
 	for _, finding in ipairs(findings) do
@@ -771,8 +756,10 @@ FillFindings = function(f)
 			fresh = fresh + 1
 		end
 	end
-	f.newHeader.text:SetText(fresh > 0 and string.format("New to OneCast  |cff1eff00(%d to share)|r", fresh)
-		or "New to OneCast")
+	f.newHeader.text:SetText(fresh > 0 and string.format("What you've found  |cff1eff00(%d to share)|r", fresh)
+		or "What you've found")
+	f.status:SetText(fresh > 0 and string.format("You've found %d thing%s OneCast doesn't know yet.", fresh, fresh == 1 and "" or "s")
+		or "Help fill in Forever's real fishing numbers.")
 	local shown = math.min(#findings, NEW_ROWS)
 	if #findings > NEW_ROWS then
 		shown = NEW_ROWS - 1
@@ -800,14 +787,22 @@ local function Fill(f)
 	f.box:SetText(f.text)
 	f.box:SetCursorPosition(0)
 	f.hint:SetText(HINT)
-	InkBanner(f.banner)
+	InkShare(f.share)
 end
 
 ns.Theme.OnChange(function()
 	if frame then
-		InkBanner(frame.banner)
+		InkShare(frame.share)
 	end
 end)
+
+-- After a catch or getaway, an open window keeps up.
+function Report.RefreshIfShown()
+	-- Not while the text is selected for copying: redrawing would lose the selection.
+	if frame and frame:IsShown() and not (frame.box.HasFocus and frame.box:HasFocus()) then
+		Fill(frame)
+	end
+end
 
 function Report.Show()
 	frame = frame or CreateWindow()

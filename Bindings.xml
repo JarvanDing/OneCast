@@ -14,4 +14,7 @@
 	<Binding name="ONECAST_BOOK" category="ADDONS">
 		OneCast_ToggleBook()
 	</Binding>
+	<Binding name="ONECAST_WINDOW" category="ADDONS">
+		OneCast_ToggleWindow()
+	</Binding>
 </Bindings>

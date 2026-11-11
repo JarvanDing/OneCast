@@ -6,6 +6,21 @@ local _, ns = ...
 
 ns.CHANGELOG = {
 	{
+		version = "0.8.0",
+		date = "11 November 2026",
+		sections = {
+			{ "New", {
+				{ "One window for everything.", "The stats window, tackle box, collection, Camp, data report, What's new and options now open as one window, with side tabs down its right edge to move between them. Every page is the same height and follows the Window scale setting, it opens where you last left it, and dragging any page moves the whole window. The tabs can go on the left instead, in the options." },
+				{ "A new stats window.", "Three tabs instead of four. Session has this session with fish, vendor gold and auction gold per hour, your skill's progress with time to the next point and your rank's cap, and each fish's share of the catch, then the zone's fish you haven't caught yet. Spots shows whether this zone is worth it, with its spots best first. Pick a fish, or Ctrl-click one anywhere, to see where it bites best. All-time records keeps your personal bests and notable catches." },
+				{ "Forever's own Fishing bar.", "The stats window's skill bar is now the professions window's own, its water flowing, with a status strip under it: the zone, the Fishing it needs and whether you're ready, at a glance. Hover it for the details." },
+				{ "A clearer data report.", "The report window is smaller, in three parts: what you've found, three steps to share it with the button and links right in them, and the text itself. The text keeps to what OneCast can learn from: what's new, the evidence for zone levels, and camp buffs. Zones that only agree with OneCast's level, cast totals and every fish caught are gone, and a known fish caught in one more zone no longer counts as something new." },
+				{ "A window that keeps up.", "Green dots on the side tabs when there's something to share or a version to read. The stats close themselves when your weapons go back on, if they opened when you cast, and can fade while you fish. Lock the window so it can't be moved by accident, and a new key binding opens it on the page you last used. A /reload brings back the page you had open, and resetting a session asks first." },
+				{ "Five new themes.", "Booty Bay, in sea-worn verdigris and sand. Murloc, in bright aqua and an orange fin. Winterspring, frosted silver-blue. Deviate, purple with a toxic green glow. Ember, charcoal lit by Un'Goro's hot springs. Pick one under Options, or /onecast theme." },
+				{ "Every option in the window.", "The Options tab has every OneCast setting, in two columns as wide as the collection and in the same order as the game's options, so you don't need to leave the window. Settings that belong to another are indented, and greyed out while it's off. Only your cast key is set in the game's options, one click away under Key bindings." },
+			} },
+		},
+	},
+	{
 		version = "0.7.5",
 		date = "11 November 2026",
 		sections = {
