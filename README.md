@@ -22,7 +22,7 @@ Prefer the mouse? **Double right-click** the water with a pole equipped to cast,
 - Warns you when you cast with full bags, and offers to turn on auto loot if it's off.
 
 ### 🧰 The tackle box
-![The tackle box window: choose a lure, apply it with the cast key, and compare fish per hour](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/tackle-box.png)
+![The tackle box window: choose a lure, apply it with the cast key, and compare fish per hour](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/tackle-box.png?v=0.8.0)
 
 - A small button appears while your pole is on, showing your lure, how many you have and the time left. It pulses when the lure is about to run out.
 - **You choose the lure** for each character, so a rare one is only spent if you pick it. Your choice is never swapped for another, or pick **Best I can use** if you don't mind spending them.
@@ -31,9 +31,9 @@ Prefer the mouse? **Double right-click** the water with a pole equipped to cast,
 - Get a nudge at a vendor selling your lure when you have fewer than 5.
 
 ### 📖 The fishing collection
-![The collection book: every fish, with the ones you've caught in colour](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/collection.png)
+![The collection book: every fish, with the ones you've caught in colour](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/collection.png?v=0.8.0)
 
-![A fish's page: your catches, where to catch it with a map, and its recipes](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/fish-page.png)
+![A fish's page: your catches, where to catch it with a map, and its recipes](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/fish-page.png?v=0.8.0)
 
 - A book of **every fish in WoW Forever**: 91 catches across fish, special catches, trophy fish and bloated fish, shared across all your characters, including what you caught before installing.
 - Click any fish for **its own page**: the game's description, your catches on every character, when and where you first caught it, whether it was **by day or at night**, every zone it's caught in with a **map**, and the **recipes** it's used in.
@@ -42,7 +42,7 @@ Prefer the mouse? **Double right-click** the water with a pole equipped to cast,
 - **Remembered pools:** hover over a fishing pool with your pole on and cast, and the spot you fished it from is marked on the book's zone maps.
 
 ### 🗺️ Where to fish next
-![The Zones tab: every zone by the Fishing skill it needs, checked against yours](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/zones.png)
+![The Zones tab: every zone by the Fishing skill it needs, checked against yours](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/zones.png?v=0.8.0)
 
 - **Zones tab:** every zone's fishing level at a glance, checked against your skill, with how many of its fish you've caught. Click a zone to see its fish.
 - **Is this zone right for you?** A skill bar shows your Fishing skill, lure bonus included, and whether fish will get away here.
@@ -50,7 +50,7 @@ Prefer the mouse? **Double right-click** the water with a pole equipped to cast,
 - Zones without a known level are judged from your own catches and getaways. A getaway can also flag a listed level as too low, and 10 catches in a row clear it again.
 
 ### 📊 Session stats
-![The stats window's Session tab: Forever's own Fishing bar, the zone's status, fish and gold per hour, and this session's catches](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/stats.png)
+![The stats window's Session tab: Forever's own Fishing bar, the zone's status, fish and gold per hour, and this session's catches](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/stats.png?v=0.8.0)
 
 A stats window that opens as you cast, with three tabs:
 - **Session:** this session's catches, **fish per hour** and **gold per hour**. Also your skill gained and how fast, and about how long until the next point and your rank's cap. The catch list shows each fish's share, then the zone's fish you haven't caught yet.
@@ -69,7 +69,7 @@ A stats window that opens as you cast, with three tabs:
 - Right-click any fish in the stats window to mark it as **wanted** and get alerted when you catch it.
 
 ### 🏕️ Fishing at camp
-![The Camp tab: the Fish Bowl, Fishing Rack and Fishing Hut, what each needs and does, and your camp right now](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/camp.png)
+![The Camp tab: the Fish Bowl, Fishing Rack and Fishing Hut, what each needs and does, and your camp right now](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/camp.png?v=0.8.0)
 
 - A **Camp tab** in the collection book for Forever's fishing crafts: the **Fish Bowl**, **Fishing Rack** and **Fishing Hut**, with the Fishing each needs, whether you've learned it, your reagents and what it does.
 - The stats window shows the **Uncommon or Rare Fishing** buff from a Rack or Hut with its time left, and chat tells you when it wears off.
@@ -84,7 +84,7 @@ A stats window that opens as you cast, with three tabs:
 - Optionally, music, ambience and dialog go quiet or off while your pole is equipped. Your own levels come back when your weapons go back on.
 
 ### ⚙️ Fits right in
-![The Options tab: every OneCast setting in the window, in two columns](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/options.png)
+![The Options tab: every OneCast setting in the window, in two columns](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/options.png?v=0.8.0)
 
 - Built from WoW Forever's own UI style, with thirteen more themes if you'd like a change, from a wood-panelled **Fisherman's Lodge** and **Booty Bay** to **Murloc** and **Class Colours**.
 - **One window for everything:** stats, tackle box, collection, Camp, data report, What's new and options, with side tabs to move between them (on the right or the left). Every page is the same height, and it opens wherever you last dragged it, on the page you had open after a `/reload`.
@@ -132,7 +132,7 @@ A stats window that opens as you cast, with three tabs:
 - Auction values need Auctionator or TradeSkillMaster installed.
 
 ## Help fill in Forever's numbers
-![The data report: what you've found, three steps to share it, and the text itself](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/report.png)
+![The data report: what you've found, three steps to share it, and the text itself](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/report.png?v=0.8.0)
 
 Nobody has published Forever's real zone fishing levels, or where its rarer fish are found. Type `/onecast report`, click **Select report**, press Ctrl+C and paste it in a comment here or in a [data report on GitHub](https://github.com/rynmon/OneCast/issues/new?template=data-report.yml). The report window has both links ready to copy. OneCast tells you when your fishing has turned up something it doesn't know, and the minimap button counts it until you share. It lists your catches and getaways with the skill each happened at, any fish the collection is missing, and nothing about who you are. With enough reports, OneCast can swap Classic's numbers for Forever's own.
 
