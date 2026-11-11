@@ -20,7 +20,7 @@ local TICK = 0.5           -- seconds between redraws while shown
 local WARN_LEFT = 30       -- seconds left when the button starts to pulse
 -- Window layout, matching the stats window's.
 local WINDOW_WIDTH, ROW_HEIGHT, STAT_HEIGHT = 340, 22, 17
-local HEADER_HEIGHT, SECTION_GAP = 26, 6
+local HEADER_HEIGHT, SECTION_GAP = 28, 8 -- a 24 header and 4 under it; 8 between sections
 local INSET_TOP, INSET_BOTTOM = 60, 28 -- the frame around the inset (see CreateShell)
 local COUNT_WIDTH, MINUTES_WIDTH, BONUS_WIDTH = 30, 26, 32
 
@@ -346,7 +346,7 @@ local function CreateWindow()
 	f.status:SetJustifyH("LEFT")
 	f.status:SetWordWrap(false)
 
-	local y = -6
+	local y = -SECTION_GAP
 	UI.SectionHeader(inset, y).text:SetText("使用的诱饵")
 	y = y - HEADER_HEIGHT
 
@@ -401,9 +401,7 @@ local function CreateWindow()
 
 	-- The bottom bar's Options button, as on the stats window.
 	local options = UI.IconButton(f, "Options", "选项", function()
-		if ns.OpenSettings then
-			ns.OpenSettings()
-		end
+		ns.Hub.ShowOptions()
 	end)
 	options:SetPoint("BOTTOMRIGHT", -22, 3)
 	local hint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -413,7 +411,7 @@ local function CreateWindow()
 	hint:SetWordWrap(false)
 	hint:SetText("选定的诱饵不会自动换成别的。")
 
-	f:SetSize(WINDOW_WIDTH, INSET_TOP - y + 8 + INSET_BOTTOM)
+	f:SetSize(WINDOW_WIDTH, math.max(ns.UI.PAGE_HEIGHT, INSET_TOP - y + 8 + INSET_BOTTOM))
 	local p = CharDB().tackleWindowPoint
 	if p then
 		f:SetPoint(p[1], UIParent, p[2], p[3], p[4])
@@ -421,7 +419,6 @@ local function CreateWindow()
 		f:SetPoint("CENTER", 0, 40)
 	end
 	f:SetScript("OnShow", function(self)
-		self:SetScale((ns.db.statsScale or 100) / 100) -- same size as the stats window
 		RedrawWindow()
 	end)
 	local elapsed = 0
@@ -433,7 +430,13 @@ local function CreateWindow()
 		end
 	end)
 	f:Hide()
+	ns.Hub.Attach("tackle", f)
 	return f
+end
+
+function TackleBox.ShowWindow()
+	window = window or CreateWindow()
+	window:Show()
 end
 
 function TackleBox.ToggleWindow()

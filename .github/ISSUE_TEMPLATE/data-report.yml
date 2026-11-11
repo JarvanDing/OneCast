@@ -1,0 +1,23 @@
+name: Data report
+description: Share your /onecast report to help fill in WoW Forever's real fishing numbers.
+title: "Data report"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for sharing! In game, type `/onecast report`, click **Select all**, press Ctrl+C, and paste it below.
+        The report holds fishing numbers only: no character name, realm or guild.
+  - type: textarea
+    id: report
+    attributes:
+      label: Report
+      description: The whole text from the report window.
+      render: text
+      placeholder: OneCast 0.7.0 data report
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else?
+      description: Optional. For example, whether you had a lure on, or anything odd you noticed while fishing.

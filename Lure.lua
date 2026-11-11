@@ -16,11 +16,13 @@ local Lure = {}
 ns.Lure = Lure
 
 -- Item and spell IDs, required skill and the 5-second cast are from Forever's game data on
--- wago.tools (build 1.60.1.70532). Bonuses and durations are from Method's Forever fishing
--- guide (3 November 2026); the data's own fields don't state them. Equal bonuses keep the
--- easier-to-get lure first, which is the one "best" picks.
+-- wago.tools (rechecked on build 1.60.1.70862), and so are the bonuses: each lure's spell puts
+-- on enchant 263 (+25), 264 (+50), 265 (+75) or 266 (+100). Durations are from Method's Forever
+-- fishing guide (3 November 2026). Equal bonuses keep the easier-to-get lure first, which is the
+-- one "best" picks. "Secret" Bait is new in Forever and casts Shiny Bauble's own spell.
 local LURES = {
 	{ id = 6529, spell = 8087, name = "Shiny Bauble", bonus = 25, minutes = 10, req = 0 },
+	{ id = 268880, spell = 8087, name = "\"Secret\" Bait", bonus = 25, minutes = 10, req = 0 },
 	{ id = 6530, spell = 8088, name = "Nightcrawlers", bonus = 50, minutes = 10, req = 50 },
 	{ id = 6811, spell = 8532, name = "Aquadynamic Fish Lens", bonus = 50, minutes = 10, req = 50 },
 	{ id = 6532, spell = 8090, name = "Bright Baubles", bonus = 75, minutes = 10, req = 100 },
@@ -36,14 +38,15 @@ local MIN_LEFT = 5        -- seconds: a lure this close to ending counts as gone
 local ARM_TIMEOUT = 1.5   -- seconds a press has to start the lure's spell
 local SAME_PRESS = 1      -- a key held no longer than this is one press, down and up
 local CAST_TIMEOUT = 7    -- seconds before a lure cast with no ending event is written off
-local APPLY_GRACE = 2     -- seconds the pole's enchant may lag behind a finished lure
+local APPLY_GRACE = 10    -- seconds the pole's enchant may lag behind a finished lure (more on a slow server)
 local MAX_FAILURES = 2    -- failed tries in a row before the cast key just casts for a while
 local RETRY_AFTER = 60    -- seconds the cast key leaves lures alone after that
 local LOW_COUNT = 5       -- at a vendor, fewer than this and we mention it
 
-local byID, bySpell = {}, {}
+local byID, bySpell = {}, {} -- bySpell: the first lure with that spell
 for _, lure in ipairs(LURES) do
-	byID[lure.id], bySpell[lure.spell] = lure, lure
+	byID[lure.id] = lure
+	bySpell[lure.spell] = bySpell[lure.spell] or lure
 end
 
 local armed, armedAt          -- the lure a press has set up, not started yet
@@ -83,13 +86,17 @@ function Lure.Name(lure)
 	return C_Item.GetItemNameByID(lure.id) or lure.name
 end
 
+-- The lure as a chat link, to hover or Shift-click, or its name until the game has the item.
+function Lure.ChatName(lure)
+	return ns.ItemLink(lure.id, Lure.Name(lure))
+end
+
 function Lure.Icon(lure)
 	return C_Item.GetItemIconByID(lure.id) or "Interface\\Icons\\INV_Misc_QuestionMark"
 end
 
 function Lure.Count(lure)
-	local count = (C_Item.GetItemCount or GetItemCount)(lure.id)
-	return count or 0
+	return ns.ItemCount(lure.id)
 end
 
 -- True if this character's Fishing is high enough, or can't be read (the game will say).
@@ -230,7 +237,7 @@ local function NoteFailure(lure)
 	if failures >= MAX_FAILURES then
 		failures = 0
 		holdUntil = GetTime() + RETRY_AFTER
-		ns.Print(string.format("无法装上 %s，施法键将在一分钟内只抛竿。", Lure.Name(lure)))
+		ns.Print(string.format("无法装上 %s，施法键将在一分钟内只抛竿。", Lure.ChatName(lure)))
 	end
 	Changed()
 end
@@ -361,21 +368,26 @@ function Lure.Clock(seconds)
 	return string.format("%d:%02d", math.floor(seconds / 60), seconds % 60)
 end
 
--- One line for the minimap tooltip, or nil if this character doesn't use lures.
+-- The lure for the minimap tooltip, and true if it's a problem (none left, skill too low).
+-- Nil if this character doesn't use lures.
 function Lure.StatusLine()
 	local left = Lure.Left()
 	if left > 0 then
 		local shown = Lure.Shown()
-		return string.format("诱饵：%s，剩余 %s", shown and Lure.Name(shown) or "已装上", Lure.Clock(left))
+		return string.format("%s  ·  剩余 %s", shown and Lure.Name(shown) or "已装上", Lure.Clock(left))
 	end
 	if Lure.Choice() == Lure.NONE then
 		return nil
 	end
 	local lure, reason, about = Lure.Selected()
 	if lure then
-		return string.format("诱饵：%s 就绪（x%d）", Lure.Name(lure), Lure.Count(lure))
+		return string.format("%s 就绪（x%d）", Lure.Name(lure), Lure.Count(lure))
+	elseif reason == "out" then
+		return Lure.Name(about) .. " 已用完", true
+	elseif reason == "skill" then
+		return string.format("%s 需要钓鱼 %d", Lure.Name(about), about.req), true
 	end
-	return "诱饵：" .. Lure.ReasonText(reason, about)
+	return "背包中没有你能用的诱饵", true
 end
 
 -- Selling your lure and you're running low? Say so; buying stays up to you.
@@ -402,7 +414,7 @@ local function CheckVendor()
 		end
 	end
 	if target and Lure.Count(target) < LOW_COUNT then
-		ns.Print(string.format("此商人出售 %s，你还有 %d 个。", Lure.Name(target), Lure.Count(target)))
+		ns.Print(string.format("此商人出售 %s，你还有 %d 个。", Lure.ChatName(target), Lure.Count(target)))
 	end
 end
 
@@ -436,6 +448,12 @@ local function LureForSpell(spellID)
 	if spellID == nil or (issecretvalue and issecretvalue(spellID)) then
 		return nil
 	end
+	-- Two lures can share a spell: the one being pressed or applied is the one it is.
+	for _, lure in ipairs({ casting, armed }) do
+		if lure and lure.spell == spellID then
+			return lure
+		end
+	end
 	return bySpell[spellID]
 end
 
@@ -453,7 +471,7 @@ events:SetScript("OnEvent", function(_, event, ...)
 		local lure = LureForSpell(spellID)
 		if lure then
 			if not casting then
-				ns.Print(string.format("正在使用 %s（+%d）。装上后再按一次即可抛竿。", Lure.Name(lure), lure.bonus))
+				ns.Print(string.format("正在使用 %s（+%d）。装上后再按一次即可抛竿。", Lure.ChatName(lure), lure.bonus))
 			end
 			armed = nil
 			casting, castingAt = lure, GetTime()

@@ -18,7 +18,7 @@ local MAX_PER_MAP = 200
 
 local PATTERNS = {
 	" School$", "^School of ", " Swarm$", " Wreckage$", " Debris$", " Flotsam$", "^Oil Spill$",
-	"^Patch of Elemental Water$", "Churning Water$",
+	"^Patch of Elemental Water$", "Churning Waters?$", "^Strange Pool$", "^Pure Water$",
 }
 
 local function IsPoolName(name)
@@ -60,6 +60,8 @@ local function ZonePosition()
 	end
 	return mapID, x, y
 end
+
+Pools.ZonePosition = ZonePosition
 
 function Pools.Remember(name)
 	local mapID, x, y = ZonePosition()

@@ -4,7 +4,8 @@
 -- the game's own, by area ID, and everything else simply compares names as usual.
 --
 -- Area IDs are from Forever's AreaTable on wago.tools (build 1.60.1.70862): the top-level area
--- of that name on Eastern Kingdoms or Kalimdor. A zone added to those tables needs an ID here.
+-- of that name on Eastern Kingdoms or Kalimdor, a dungeon's own area, or for a sub-zone
+-- (SPOT_FISHING_SKILL) the sub-zone itself. A zone added to those tables needs an ID here.
 
 local _, ns = ...
 
@@ -14,6 +15,8 @@ ns.ZONE_AREA_IDS = {
 	["Ashenvale"] = 331,
 	["Azshara"] = 16,
 	["Badlands"] = 3,
+	["Bay of Storms"] = 1227,
+	["Blackfathom Deeps"] = 719,
 	["Blasted Lands"] = 4,
 	["Burning Steppes"] = 46,
 	["Darkshore"] = 148,
@@ -29,15 +32,22 @@ ns.ZONE_AREA_IDS = {
 	["Felwood"] = 361,
 	["Feralas"] = 357,
 	["Gilneas"] = 17065,
+	["Hetaera's Clutch"] = 1222,
 	["Hillsbrad Foothills"] = 267,
 	["Ironforge"] = 1537,
+	["Jademir Lake"] = 1112,
+	["Jaguero Isle"] = 297,
 	["Loch Modan"] = 38,
+	["Maraudon"] = 2100,
 	["Moonglade"] = 493,
 	["Mount Hyjal"] = 616,
 	["Mulgore"] = 215,
 	["Orgrimmar"] = 1637,
 	["Redridge Mountains"] = 44,
 	["Riverglades"] = 16591,
+	["Scalebeard's Cave"] = 3140,
+	["Scarlet Monastery"] = 796,
+	["Scholomance"] = 2057,
 	["Searing Gorge"] = 51,
 	["Shen'dralas"] = 16651,
 	["Silithus"] = 1377,
@@ -45,20 +55,26 @@ ns.ZONE_AREA_IDS = {
 	["Stonetalon Mountains"] = 406,
 	["Stormwind City"] = 1519,
 	["Stranglethorn Vale"] = 33,
+	["Stratholme"] = 2017,
+	["Sunken Temple"] = 1417,
 	["Swamp of Sorrows"] = 8,
 	["Tanaris"] = 440,
 	["Teldrassil"] = 141,
 	["The Barrens"] = 17,
+	["The Deadmines"] = 1581,
 	["The Hinterlands"] = 47,
 	["Thousand Needles"] = 400,
 	["Thunder Bluff"] = 1638,
 	["Tirisfal Glades"] = 85,
 	["Un'Goro Crater"] = 490,
 	["Undercity"] = 1497,
+	["Wailing Caverns"] = 718,
 	["Western Plaguelands"] = 28,
 	["Westfall"] = 40,
 	["Wetlands"] = 11,
 	["Winterspring"] = 618,
+	["Zephras Isle"] = 16593,
+	["Zul'Gurub"] = 1977,
 }
 
 local locale = GetLocale()
@@ -86,6 +102,10 @@ end
 
 ns.ZONE_FISHING_SKILL = TranslateKeys(ns.ZONE_FISHING_SKILL)
 ns.ZONE_FISHING_NOTE = TranslateKeys(ns.ZONE_FISHING_NOTE)
+ns.SPOT_FISHING_SKILL = TranslateKeys(ns.SPOT_FISHING_SKILL)
+for mapID, zone in pairs(ns.INSTANCE_ZONES) do
+	ns.INSTANCE_ZONES[mapID] = Translate(zone)
+end
 for i, zone in ipairs(ns.ZONE_FISHING_UNKNOWN) do
 	ns.ZONE_FISHING_UNKNOWN[i] = Translate(zone)
 end

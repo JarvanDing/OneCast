@@ -14,7 +14,7 @@ ns.Gear = Gear
 
 local MAIN = INVSLOT_MAINHAND or 16
 local OFF = INVSLOT_OFFHAND or 17
-local EQUIP_PENDING = 1.5 -- seconds a press waits for the pole to arrive before casting
+local EQUIP_PENDING = 3   -- seconds a press waits for the pole to arrive before casting
 local RETRY_LOOT = 5      -- idle restore postponed while the loot window is open
 
 local Equip = (C_Item and C_Item.EquipItemByName) or EquipItemByName
@@ -22,9 +22,14 @@ local Equip = (C_Item and C_Item.EquipItemByName) or EquipItemByName
 local charDB
 local pendingUntil = 0
 local pendingPole            -- item ID of the pole last asked for
-local failedPoles = {}       -- poles the game wouldn't equip this session (skill too low, say)
+-- Presses in a row where a pole didn't arrive. A slow server can miss once or twice, so only after
+-- MAX_MISSES does that pole step aside, and only for another pole: with one, it keeps trying.
+local poleMisses = {}
+local MAX_MISSES = 3
 local restoring = false
 local restoreTimer
+local restoreAttempt -- the latest swap asked for; gives up if the game never makes it
+local SWAP_TIMEOUT = 10 -- seconds a swap back may take on a slow server
 
 function Gear.IsPole(item)
 	if not item then
@@ -43,22 +48,46 @@ local function ItemLevel(link)
 	return level or 0
 end
 
--- Best pole in the bags: the one used last time if it's there, else the highest item level.
+-- Best pole in the bags: the one used last time if it's there, else the highest item level. A
+-- pole that keeps not arriving gives way to another, but is still tried if it's the only one.
 local function FindPoleInBags()
-	local best, bestScore
+	local best, bestScore, fallback
 	local lastID = charDB.lastPole and C_Item.GetItemInfoInstant(charDB.lastPole)
 	for bag = 0, NUM_BAG_SLOTS or 4 do
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
 			local link = C_Container.GetContainerItemLink(bag, slot)
-			if link and Gear.IsPole(link) and not failedPoles[C_Item.GetItemInfoInstant(link)] then
-				local score = ItemLevel(link) + (lastID and C_Item.GetItemInfoInstant(link) == lastID and 10000 or 0)
-				if not bestScore or score > bestScore then
-					best, bestScore = link, score
+			if link and Gear.IsPole(link) then
+				local id = C_Item.GetItemInfoInstant(link)
+				if (poleMisses[id] or 0) >= MAX_MISSES then
+					fallback = fallback or link
+				else
+					local score = ItemLevel(link) + (lastID and id == lastID and 10000 or 0)
+					if not bestScore or score > bestScore then
+						best, bestScore = link, score
+					end
 				end
 			end
 		end
 	end
-	return best
+	return best or fallback
+end
+
+-- The bag's own link for the item a saved link names, matched by item ID: a saved link goes
+-- stale (it carries the character's level), and the game may not find an item by a stale one.
+local function BagLink(link)
+	local id = link and C_Item.GetItemInfoInstant(link)
+	if not id then
+		return link
+	end
+	for bag = 0, NUM_BAG_SLOTS or 4 do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) do
+			local here = C_Container.GetContainerItemLink(bag, slot)
+			if here and C_Item.GetItemInfoInstant(here) == id then
+				return here
+			end
+		end
+	end
+	return link
 end
 
 local function UnequipToBags(slot)
@@ -96,7 +125,10 @@ function Gear.PreClick()
 		return not ns.HasFishingPole()
 	end
 	if pendingPole and not ns.HasFishingPole() then
-		failedPoles[pendingPole] = true
+		poleMisses[pendingPole] = (poleMisses[pendingPole] or 0) + 1
+		if poleMisses[pendingPole] == MAX_MISSES then
+			ns.Print("the game didn't put your fishing pole on after " .. MAX_MISSES .. " tries. If you have another, OneCast will use that.")
+		end
 	end
 	pendingPole = nil
 	if ns.HasFishingPole() then
@@ -135,8 +167,39 @@ local function Owned(link)
 	return (count or 0) > 0
 end
 
+local RestoreStep
+
+-- Each equipment change asks for the next step, and a swap changes up to two slots: one step
+-- queued at a time, so the same weapon is never asked for twice at once ("Item is locked").
+local stepQueued = false
+local function QueueStep()
+	if stepQueued then
+		return
+	end
+	stepQueued = true
+	C_Timer.After(0.2, function()
+		stepQueued = false
+		RestoreStep()
+	end)
+end
+
+-- Ask for one swap. The game can refuse without a word (a weapon you can no longer use, say):
+-- then no change ever lands, so after a few seconds stop, rather than staying mid-restore and
+-- undoing the next weapon you equip yourself. The saved weapons are kept to try again.
+local function Swap(link, slot)
+	local attempt = {}
+	restoreAttempt = attempt
+	Equip(BagLink(link), slot)
+	C_Timer.After(SWAP_TIMEOUT, function()
+		if restoring and restoreAttempt == attempt and not InCombatLockdown() and not Wearing(slot, link) then
+			restoring = false
+			ns.Print("couldn't put " .. link .. " back on. Equip it yourself, or try /onecast gear again.")
+		end
+	end)
+end
+
 -- One step of putting the saved weapons back; repeated as each swap lands.
-local function RestoreStep()
+RestoreStep = function()
 	local saved = charDB.savedWeapons
 	if not saved then
 		restoring = false
@@ -152,7 +215,7 @@ local function RestoreStep()
 		end
 	end
 	if saved.main and not Wearing(MAIN, saved.main) then
-		Equip(saved.main, MAIN)
+		Swap(saved.main, MAIN)
 		return
 	end
 	if not saved.main and MainHandIsPole() then
@@ -163,7 +226,7 @@ local function RestoreStep()
 		return
 	end
 	if saved.off and not Wearing(OFF, saved.off) then
-		Equip(saved.off, OFF)
+		Swap(saved.off, OFF)
 		return
 	end
 	charDB.savedWeapons = nil
@@ -186,6 +249,8 @@ function Gear.HasSaved()
 end
 
 function Gear.OnCast()
+	-- A cast means a pole is on, even one cast from the action bar rather than OneCast's key.
+	pendingPole = nil
 	CancelRestoreTimer()
 end
 
@@ -222,7 +287,7 @@ function Gear.OnCombatStart()
 		restoring = true
 		local saved = charDB.savedWeapons
 		if saved.main and not Wearing(MAIN, saved.main) then
-			Equip(saved.main, MAIN)
+			Equip(BagLink(saved.main), MAIN)
 		end
 	end
 end
@@ -245,11 +310,21 @@ events:SetScript("OnEvent", function(_, event, slot)
 	if event == "PLAYER_LOGIN" then
 		charDB = OneCastCharDB
 	elseif event == "PLAYER_EQUIPMENT_CHANGED" then
+		if MainHandIsPole() then
+			-- It arrived: nothing is pending any more, whichever way the next cast is made.
+			poleMisses[GetInventoryItemID("player", MAIN)] = nil
+			pendingPole = nil
+		end
 		if not charDB or not charDB.savedWeapons then
 			return
 		end
+		local saved = charDB.savedWeapons
 		if restoring then
-			C_Timer.After(0.2, RestoreStep)
+			QueueStep()
+		elseif slot == MAIN and saved.main and Wearing(MAIN, saved.main) then
+			-- A swap back that landed after OneCast stopped waiting for it: carry on with the rest.
+			restoring = true
+			QueueStep()
 		elseif slot == MAIN and not MainHandIsPole() and GetTime() >= pendingUntil then
 			-- The player changed weapons by hand; forget the saved ones.
 			charDB.savedWeapons = nil

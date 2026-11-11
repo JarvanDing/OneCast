@@ -11,7 +11,8 @@ local Theme = {}
 ns.Theme = Theme
 
 Theme.DEFAULT = "forever"
-Theme.ORDER = { "forever", "dark", "tidal", "abyss", "golden", "marsh", "moonlit", "lodge", "class" }
+Theme.ORDER = { "forever", "dark", "tidal", "abyss", "golden", "marsh", "moonlit", "lodge",
+	"bootybay", "murloc", "winterspring", "deviate", "ember", "class" }
 
 -- frame, inset, header and button tint those parts of a window, and parchment the book's pages.
 -- ink is text on the pages, inkSoft quieter text, and lead, soft, good and bad are text colours.
@@ -134,6 +135,88 @@ Theme.LIST = {
 		soft = "|cff4f3219",
 		good = "|cff124a16",
 		bad = "|cff7f1410",
+	},
+	-- The pirate port that hosts the Stranglethorn Fishing Extravaganza: sea-worn verdigris and
+	-- sun-bleached sand, with coral-red highlights.
+	bootybay = {
+		id = "bootybay",
+		label = "Booty Bay",
+		frame = { 0.32, 0.56, 0.50 },
+		inset = { 0.40, 0.60, 0.54 },
+		header = { 0.36, 0.64, 0.56 },
+		button = { 0.34, 0.56, 0.50 },
+		parchment = { 0.96, 0.86, 0.66 },
+		ink = { 0.16, 0.10, 0.05 },
+		inkSoft = { 0.34, 0.24, 0.14 },
+		lead = "|cffa0301c",
+		soft = "|cff5c4a32",
+		good = "|cff1d5e2c",
+		bad = "|cff9e1b1b",
+	},
+	-- Azeroth's most famous fishermen. Mrglglgl! Bright aqua-green, sea foam and an orange fin.
+	murloc = {
+		id = "murloc",
+		label = "Murloc",
+		frame = { 0.22, 0.66, 0.56 },
+		inset = { 0.30, 0.70, 0.60 },
+		header = { 0.26, 0.76, 0.62 },
+		button = { 0.24, 0.66, 0.54 },
+		parchment = { 0.80, 0.97, 0.90 },
+		ink = { 0.03, 0.17, 0.13 },
+		inkSoft = { 0.14, 0.31, 0.26 },
+		lead = "|cffa8400a",
+		soft = "|cff2e5a4e",
+		good = "|cff0b5a2a",
+		bad = "|cffa01c24",
+	},
+	-- The frozen lakes of Winterspring: frosted silver-blue and icy white, in deep navy ink.
+	winterspring = {
+		id = "winterspring",
+		label = "Winterspring",
+		frame = { 0.70, 0.80, 0.92 },
+		inset = { 0.76, 0.84, 0.94 },
+		header = { 0.72, 0.84, 0.98 },
+		button = { 0.66, 0.76, 0.90 },
+		parchment = { 0.92, 0.96, 1.00 },
+		ink = { 0.04, 0.09, 0.22 },
+		inkSoft = { 0.18, 0.25, 0.40 },
+		lead = "|cff2a4f9c",
+		soft = "|cff3f5270",
+		good = "|cff0e5a3a",
+		bad = "|cffa01c30",
+	},
+	-- The Wailing Caverns' Deviate Fish: purple scales and a toxic green glow.
+	deviate = {
+		id = "deviate",
+		label = "Deviate",
+		frame = { 0.52, 0.34, 0.62 },
+		inset = { 0.58, 0.42, 0.66 },
+		header = { 0.60, 0.38, 0.72 },
+		button = { 0.52, 0.34, 0.64 },
+		parchment = { 0.88, 0.82, 0.94 },
+		ink = { 0.15, 0.06, 0.20 },
+		inkSoft = { 0.32, 0.20, 0.38 },
+		lead = "|cff1d5208",
+		soft = "|cff5a4466",
+		good = "|cff17602a",
+		bad = "|cffa01c3c",
+	},
+	-- Un'Goro's hot springs and Fireplume Ridge: charcoal and ember-lit headers over smouldering
+	-- pages, in light ink.
+	ember = {
+		id = "ember",
+		label = "Ember",
+		frame = { 0.40, 0.30, 0.27 },
+		inset = { 0.46, 0.34, 0.30 },
+		header = { 0.88, 0.42, 0.18 },
+		button = { 0.70, 0.34, 0.18 },
+		parchment = { 0.26, 0.17, 0.13 },
+		ink = { 0.97, 0.90, 0.80 },
+		inkSoft = { 0.80, 0.69, 0.58 },
+		lead = "|cffff9a40",
+		soft = "|cffc4a088",
+		good = "|cff86df6a",
+		bad = "|cffff7a6a",
 	},
 	class = {
 		id = "class",

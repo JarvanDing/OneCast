@@ -4,12 +4,14 @@
 ## Notes: 魔兽世界 Forever 一键钓鱼：同一按键（或双击右键）施放并收杆。
 ## Notes-zhCN: 魔兽世界 Forever 一键钓鱼：同一按键（或双击右键）施放并收杆。
 ## Author: rynmon
-## Version: 0.6.0
+## Version: 0.8.0
 ## SavedVariables: OneCastDB
 ## SavedVariablesPerCharacter: OneCastCharDB
 ## IconTexture: Interface\Icons\INV_Misc_Fish_68
 ## Category: Professions
 ## AddonCompartmentFunc: OneCast_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: OneCast_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: OneCast_OnAddonCompartmentLeave
 
 OneCast.lua
 Themes.lua
@@ -25,6 +27,9 @@ Lure.lua
 TackleBox.lua
 Pools.lua
 Prices.lua
+Camp.lua
+Report.lua
 Book.lua
 Changelog.lua
 WhatsNew.lua
+Hub.lua

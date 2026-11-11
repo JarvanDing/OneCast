@@ -11,7 +11,7 @@ ns.WhatsNew = WhatsNew
 local PROJECT_URL = "https://www.curseforge.com/wow/addons/onecast"
 local LINK = "addon:" .. ADDON .. ":whatsnew"
 
-local WIDTH, HEIGHT = 760, 520
+local WIDTH, HEIGHT = 840, 580 -- as wide as the collection book, as tall as every page
 local LIST_WIDTH = 330
 local ROW_HEIGHT = 34
 
@@ -216,7 +216,7 @@ local function CreateWindow()
 	f:EnableMouse(true)
 	f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving)
-	f:SetScript("OnDragStop", f.StopMovingOrSizing)
+	ns.UI.RememberPosition(f, "whatsNew")
 	tinsert(UISpecialFrames, f:GetName())
 	ns.Theme.Frame(f, f.Inset)
 	ns.UI.KeepOpenThroughOptions(f:GetName())
@@ -349,6 +349,7 @@ local function CreateWindow()
 	hint:SetText("点击后按 Ctrl+C")
 
 	f:Hide()
+	ns.Hub.Attach("news", f)
 	return f
 end
 
@@ -358,6 +359,9 @@ function WhatsNew.Show()
 	Select(1)
 	if ns.db then
 		ns.db.seenVersion = ns.VERSION
+	end
+	if ns.Hub and ns.Hub.UpdateBadges then
+		ns.Hub.UpdateBadges()
 	end
 end
 

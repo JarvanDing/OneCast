@@ -58,10 +58,7 @@ function X.FormatWait(seconds)
 end
 
 function X.TastyfishInBags()
-	if C_Item.GetItemCount then
-		return C_Item.GetItemCount(X.TASTYFISH) or 0
-	end
-	return GetItemCount and GetItemCount(X.TASTYFISH) or 0
+	return ns.ItemCount(X.TASTYFISH)
 end
 
 -- One line for the stats window, or nil when the contest isn't worth mentioning: shown
@@ -72,7 +69,7 @@ function X.StatusLine(zone)
 		return nil
 	end
 	if running then
-		return string.format("可口鱼 %d/%d  |cff9d9d9d剩余 %s|r", X.TastyfishInBags(), X.GOAL, X.FormatWait(seconds))
+		return string.format("可口鱼 %d/%d  ·  |cff9d9d9d剩余 %s|r", X.TastyfishInBags(), X.GOAL, X.FormatWait(seconds))
 	end
 	if (ns.SameZone and ns.SameZone(zone, X.ZONE)) or zone == X.ZONE or seconds <= 3 * 3600 then
 		return X.FormatWait(seconds) .. " 后开始"
@@ -93,13 +90,18 @@ end
 
 -- The moment you hold 40 Tastyfish during the contest, say where to go. Checked when the
 -- bags change rather than at the catch, since the fish isn't in the bags until it's looted.
+-- Speckled Tastyfish as a chat link, or its name until the game has the item.
+local function Tastyfish()
+	return ns.ItemLink(X.TASTYFISH, "斑点可口鱼")
+end
+
 local announcedGoal = false
 local function CheckGoal()
 	if announcedGoal or not (ns.db and ns.db.extravaganza) or not X.Status() or X.TastyfishInBags() < X.GOAL then
 		return
 	end
 	announcedGoal = true
-	ns.Print(string.format("已有 %d 条斑点可口鱼！交给藏宝海湾的林格·巴斯贝特即可获胜。", X.GOAL))
+	ns.Print(string.format("已有 %d 条%s！交给藏宝海湾的林格·巴斯贝特即可获胜。", X.GOAL, Tastyfish()))
 	if RaidNotice_AddMessage and RaidWarningFrame then
 		RaidNotice_AddMessage(RaidWarningFrame, X.GOAL .. " 条可口鱼：快去藏宝海湾！", ChatTypeInfo.RAID_WARNING)
 	end
@@ -132,8 +134,8 @@ local function Tick()
 		return
 	end
 	if running and not wasRunning then
-		ns.Print(string.format("荆棘谷钓鱼大赛进行中%s！在荆棘谷钓 %d 条斑点可口鱼，交给藏宝海湾的林格·巴斯贝特。",
-			wasRunning == nil and ("（还剩 " .. X.FormatWait(seconds) .. "）") or "", X.GOAL))
+		ns.Print(string.format("荆棘谷钓鱼大赛进行中%s！在荆棘谷钓 %d 条%s，交给藏宝海湾的林格·巴斯贝特。",
+			wasRunning == nil and ("（还剩 " .. X.FormatWait(seconds) .. "）") or "", X.GOAL, Tastyfish()))
 	elseif not running and seconds <= REMIND_BEFORE and not remindedSoon then
 		remindedSoon = true
 		ns.Print("荆棘谷钓鱼大赛将在 " .. X.FormatWait(seconds) .. " 后开始。")

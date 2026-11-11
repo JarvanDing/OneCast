@@ -18,13 +18,15 @@ Forever 使用现代（Midnight 时代）插件 API，但缺少 `loadstring_unta
 
 | 文件 | 内容 |
 |---|---|
+| `Camp.lua` | Forever 的营地钓鱼制作、优良与稀有钓鱼增益，以及在增益下钓到的渔获 |
+| `Report.lua` | `/onecast report`：「哇，大鱼」尚不了解的内容与区域等级的依据，整理为可复制的文本，以及报告窗口 |
 | `Themes.lua` | 窗口主题：配色表，以及对各窗口登记内容着色 |
-| `OneCast.lua` | 施法按钮、收竿按键覆盖、CVar 租约、选项面板、小地图按钮、斜杠命令 |
+| `OneCast.lua` | 施法按钮、收竿按键覆盖、CVar 租约、选项（在 `OPTIONS`、`CHOICES`、`OPTION_MAIN` 与 `OPTION_PAGES` 中只描述一次，同时供游戏面板和窗口的「选项」标签页使用）、小地图按钮、斜杠命令 |
 | `Gear.lua` | 从背包装备鱼竿，以及换回武器 |
 | `Lure.lua` | 诱饵数据、角色选择、鱼竿是否已上饵，以及上饵按键逻辑 |
 | `TackleBox.lua` | 工具箱按钮（安全按钮，战斗中隐藏）及其设置窗口，复用统计窗口部件（`ns.UI`） |
 | `Pools.lua` | 根据提示框记住钓鱼鱼群点，供图鉴地图使用 |
-| `Stats.lua` | 会话、区域、生涯与日志统计，以及统计窗口 |
+| `Stats.lua` | 会话、区域与生涯统计、个人最佳与值得一提的渔获、统计窗口（会话、钓点与生涯纪录），以及所有窗口共用的组件（`ns.UI`） |
 | `Prices.lua` | 将渔获交给 Auctionator 搜索 |
 | `ZoneLevels.lua` | 区域钓鱼等级（经典旧世数据）以及 Forever 区域备注 |
 | `ZoneNames.lua` | 各区域的 Area ID，在非英文客户端上翻译区域表 |
@@ -35,6 +37,7 @@ Forever 使用现代（Midnight 时代）插件 API，但缺少 `loadstring_unta
 | `Book.lua` | 图鉴窗口：鱼类网格、每条鱼的区域/地图/配方页，以及各区域等级视图 |
 | `Changelog.lua` | 版本说明，显示在「更新内容」窗口，并用于发布 |
 | `WhatsNew.lua` | 「更新内容」窗口与登录时的聊天提示 |
+| `Hub.lua` | 统一窗口：侧边标签、各页面在同一位置并按窗口缩放显示、拖角、锁定、「选项」标签页，以及 `/reload` 后重新打开 |
 | `Media/*.tga` | 按钮图标：白底深描边，游戏中着色为金色 |
 
 ### 值得了解的细节
@@ -44,10 +47,11 @@ Forever 使用现代（Midnight 时代）插件 API，但缺少 `loadstring_unta
 - **鱼群点：** 游戏不提供鱼群坐标，且提示框可在超出抛竿距离时出现，因此 `Pools.lua` 在悬停后抛竿时记录玩家位置（若线已在水中则立刻记录）。目前仅识别英文名称。
 - **脱钩：** 各区域记录 `escapeSkill`（含诱饵加成的最高脱钩技能）与 `cleanCatches`（自上次脱钩以来的渔获）。连续 10 次无脱钩会从 `Stats.ZoneStatus` 清除该区域的脱钩记录。
 - **会话：** 空闲超过 30 分钟后再抛竿会开启新会话。「每小时鱼数」只统计实际钓鱼时间（两次抛竿间隔超过 2 分钟的空隙不计）。
-- **随抛竿打开：** 用窗口的 X 或小地图按钮关闭后会保持关闭，直到连续 2 分钟不钓鱼；Esc、Alt+Z 与过场动画不算关闭。
+- **随抛竿打开：** 用窗口的 X 或小地图按钮关闭后会保持关闭，直到连续 2 分钟不钓鱼；Esc、Alt+Z 与过场动画不算关闭。它不会盖在窗口的其他页面上打开；自己打开的窗口会在武器换回时自行关闭（`closeOnDone`）。
+- **统一窗口：** 每个页面都是独立的框体，通过 `Hub.Attach` 挂接。同一时间只显示一个，全部等高（`ns.UI.PAGE_HEIGHT`）并按窗口缩放（`statsScale`），共用保存在 UI 单位中的左上角位置（`windowPoints.hub`），因此拖动任意页面都会带动全部页面。侧边标签跟随当前打开的页面。
 - **钓点、时段与技能提升：** 各区域总计按子区域（抛竿时的 `GetSubZoneText`）记录 `spots`。生涯物品记录 `hours`——按服务器小时（`GetGameTime`）的渔获，图鉴会复制用于时段显示。`OneCastCharDB.skill` 统计自上次技能提升以来的渔获次数；下一点估算沿用经典版经验法则（到 75 点每点 1 次渔获，之后每 25 点多 1 次）。
 - **会话摘要** 在 `ACTIVE_GAP`（2 分钟）内无抛竿后打印，每个有新渔获的时段只打印一次。
-- **区域等级** 以英文区域名为键，`ZoneNames.lua` 在加载时按 Area ID（`C_Map.GetAreaInfo`）换成客户端语言，以匹配任意语言下的 `GetRealZoneText`。新增区域需在该文件补 ID。区域页统计真实脱钩（`ERR_FISH_ESCAPED`），没有数据的区域据此判断。`Stats.ZoneStatus` 保存该判定，统计窗口与图鉴区域页共用。
+- **区域等级** 以英文区域名为键，`ZoneNames.lua` 在加载时按 Area ID（`C_Map.GetAreaInfo`）换成客户端语言，以匹配任意语言下的 `GetRealZoneText`。新增区域需在该文件补 ID。「哇，大鱼」统计真实脱钩（`ERR_FISH_ESCAPED`），没有数据的区域据此判断。`Stats.ZoneStatus` 保存该判定，统计窗口的区域条、图鉴的区域视图与数据报告都读取它。
 - **拍卖价格** 来自 Auctionator（`GetAuctionPriceByItemID`）或 TSM（`dbmarket`）。扫描会把所有渔获交给 Auctionator 的 `MultiSearchExact`。
 - **想要的物品** 为账号范围（`OneCastDB.wanted`）；统计为角色范围（`OneCastCharDB`）。
 - **图鉴：** `OneCastDB.collection.items[itemID].byChar[character]` 保存各角色的数量与区域，在登录时及每次渔获后从该角色的 `OneCastCharDB` 复制，使安装前的渔获也计入且不重复计数。钓到但不在 `FishData.lua` 中的「肉类」贸易品会作为新发现的鱼加入图鉴。
