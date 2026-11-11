@@ -6,6 +6,23 @@ local _, ns = ...
 
 ns.CHANGELOG = {
 	{
+		version = "0.7.5",
+		date = "11 November 2026",
+		sections = {
+			{ "Fixed", {
+				{ "The pole not going back on.", "If you cast from your action bar after OneCast put your pole on, OneCast could later decide the pole couldn't be equipped: after your weapons went back on, the key would put your other pole on, or none at all. 0.7.2 already stopped the worst of it, and now nothing is held over between sessions. Thanks to user_1u9o7vfe00qi4c4k47561 for the report!" },
+			} },
+			{ "Reported by user_ovzr5k4e4heovaq6", {
+				{ "Raw Longjaw Mud Snapper in Dun Morogh.", "It can be caught at Iceflow Lake, so the collection now lists it there." },
+				{ "Dun Morogh at 25 holds up.", "Fish got away below 25 Fishing skill, as OneCast expects there." },
+			} },
+			{ "Reported by Falconetti", {
+				{ "Raw Longjaw Mud Snapper in Hillsbrad Foothills.", "Caught there often, so the collection now lists it." },
+				{ "Raw Bristle Whisker Catfish in Undercity.", "It bites in the city's canals too, so the collection now lists it there." },
+			} },
+		},
+	},
+	{
 		version = "0.7.4",
 		date = "10 November 2026",
 		sections = {

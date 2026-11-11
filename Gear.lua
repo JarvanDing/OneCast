@@ -249,6 +249,8 @@ function Gear.HasSaved()
 end
 
 function Gear.OnCast()
+	-- A cast means a pole is on, even one cast from the action bar rather than OneCast's key.
+	pendingPole = nil
 	CancelRestoreTimer()
 end
 
@@ -309,7 +311,9 @@ events:SetScript("OnEvent", function(_, event, slot)
 		charDB = OneCastCharDB
 	elseif event == "PLAYER_EQUIPMENT_CHANGED" then
 		if MainHandIsPole() then
-			poleMisses[GetInventoryItemID("player", MAIN)] = nil -- it arrived after all
+			-- It arrived: nothing is pending any more, whichever way the next cast is made.
+			poleMisses[GetInventoryItemID("player", MAIN)] = nil
+			pendingPole = nil
 		end
 		if not charDB or not charDB.savedWeapons then
 			return
