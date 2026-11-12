@@ -6,6 +6,26 @@ local _, ns = ...
 
 ns.CHANGELOG = {
 	{
+		version = "0.8.1",
+		date = "12 November 2026",
+		sections = {
+			{ "New", {
+				{ "More places to catch each fish.", "Wowhead's WoW Forever pages now include Forever's own catches, so 36 fish in the collection gained zones. Among them are Forever's own Zephras Isle, for Raw Brilliant Smallfish and the 10, 12 and 15 Pound Mud Snappers, and Riverglades, for Stonescale Eel, Firefin Snapper and Raw Greater Sagefish. The Session tab's \"not caught yet\" list and the book's zone pages follow." },
+			} },
+			{ "Fixed", {
+				{ "Older catches in the data report.", "A zone fished before 0.7.0, when catches weren't yet recorded by skill, now shows its catches and getaways in the report instead of nothing." },
+				{ "Fewer stray messages in the data report.", "\"Target not in line of sight\" is no longer kept as a fishing message." },
+				{ "Resizing the window.", "Closing the window while dragging its corner now ends the resize there, instead of carrying on." },
+			} },
+			{ "Reported by bertas88", {
+				{ "The Barrens needs 100.", "Fish got away at skill 75-99 though Classic's level is 75, so OneCast now lists Forever's own." },
+			} },
+			{ "Reported by user_h2k2opfztmgqkcf2", {
+				{ "The Barrens confirmed at 100.", "Fish got away at 75-99 here too, and not once in 33 catches from 100." },
+			} },
+		},
+	},
+	{
 		version = "0.8.0",
 		date = "11 November 2026",
 		sections = {

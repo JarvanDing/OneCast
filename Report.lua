@@ -347,8 +347,13 @@ function Report.Text()
 			local listed = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone]
 			add(string.format("%s%s, %s", zone, id and (" [" .. id .. "]") or "",
 				listed and ("OneCast lists " .. listed) or "no level known"))
-			if not SkillLines(z, add) and z.escapeSkill then
-				add(string.format("  a fish got away at %d (before 0.7.0)", z.escapeSkill))
+			if not SkillLines(z, add) then
+				-- Catches from before 0.7.0 weren't recorded by skill: their totals still say something.
+				add(string.format("  %d caught, %d got away (skill not recorded: before 0.7.0)",
+					z.catches or 0, z.escapes or 0))
+				if z.escapeSkill then
+					add(string.format("  a fish got away at %d", z.escapeSkill))
+				end
 			end
 		end
 	end

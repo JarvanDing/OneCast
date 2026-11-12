@@ -124,7 +124,7 @@ A stats window that opens as you cast, with three tabs:
 
 ## Good to know
 - **Made for WoW Forever.** Classic Era and Retail aren't supported.
-- The collection's fish and recipes are checked against WoW Forever's own game data. Where each fish is caught isn't published for Forever yet, so zones come from Classic data and player reports, marked as such. Fish with no known waters fill in from your own catches.
+- The collection's fish and recipes are checked against WoW Forever's own game data. Where each fish is caught comes from Wowhead's WoW Forever data (Classic's catches with Forever's own added, including Zephras Isle and Riverglades), Classic data and player reports, marked as such. Fish with no known waters fill in from your own catches.
 - **Zone fishing levels come from Classic data**, including dungeons and lakes with a level of their own, and Forever may differ. Its new zones have no data yet, so OneCast also counts real getaways to keep you honest.
 - Lures work with a pole in your main hand, and take 5 seconds to apply. WoW only lets addons use items on your own press, so a lure can't go on by itself the moment you equip the pole.
 - OneCast's own text is in English. Zone levels work in every client language, but pool marks only recognise English pool names for now.

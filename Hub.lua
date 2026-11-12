@@ -204,6 +204,13 @@ local function AddGrip(frame)
 		GameTooltip:Show()
 	end)
 	grip:SetScript("OnLeave", GameTooltip_Hide)
+	-- Closed mid-drag (Escape, a tab): the drag ends at the size reached, rather than running on.
+	frame:HookScript("OnHide", function()
+		if grip:GetScript("OnUpdate") then
+			grip:SetScript("OnUpdate", nil)
+			ns.Stats.SetScale(frame:GetScale() * 100)
+		end
+	end)
 	frame.grip = grip
 end
 

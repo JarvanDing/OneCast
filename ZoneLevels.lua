@@ -16,11 +16,17 @@ local LEVELS = {
 		"Dun Morogh", "Durotar", "Elwynn Forest", "Mulgore", "Teldrassil", "Tirisfal Glades",
 	},
 	[75] = {
-		"The Barrens", "Darkshore", "Loch Modan", "Silverpine Forest", "Westfall",
+		"Darkshore", "Loch Modan", "Silverpine Forest", "Westfall",
 		-- Orgrimmar's 75 is confirmed in Forever by a player's report (10 November 2026): 3 got away at
 		-- skill 50-74, none in 178 catches from 75 up.
 		"Stormwind City", "Orgrimmar", "Ironforge", "Thunder Bluff", "Undercity", "Darnassus",
 		"The Deadmines", "Wailing Caverns", "Blackfathom Deeps",
+	},
+	[100] = {
+		-- Forever's own, from two players' /onecast reports (11 and 12 November 2026): fish got
+		-- away about 7% of the time at skill 75-99 (2 of 28, and 4 of 57), and none in 33 catches
+		-- at 100-124. Classic's is 75.
+		"The Barrens",
 	},
 	[150] = {
 		"Ashenvale", "Duskwood", "Hillsbrad Foothills", "Redridge Mountains",
