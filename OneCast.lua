@@ -408,8 +408,9 @@ local function SyncDedicatedReelKeys()
 		return
 	end
 	ClearOverrideBindings(reelKeyOwner)
-	for _, key in ipairs({ GetBindingKey(REEL_BINDING) }) do
-		SetOverrideBinding(reelKeyOwner, true, key, "INTERACTTARGET")
+	local keys = { GetBindingKey(REEL_BINDING) }
+	for i = 1, #keys do
+		SetOverrideBinding(reelKeyOwner, true, keys[i], "INTERACTTARGET")
 	end
 end
 
@@ -430,8 +431,9 @@ local function StartReelMode()
 	-- One-key mode: temporarily turn the cast key into interact for this cast only.
 	ClearOverrideBindings(reelOwner)
 	if not HasDedicatedReelKey() then
-		for _, key in ipairs({ GetBindingKey(BINDING_COMMAND) }) do
-			SetOverrideBinding(reelOwner, true, key, "INTERACTTARGET")
+		local keys = { GetBindingKey(BINDING_COMMAND) }
+		for i = 1, #keys do
+			SetOverrideBinding(reelOwner, true, keys[i], "INTERACTTARGET")
 		end
 	end
 end
