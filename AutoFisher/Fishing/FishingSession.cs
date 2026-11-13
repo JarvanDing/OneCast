@@ -26,6 +26,7 @@ namespace AutoFisher.Fishing
 		private FishingState _state = FishingState.Stopped;
 		private DateTime _phaseUntilUtc = DateTime.MinValue;
 		private DateTime? _gameMissingSinceUtc;
+		private DateTime? _runUntilUtc;
 		private int _armSecondsLeft;
 		private bool _keySentInPhase;
 
@@ -35,6 +36,21 @@ namespace AutoFisher.Fishing
 		public FishingState State => _state;
 
 		public bool IsRunning => _state != FishingState.Stopped;
+
+		/// <summary>Remaining scheduled run time, or null when not running / no timer.</summary>
+		public TimeSpan? RemainingRunTime
+		{
+			get
+			{
+				if (!IsRunning || _runUntilUtc == null)
+				{
+					return null;
+				}
+
+				var rem = _runUntilUtc.Value - DateTime.UtcNow;
+				return rem < TimeSpan.Zero ? TimeSpan.Zero : rem;
+			}
+		}
 
 		public FishingSession(SplashDetector detector)
 		{
@@ -70,6 +86,9 @@ namespace AutoFisher.Fishing
 			_detector.ResetBaseline();
 			_detector.Disarm();
 			_gameMissingSinceUtc = null;
+			int hours = Math.Max(1, Math.Min(10, _settings.RunHours));
+			_runUntilUtc = DateTime.UtcNow.AddHours(hours);
+			EmitLog(string.Format("定时 {0} 小时，到期将关闭游戏窗口", hours));
 			_armSecondsLeft = Math.Max(0, _settings.StartDelaySeconds);
 			if (_armSecondsLeft > 0)
 			{
@@ -89,6 +108,7 @@ namespace AutoFisher.Fishing
 		{
 			_timer.Stop();
 			_detector.Disarm();
+			_runUntilUtc = null;
 			if (_state == FishingState.Stopped)
 			{
 				EmitLog(reason);
@@ -113,6 +133,11 @@ namespace AutoFisher.Fishing
 		private void OnTick(object sender, EventArgs e)
 		{
 			if (!IsRunning)
+			{
+				return;
+			}
+
+			if (CheckRunTimerExpired())
 			{
 				return;
 			}
@@ -185,7 +210,7 @@ namespace AutoFisher.Fishing
 		{
 			_detector.Disarm();
 			_keySentInPhase = false;
-			if (!TryPress("抛竿"))
+			if (!TryPress("抛竿", _settings.CastKeyVk))
 			{
 				return;
 			}
@@ -198,13 +223,32 @@ namespace AutoFisher.Fishing
 		{
 			_detector.Disarm();
 			_keySentInPhase = false;
-			if (!TryPress("收杆"))
+			if (!TryPress("收杆", _settings.ReelKeyVk))
 			{
 				return;
 			}
 
 			_keySentInPhase = true;
 			_phaseUntilUtc = DateTime.UtcNow.AddMilliseconds(_settings.LootSettleMs);
+		}
+
+		/// <summary>
+		/// When the scheduled run hours elapse: stop fishing and close the game window.
+		/// </summary>
+		private bool CheckRunTimerExpired()
+		{
+			if (_runUntilUtc == null || DateTime.UtcNow < _runUntilUtc.Value)
+			{
+				return false;
+			}
+
+			EmitLog("定时已到，正在关闭游戏窗口…");
+			bool closed = ForegroundChecker.CloseGameWindow(_settings.GameTitleContains);
+			EmitLog(closed
+				? "已向游戏窗口发送关闭请求"
+				: "未找到游戏窗口，无法自动关闭");
+			Stop(closed ? "定时结束，已关闭游戏" : "定时结束（未找到游戏窗口）");
+			return true;
 		}
 
 		/// <summary>
@@ -237,7 +281,7 @@ namespace AutoFisher.Fishing
 			return true;
 		}
 
-		private bool TryPress(string action)
+		private bool TryPress(string action, ushort virtualKey)
 		{
 			if (!EnsureGamePresentOrStop())
 			{
@@ -260,9 +304,10 @@ namespace AutoFisher.Fishing
 				System.Threading.Thread.Sleep(50);
 			}
 
-			bool ok = KeySender.Tap(_settings.FishKeyVk);
+			string keyName = FormatKey(virtualKey);
+			bool ok = KeySender.Tap(virtualKey);
 			EmitLog(ok
-				? action + " → 已发送 F8"
+				? action + " → 已发送 " + keyName
 				: action + " → SendInput 失败（请以管理员运行）");
 			if (!ok)
 			{
@@ -270,6 +315,16 @@ namespace AutoFisher.Fishing
 			}
 
 			return ok;
+		}
+
+		internal static string FormatKey(ushort virtualKey)
+		{
+			if (virtualKey >= 0x70 && virtualKey <= 0x7B)
+			{
+				return "F" + (virtualKey - 0x6F);
+			}
+
+			return "VK 0x" + virtualKey.ToString("X2");
 		}
 
 		private int NextCastDelay()

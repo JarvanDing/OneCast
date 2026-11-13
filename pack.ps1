@@ -2,7 +2,7 @@
 # 用法:
 #   .\pack.ps1
 #   .\pack.ps1 -Committed          # 仅打包已提交内容（等同 git archive）
-#   .\pack.ps1 -OutDir "D:\World of Warcraft\_forever_\Interface\AddOns"
+#   .\pack.ps1 -OutDir "D:\ProgramData\World of Warcraft\_forever_\Interface\AddOns"
 param(
     [switch]$Committed,
     [string]$OutDir = ""

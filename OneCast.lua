@@ -4,9 +4,11 @@
 -- so SecureHandler templates are out):
 --   * OneCastButton is a plain SecureActionButton that casts Fishing. Bind a key to it
 --     in Options > Keybindings > AddOns > OneCast, or double right-click with a pole.
---   * When the Fishing channel starts, that same key is overridden to INTERACTTARGET
---     and soft-interact is switched on, so the next press reels in the bobber.
---   * When the channel ends the override is dropped and the key casts again.
+--   * Optional ONECAST_REEL: a second key always mapped to INTERACTTARGET. When bound,
+--     the cast key stays cast for the whole cast — pressing it never reels. Soft-interact
+--     CVars still turn on while the line is out so the reel key hits the bobber.
+--   * One-key mode (no ONECAST_REEL bound): when the Fishing channel starts, the cast key
+--     is overridden to INTERACTTARGET; when the channel ends the override is dropped.
 -- Every cast and every reel is still one hardware press by the player.
 
 local ADDON, ns = ...
@@ -20,6 +22,7 @@ local FISHING_SPELL_IDS = { 7620, 131474 } -- Classic rank 1, modern profession 
 local DOUBLE_CLICK_WINDOW = 0.4
 local BUTTON_NAME = "OneCastButton"
 local BINDING_COMMAND = "CLICK " .. BUTTON_NAME .. ":LeftButton"
+local REEL_BINDING = "ONECAST_REEL"
 
 local defaults = {
 	doubleClick = true,
@@ -236,7 +239,8 @@ local SOUND_CVARS = {
 }
 
 _G.BINDING_HEADER_ONECAST = "哇，大鱼"
-_G["BINDING_NAME_" .. BINDING_COMMAND] = "施放 / 收杆（一键钓鱼）"
+_G["BINDING_NAME_" .. BINDING_COMMAND] = "施放（抛竿）"
+_G["BINDING_NAME_" .. REEL_BINDING] = "收杆（与浮漂互动）"
 _G.BINDING_NAME_ONECAST_RESTORE = "换回武器"
 _G.BINDING_NAME_ONECAST_BOOK = "钓鱼图鉴"
 _G.BINDING_NAME_ONECAST_WINDOW = "「哇，大鱼」窗口（上次使用的页面）"
@@ -251,8 +255,12 @@ local leases = { cast = {}, quiet = {} }
 -- Turned down while the pole is on, to quietLevel percent of the player's own volume.
 local QUIET_CVARS = { "Sound_MusicVolume", "Sound_AmbienceVolume", "Sound_DialogVolume" }
 
--- Separate owners so dropping the double-click override never drops the reel one.
+-- Separate owners so dropping one override never drops the others.
+-- reelOwner: one-key mode (cast key → INTERACTTARGET while the line is out).
+-- reelKeyOwner: dedicated ONECAST_REEL key → INTERACTTARGET (always, out of combat).
+-- clickOwner: double right-click cast.
 local reelOwner = CreateFrame("Frame")
+local reelKeyOwner = CreateFrame("Frame")
 local clickOwner = CreateFrame("Frame")
 
 local function Print(msg)
@@ -390,6 +398,21 @@ local function CheckBagSpace()
 	end
 end
 
+local function HasDedicatedReelKey()
+	return GetBindingKey(REEL_BINDING) ~= nil
+end
+
+-- Keep the dedicated reel key on INTERACTTARGET so it never casts.
+local function SyncDedicatedReelKeys()
+	if InCombatLockdown() then
+		return
+	end
+	ClearOverrideBindings(reelKeyOwner)
+	for _, key in ipairs({ GetBindingKey(REEL_BINDING) }) do
+		SetOverrideBinding(reelKeyOwner, true, key, "INTERACTTARGET")
+	end
+end
+
 local function StartReelMode()
 	if InCombatLockdown() then
 		return
@@ -403,8 +426,13 @@ local function StartReelMode()
 	if db.soundBoost then
 		LeaseCVars("cast", SOUND_CVARS)
 	end
-	for _, key in ipairs({ GetBindingKey(BINDING_COMMAND) }) do
-		SetOverrideBinding(reelOwner, true, key, "INTERACTTARGET")
+	-- Two-key mode: cast key stays cast; reel key (already INTERACTTARGET) hits the bobber.
+	-- One-key mode: temporarily turn the cast key into interact for this cast only.
+	ClearOverrideBindings(reelOwner)
+	if not HasDedicatedReelKey() then
+		for _, key in ipairs({ GetBindingKey(BINDING_COMMAND) }) do
+			SetOverrideBinding(reelOwner, true, key, "INTERACTTARGET")
+		end
 	end
 end
 
@@ -487,8 +515,18 @@ WorldFrame:HookScript("OnMouseDown", function(_, mouseButton)
 end)
 
 local function BoundKeysText()
-	local keys = { GetBindingKey(BINDING_COMMAND) }
-	return #keys > 0 and table.concat(keys, ", ") or "未绑定"
+	local cast = { GetBindingKey(BINDING_COMMAND) }
+	local reel = { GetBindingKey(REEL_BINDING) }
+	local parts = {}
+	if #cast > 0 then
+		parts[#parts + 1] = "抛 " .. table.concat(cast, ", ")
+	end
+	if #reel > 0 then
+		parts[#parts + 1] = "收 " .. table.concat(reel, ", ")
+	elseif #cast > 0 then
+		parts[#parts + 1] = "一键收杆"
+	end
+	return #parts > 0 and table.concat(parts, " · ") or "未绑定"
 end
 
 -- Minimap button: a plain round button orbiting the minimap, dragged to any angle.
@@ -685,11 +723,17 @@ local function SetupSettings()
 	AddControl(category, "tabSide")
 	AddControl(category, "statsScale")
 
-	-- The cast/reel key, editable right here (same binding as Keybindings > AddOns).
+	-- Cast and optional reel keys (same bindings as Keybindings > AddOns).
 	if CreateKeybindingEntryInitializer then
+		local want = { [BINDING_COMMAND] = true, [REEL_BINDING] = true }
+		local keyed = false
 		for i = 1, GetNumBindings() do
-			if GetBinding(i) == BINDING_COMMAND then
-				Header(layout, "按键")
+			local cmd = GetBinding(i)
+			if want[cmd] then
+				if not keyed then
+					Header(layout, "按键")
+					keyed = true
+				end
 				local keyEntry = CreateKeybindingEntryInitializer(i, true)
 				-- Kept out of the settings search, as are the buttons below: Blizzard does the
 				-- same for its own buttons that open something, and addon entries in the search
@@ -698,7 +742,6 @@ local function SetupSettings()
 					keyEntry:SetSearchIgnoredInLayout(layout)
 				end
 				layout:AddInitializer(keyEntry)
-				break
 			end
 		end
 	end
@@ -750,8 +793,16 @@ function ns.FillTooltip(tip, isMinimap)
 	tip:AddDoubleLine(ns.DISPLAY_NAME, "v" .. ns.VERSION, 1, 1, 1, GREY[1], GREY[2], GREY[3])
 	tip:AddLine(" ")
 
-	local keys = { GetBindingKey(BINDING_COMMAND) }
-	Row("施放 / 收杆", #keys > 0 and table.concat(keys, ", ") or "未绑定", #keys > 0 and WHITE or RED)
+	local castKeys = { GetBindingKey(BINDING_COMMAND) }
+	local reelKeys = { GetBindingKey(REEL_BINDING) }
+	Row("施放", #castKeys > 0 and table.concat(castKeys, ", ") or "未绑定", #castKeys > 0 and WHITE or RED)
+	if #reelKeys > 0 then
+		Row("收杆", table.concat(reelKeys, ", "))
+	elseif #castKeys > 0 then
+		Row("收杆", "同一键（一键模式）", GREY)
+	else
+		Row("收杆", "未绑定", RED)
+	end
 	local session = ns.Stats.Summary()
 	Row("本次会话", session or "暂无", session and WHITE or GREY)
 	local lure, problem = ns.Lure.StatusLine()
@@ -1026,6 +1077,7 @@ events:RegisterEvent("PLAYER_REGEN_DISABLED")
 events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 events:RegisterEvent("SPELLS_CHANGED")
+events:RegisterEvent("UPDATE_BINDINGS")
 events:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
 events:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
 
@@ -1059,9 +1111,16 @@ events:SetScript("OnEvent", function(_, event, ...)
 		ApplyFishingSpell()
 		if event == "PLAYER_LOGIN" then
 			UpdateQuiet() -- logged in with the pole on
+			SyncDedicatedReelKeys()
 		end
 		if event == "PLAYER_LOGIN" and not GetBindingKey(BINDING_COMMAND) then
-			Print("请在 选项 > 按键设置 > 插件 > 哇，大鱼 绑定按键，或装备鱼竿后双击右键。输入 /onecast 打开选项。")
+			Print("请在 选项 > 按键设置 > 插件 > 哇，大鱼 绑定「施放」；可选再绑「收杆」分键（绑了收杆后，施放键不会再变成收杆）。也可装备鱼竿后双击右键。输入 /onecast 打开选项。")
+		end
+	elseif event == "UPDATE_BINDINGS" then
+		SyncDedicatedReelKeys()
+		-- Re-apply one-key override if the line is still out and no dedicated reel key.
+		if fishing and not InCombatLockdown() then
+			StartReelMode()
 		end
 	elseif event == "UNIT_SPELLCAST_CHANNEL_START" then
 		local _, _, spellID = ...
@@ -1090,10 +1149,12 @@ events:SetScript("OnEvent", function(_, event, ...)
 		-- Last chance before lockdown: give every key back to its normal binding.
 		fishing = false
 		ClearOverrideBindings(reelOwner)
+		ClearOverrideBindings(reelKeyOwner)
 		ClearOverrideBindings(clickOwner)
 		ReleaseCVars("cast") -- the quiet ones follow the pole, which combat puts away
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		ApplyFishingSpell()
+		SyncDedicatedReelKeys()
 		-- A line still out: combat took the reel key away, and pressing it now would recast.
 		local _, _, _, _, _, _, _, spellID = UnitChannelInfo("player")
 		if IsFishingSpell(spellID) then

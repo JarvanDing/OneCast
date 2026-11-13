@@ -1,6 +1,12 @@
 <Bindings>
 	<Binding name="CLICK OneCastButton:LeftButton" header="ONECAST" category="ADDONS">
-		-- Handled by OneCastButton (SecureActionButtonTemplate).
+		-- Handled by OneCastButton (SecureActionButtonTemplate). Cast only when a
+		-- dedicated ONECAST_REEL key is also bound; otherwise one-key mode overrides
+		-- this key to INTERACTTARGET while the line is out.
+	</Binding>
+	<Binding name="ONECAST_REEL" category="ADDONS">
+		-- Mapped to INTERACTTARGET out of combat. Soft-interact CVars during a cast
+		-- make the bobber the soft target, so this key reels without casting.
 	</Binding>
 	<Binding name="CLICK OneCastApplyLureButton:LeftButton" category="ADDONS">
 		-- Handled by OneCastApplyLureButton (SecureActionButtonTemplate).

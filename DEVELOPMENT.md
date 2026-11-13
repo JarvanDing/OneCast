@@ -7,10 +7,11 @@
 Forever 使用现代（Midnight 时代）插件 API，但缺少 `loadstring_untainted`，因此 SecureHandler 片段无法使用。OneCast 的规避方式如下：
 
 1. `OneCastButton` 是一个 `SecureActionButtonTemplate` 按钮，`type=spell`，`spell=<钓鱼>`（由法术 ID 7620 解析名称，失败则回退到 131474）。
-2. 在钓鱼的 `UNIT_SPELLCAST_CHANNEL_START` 时，将该按钮绑定的按键覆盖为 `INTERACTTARGET`，并设置 `SoftTargetInteract=3`、`SoftTargetInteractArc=2` 与 `SoftTargetInteractRange=30`，使浮漂成为软交互目标。开启「标记自己的浮漂」（默认关闭）时，还会设置 `SoftTargetIconGameObject` 与 `SoftTargetIconInteract`，在浮漂上显示游戏的装备图标。可选地，在施法期间将音效音量提到最大。
-3. 在 `UNIT_SPELLCAST_CHANNEL_STOP` 时清除覆盖；每个 CVar 仅在仍保持 OneCast 写入的值时才还原。
-4. `PLAYER_REGEN_DISABLED` 在进入战斗锁定前卸下所有覆盖；`PLAYER_LOGOUT` 还原 CVar，避免被持久化保存。
-5. 开启「压低其他声音」时，装备鱼竿期间（在 `PLAYER_EQUIPMENT_CHANGED` 上检查）会将 `Sound_MusicVolume`、`Sound_AmbienceVolume` 与 `Sound_DialogVolume` 降到各自原值的 `quietLevel` 百分比。它们与每次施法的 CVar 属于不同的租约组：收竿或开战不会把它们还回去，只有卸下鱼竿才会。
+2. 可选绑定 `ONECAST_REEL`：非战斗时始终覆盖为 `INTERACTTARGET`。若已绑定，则施放键在整次抛竿期间保持施放，不会被改成互动。
+3. 一键模式（未绑定 `ONECAST_REEL`）：在 `UNIT_SPELLCAST_CHANNEL_START` 时，将施放键覆盖为 `INTERACTTARGET`。两种模式都会设置 `SoftTargetInteract=3`、`SoftTargetInteractArc=2` 与 `SoftTargetInteractRange=30`，使浮漂成为软交互目标。开启「标记自己的浮漂」（默认关闭）时，还会设置 `SoftTargetIconGameObject` 与 `SoftTargetIconInteract`。可选地，在施法期间将音效音量提到最大。
+4. 在 `UNIT_SPELLCAST_CHANNEL_STOP` 时清除一键模式的覆盖；每个 CVar 仅在仍保持 OneCast 写入的值时才还原。
+5. `PLAYER_REGEN_DISABLED` 在进入战斗锁定前卸下所有覆盖；`PLAYER_REGEN_ENABLED` / `UPDATE_BINDINGS` 会重新同步收杆键；`PLAYER_LOGOUT` 还原 CVar，避免被持久化保存。
+6. 开启「压低其他声音」时，装备鱼竿期间（在 `PLAYER_EQUIPMENT_CHANGED` 上检查）会将 `Sound_MusicVolume`、`Sound_AmbienceVolume` 与 `Sound_DialogVolume` 降到各自原值的 `quietLevel` 百分比。它们与每次施法的 CVar 属于不同的租约组：收竿或开战不会把它们还回去，只有卸下鱼竿才会。
 
 每次抛竿与收竿仍是一次真实按键；没有任何自动化。
 

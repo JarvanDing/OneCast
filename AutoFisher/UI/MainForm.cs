@@ -31,10 +31,14 @@ namespace AutoFisher.UI
 		private NumericUpDown _numTimeout;
 		private NumericUpDown _numCooldown;
 		private NumericUpDown _numStartDelay;
+		private NumericUpDown _numRunHours;
+		private ComboBox _cmbCastKey;
+		private ComboBox _cmbReelKey;
 		private CheckBox _chkForeground;
 		private TextBox _txtTitle;
 		private ListBox _log;
 		private Label _hint;
+		private Label _lblRunTimer;
 
 		public MainForm()
 		{
@@ -47,8 +51,8 @@ namespace AutoFisher.UI
 
 			Text = "哇，大鱼 · 自动钓鱼";
 			Width = 580;
-			Height = 680;
-			MinimumSize = new Size(540, 600);
+			Height = 720;
+			MinimumSize = new Size(540, 640);
 			StartPosition = FormStartPosition.CenterScreen;
 			Font = new Font("Segoe UI", 9f);
 			TrySetIcon();
@@ -165,7 +169,7 @@ namespace AutoFisher.UI
 			{
 				AutoSize = true,
 				MaximumSize = new Size(540, 0),
-				Text = "每次按键前会自动聚焦游戏。游戏窗口消失约 3 秒会自动停止。OneCast 绑 F8，开「提升音效」+「压低其他声音」。F9 启停。可先点「测试 F8」。"
+				Text = "抛竿键绑 OneCast「施放」；收杆键绑 OneCast「收杆」。绑了收杆后抛竿键不会再变成收杆。开「提升音效」+「压低其他声音」。F9 启停。"
 			};
 			root.Controls.Add(_hint, 0, 0);
 
@@ -177,7 +181,7 @@ namespace AutoFisher.UI
 			};
 			_btnStart = new Button { Text = "开始", Width = 90, Height = 28 };
 			_btnStop = new Button { Text = "停止", Width = 90, Height = 28, Enabled = false };
-			_btnTestKey = new Button { Text = "测试 F8", Width = 90, Height = 28 };
+			_btnTestKey = new Button { Text = "测试按键", Width = 90, Height = 28 };
 			_btnResetBaseline = new Button { Text = "校准基线", Width = 90, Height = 28 };
 			_btnStart.Click += (_, __) => StartSession();
 			_btnStop.Click += (_, __) => StopSession();
@@ -201,9 +205,11 @@ namespace AutoFisher.UI
 				Padding = new Padding(0, 6, 0, 6)
 			};
 			_lblState = new Label { AutoSize = true, Text = "状态: 已停止" };
+			_lblRunTimer = new Label { AutoSize = true, Text = "定时: —" };
 			_lblLevel = new Label { AutoSize = true, Text = "电平: —（有声音时数字应变大）" };
 			_levelBar = new ProgressBar { Width = 520, Height = 18, Maximum = 1000 };
 			status.Controls.Add(_lblState);
+			status.Controls.Add(_lblRunTimer);
 			status.Controls.Add(_lblLevel);
 			status.Controls.Add(_levelBar);
 			root.Controls.Add(status, 0, 2);
@@ -212,14 +218,14 @@ namespace AutoFisher.UI
 			{
 				Dock = DockStyle.Fill,
 				ColumnCount = 4,
-				RowCount = 10,
+				RowCount = 7,
 				AutoSize = true
 			};
 			for (int i = 0; i < 4; i++)
 			{
 				settingsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
 			}
-			for (int r = 0; r < 10; r++)
+			for (int r = 0; r < 7; r++)
 			{
 				settingsPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 			}
@@ -234,6 +240,10 @@ namespace AutoFisher.UI
 			_numTimeout = MakeInt(1000, 60000, _settings.ListenTimeoutMs);
 			_numStartDelay = MakeInt(0, 15, _settings.StartDelaySeconds);
 			_numStartDelay.Increment = 1;
+			_numRunHours = MakeInt(1, 10, _settings.RunHours);
+			_numRunHours.Increment = 1;
+			_cmbCastKey = MakeFKeyCombo(_settings.CastKeyVk);
+			_cmbReelKey = MakeFKeyCombo(_settings.ReelKeyVk);
 			_chkForeground = new CheckBox
 			{
 				Text = "自动聚焦游戏",
@@ -251,26 +261,22 @@ namespace AutoFisher.UI
 			AddSetting(settingsPanel, 6, "再抛延迟最大", _numDelayMax);
 			AddSetting(settingsPanel, 7, "听竿超时 ms", _numTimeout);
 			AddSetting(settingsPanel, 8, "开始倒计时 s", _numStartDelay);
+			AddSetting(settingsPanel, 9, "定时关闭 h", _numRunHours);
+			AddSetting(settingsPanel, 10, "抛竿键", _cmbCastKey);
+			AddSetting(settingsPanel, 11, "收杆键", _cmbReelKey);
 
 			var fgRow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
 			fgRow.Controls.Add(_chkForeground);
 			fgRow.Controls.Add(new Label { Text = "标题含:", AutoSize = true, Padding = new Padding(8, 6, 0, 0) });
 			fgRow.Controls.Add(_txtTitle);
 			settingsPanel.SetColumnSpan(fgRow, 4);
-			settingsPanel.Controls.Add(fgRow, 0, 5);
-
-			// Row math: indices 0-8 use rows 0-4 (2 per row), fg on row 5
-			// Wait - AddSetting uses index/2 for row. Index 8 -> row 4. fg at row 5. Good.
-			// But I put fg at row 5 while AddSetting(8) is also row 4. Fix: put fg at row 9 end.
-
-			settingsPanel.Controls.Remove(fgRow);
-			settingsPanel.Controls.Add(fgRow, 0, 9);
+			settingsPanel.Controls.Add(fgRow, 0, 6);
 
 			var settingsGroup = new GroupBox
 			{
 				Text = "参数（改后点开始会生效并保存）",
 				Dock = DockStyle.Top,
-				Height = 250,
+				Height = 280,
 				Padding = new Padding(8)
 			};
 			settingsGroup.Controls.Add(settingsPanel);
@@ -283,7 +289,7 @@ namespace AutoFisher.UI
 				ColumnCount = 1,
 				RowCount = 2
 			};
-			mid.RowStyles.Add(new RowStyle(SizeType.Absolute, 260));
+			mid.RowStyles.Add(new RowStyle(SizeType.Absolute, 290));
 			mid.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 			mid.Controls.Add(settingsGroup, 0, 0);
 			mid.Controls.Add(_log, 0, 1);
@@ -330,6 +336,73 @@ namespace AutoFisher.UI
 			};
 		}
 
+		private static ComboBox MakeFKeyCombo(ushort selectedVk)
+		{
+			var box = new ComboBox
+			{
+				DropDownStyle = ComboBoxStyle.DropDownList,
+				Width = 90
+			};
+			int selectedIndex = 0;
+			for (ushort vk = 0x70; vk <= 0x7B; vk++)
+			{
+				if (vk == 0x78)
+				{
+					continue; // F9 reserved for AutoFisher toggle
+				}
+
+				var item = new KeyChoice(FishingSession.FormatKey(vk), vk);
+				int index = box.Items.Add(item);
+				if (vk == selectedVk)
+				{
+					selectedIndex = index;
+				}
+			}
+
+			if (box.Items.Count > 0)
+			{
+				box.SelectedIndex = selectedIndex;
+			}
+
+			return box;
+		}
+
+		private sealed class KeyChoice
+		{
+			public string Name { get; }
+			public ushort Vk { get; }
+
+			public KeyChoice(string name, ushort vk)
+			{
+				Name = name;
+				Vk = vk;
+			}
+
+			public override string ToString()
+			{
+				return Name;
+			}
+		}
+
+		private static ushort GetSelectedKey(ComboBox box, ushort fallback)
+		{
+			var choice = box.SelectedItem as KeyChoice;
+			return choice != null ? choice.Vk : fallback;
+		}
+
+		private static void SelectKey(ComboBox box, ushort vk)
+		{
+			for (int i = 0; i < box.Items.Count; i++)
+			{
+				var choice = box.Items[i] as KeyChoice;
+				if (choice != null && choice.Vk == vk)
+				{
+					box.SelectedIndex = i;
+					return;
+				}
+			}
+		}
+
 		private void LoadSettingsIntoUi()
 		{
 			_numRatio.Value = Clamp(_numRatio, (decimal)_settings.SensitivityRatio);
@@ -341,8 +414,26 @@ namespace AutoFisher.UI
 			_numDelayMax.Value = Clamp(_numDelayMax, _settings.CastDelayMaxMs);
 			_numTimeout.Value = Clamp(_numTimeout, _settings.ListenTimeoutMs);
 			_numStartDelay.Value = Clamp(_numStartDelay, _settings.StartDelaySeconds);
+			_numRunHours.Value = Clamp(_numRunHours, ClampRunHours(_settings.RunHours));
+			SelectKey(_cmbCastKey, _settings.CastKeyVk);
+			SelectKey(_cmbReelKey, _settings.ReelKeyVk);
 			_chkForeground.Checked = _settings.AutoFocusGame;
 			_txtTitle.Text = _settings.GameTitleContains ?? "魔兽世界,Warcraft,Forever,WoW";
+		}
+
+		private static int ClampRunHours(int hours)
+		{
+			if (hours < 1)
+			{
+				return 1;
+			}
+
+			if (hours > 10)
+			{
+				return 10;
+			}
+
+			return hours;
 		}
 
 		private static decimal Clamp(NumericUpDown box, decimal value)
@@ -371,11 +462,22 @@ namespace AutoFisher.UI
 			_settings.CastDelayMaxMs = (int)_numDelayMax.Value;
 			_settings.ListenTimeoutMs = (int)_numTimeout.Value;
 			_settings.StartDelaySeconds = (int)_numStartDelay.Value;
+			_settings.RunHours = ClampRunHours((int)_numRunHours.Value);
 			_settings.AutoFocusGame = _chkForeground.Checked;
 			_settings.GameTitleContains = string.IsNullOrWhiteSpace(_txtTitle.Text)
 				? "魔兽世界,Warcraft,Forever,WoW"
 				: _txtTitle.Text.Trim();
-			_settings.FishKeyVk = 0x77;
+			_settings.CastKeyVk = GetSelectedKey(_cmbCastKey, 0x77);
+			_settings.ReelKeyVk = GetSelectedKey(_cmbReelKey, 0x76);
+			if (_settings.CastKeyVk == _settings.ReelKeyVk)
+			{
+				_settings.ReelKeyVk = _settings.CastKeyVk == 0x76 ? (ushort)0x77 : (ushort)0x76;
+				SelectKey(_cmbReelKey, _settings.ReelKeyVk);
+				AppendLog("抛竿键与收杆键不能相同，已把收杆键改为 "
+					+ FishingSession.FormatKey(_settings.ReelKeyVk));
+			}
+
+			_settings.FishKeyVk = _settings.CastKeyVk;
 			_settings.ToggleHotkeyVk = 0x78;
 		}
 
@@ -415,8 +517,13 @@ namespace AutoFisher.UI
 					: "测试：聚焦未完全成功，仍发键 → " + ForegroundChecker.GetTitle(hwnd));
 			}
 
-			bool ok = KeySender.Tap(_settings.FishKeyVk);
-			AppendLog(ok ? "测试：已发送 F8（游戏内应抛竿/有反应）" : "测试：SendInput 失败，请右键以管理员运行");
+			string castName = FishingSession.FormatKey(_settings.CastKeyVk);
+			string reelName = FishingSession.FormatKey(_settings.ReelKeyVk);
+			bool castOk = KeySender.Tap(_settings.CastKeyVk);
+			AppendLog(castOk
+				? "测试抛竿：已发送 " + castName + "（应抛竿）"
+				: "测试抛竿：SendInput 失败，请右键以管理员运行");
+			AppendLog("收杆键为 " + reelName + "：请在 OneCast 按键里绑定「收杆（与浮漂互动）」");
 		}
 
 		private void ToggleSession()
@@ -450,6 +557,19 @@ namespace AutoFisher.UI
 				arm, rms, baseline, thr);
 			int v = (int)Math.Min(_levelBar.Maximum, Math.Max(0, rms * 5000));
 			_levelBar.Value = v;
+
+			var rem = _session.RemainingRunTime;
+			if (rem == null)
+			{
+				_lblRunTimer.Text = "定时: —（开始后按设定小时倒计时，到期关游戏）";
+			}
+			else
+			{
+				var t = rem.Value;
+				_lblRunTimer.Text = string.Format(
+					"定时剩余: {0:D2}:{1:D2}:{2:D2}（到期关闭游戏）",
+					(int)t.TotalHours, t.Minutes, t.Seconds);
+			}
 		}
 
 		private void SafeLog(string message)

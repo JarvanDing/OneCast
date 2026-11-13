@@ -45,10 +45,15 @@ namespace AutoFisher.Input
 		[return: MarshalAs(UnmanagedType.Bool)]
 		private static extern bool IsWindowVisible(IntPtr hWnd);
 
+		[DllImport("user32.dll")]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
 		private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
 		private const int SwRestore = 9;
 		private const int AsfwAny = -1;
+		private const uint WmClose = 0x0010;
 
 		public static string GetForegroundTitle()
 		{
@@ -131,6 +136,20 @@ namespace AutoFisher.Input
 			}
 
 			return ForceForeground(hwnd);
+		}
+
+		/// <summary>
+		/// Posts WM_CLOSE to the matched game window so the client can quit.
+		/// </summary>
+		public static bool CloseGameWindow(string titleContains)
+		{
+			var hwnd = FindGameWindow(titleContains);
+			if (hwnd == IntPtr.Zero)
+			{
+				return false;
+			}
+
+			return PostMessage(hwnd, WmClose, IntPtr.Zero, IntPtr.Zero);
 		}
 
 		public static bool ForceForeground(IntPtr hwnd)
