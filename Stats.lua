@@ -647,6 +647,9 @@ local function AboutFishing(id, message)
 		return true
 	end
 	local lower = message:lower()
+	if lower:find("line of sight", 1, true) then
+		return false -- a cast that couldn't see its target, not a fishing line
+	end
 	for _, word in ipairs(FISHY) do
 		if lower:find(word, 1, true) then
 			return true
@@ -1093,7 +1096,7 @@ local function FarmTargetView(itemID, zone)
 		{ "最佳区域", PlaceText(zones[1]) },
 		{ "最佳地点", PlaceText(spots[1]) },
 		{ "已钓到", tostring(life and life.count or 0)
-			.. (last and (SEP .. "最近 " .. Ago(last.time) .. GREY .. "，" .. last.zone .. "|r") or "") },
+			.. (last and (SEP .. "最近 " .. Ago(last.time) .. GREY .. "，" .. (last.zone or "?") .. "|r") or "") },
 		{ "单价", (price and Coins(price) or "-") .. (ah and (SEP .. Coins(ah) .. GREY .. " 拍卖|r") or "") },
 	}
 
@@ -2494,6 +2497,9 @@ local function CreateWindow()
 	local FADED, FADE_SPEED = 0.6, 2.5
 	local alpha = 1
 	local function Fade(dt)
+		if alpha == 1 and not (ns.db and ns.db.fadeStats) then
+			return -- off, and already solid: nothing to do each frame
+		end
 		local s = Session()
 		local fishing = s.lastCast and GetServerTime() - s.lastCast <= ACTIVE_GAP
 		local target = (ns.db and ns.db.fadeStats and fishing and not f:IsMouseOver() and not ns.Hub.IsMouseOverTabs())
