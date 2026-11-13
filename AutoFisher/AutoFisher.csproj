@@ -4,15 +4,15 @@
     <TargetFramework>net48</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>AutoFisher</RootNamespace>
-    <AssemblyName>AutoFisher</AssemblyName>
+    <AssemblyName>WaveMeter</AssemblyName>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ApplicationIcon>Assets\AutoFisher.ico</ApplicationIcon>
     <StartupObject>AutoFisher.Program</StartupObject>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <Version>1.0.0</Version>
-    <Product>OneCast AutoFisher</Product>
-    <AssemblyTitle>OneCast AutoFisher</AssemblyTitle>
+    <Product>WaveMeter</Product>
+    <AssemblyTitle>WaveMeter</AssemblyTitle>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />

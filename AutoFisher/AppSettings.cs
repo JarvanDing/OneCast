@@ -29,7 +29,7 @@ namespace AutoFisher
 		/// <summary>Legacy; ignored. Kept so old settings.json still deserializes.</summary>
 		public bool RequireGameForeground { get; set; }
 		/// <summary>Comma-separated title tokens. Match if any token is found.</summary>
-		public string GameTitleContains { get; set; } = "魔兽世界,Warcraft,Forever,WoW";
+		public string GameTitleContains { get; set; } = "魔兽世界,Warcraft,Forever";
 
 		private static string SettingsPath
 		{

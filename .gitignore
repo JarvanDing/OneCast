@@ -9,6 +9,7 @@ AutoFisher/obj/
 AutoFisher/publish/
 AutoFisher/*.user
 AutoFisher/AutoFisher-portable.zip
+AutoFisher/WaveMeter-portable.zip
 
 # OS and editor clutter
 .DS_Store

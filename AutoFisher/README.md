@@ -19,8 +19,8 @@ powershell -ExecutionPolicy Bypass -File .\publish.ps1
 ```
 
 产物：
-- `publish/AutoFisher.exe` — 单文件（NAudio 等依赖已用 Costura 嵌入）
-- `AutoFisher-portable.zip` — 便携包
+- `publish/WaveMeter.exe` — 单文件（NAudio 等依赖已用 Costura 嵌入；进程名 WaveMeter）
+- `WaveMeter-portable.zip` — 便携包
 
 图标：`Assets/AutoFisher.ico`（源图 `Assets/autofisher-logo.jpg`）。
 
@@ -37,7 +37,7 @@ dotnet run -c Release
 
 ## 使用
 
-1. 启动 AutoFisher（会打开默认播放设备的环回监听）
+1. 启动 WaveMeter（会打开默认播放设备的环回监听）
 2. 先点 **测试按键**：应自动聚焦游戏并抛竿；失败则改「标题含」，或右键 **以管理员运行**
 3. 站到水边，点「开始」或按 **F9**（默认可有 1 秒倒计时）
 4. 之后每次发键都会 **自动把游戏拉到前台**，再：抛竿键 → 听水花 → 收杆键 → 延迟 → 再抛
