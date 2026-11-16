@@ -112,12 +112,14 @@ end
 
 -- The fishing outfit: armour with a Fishing bonus (a fishing hat, Nat Pagle's boots, gloves
 -- with the Fishing enchant) goes on with the pole and comes off with it. One piece per slot,
--- the biggest bonus, only where it beats what's worn. Rings and trinkets are left alone: they
--- have two slots each. The bonus is read from the item's tooltip, so English clients only.
+-- the biggest bonus, only where it beats what's worn, or the piece you picked in the wardrobe
+-- (a shirt, say: no shirt has a bonus, so it only changes when you pick one). Rings and
+-- trinkets are left alone: they have two slots each. The bonus is read from the item's tooltip,
+-- in the client's own language.
 local OUTFIT_SLOTS = {
-	INVTYPE_HEAD = 1, INVTYPE_NECK = 2, INVTYPE_SHOULDER = 3, INVTYPE_CHEST = 5, INVTYPE_ROBE = 5,
-	INVTYPE_WAIST = 6, INVTYPE_LEGS = 7, INVTYPE_FEET = 8, INVTYPE_WRIST = 9, INVTYPE_HAND = 10,
-	INVTYPE_CLOAK = 15,
+	INVTYPE_HEAD = 1, INVTYPE_NECK = 2, INVTYPE_SHOULDER = 3, INVTYPE_BODY = 4, INVTYPE_CHEST = 5,
+	INVTYPE_ROBE = 5, INVTYPE_WAIST = 6, INVTYPE_LEGS = 7, INVTYPE_FEET = 8, INVTYPE_WRIST = 9,
+	INVTYPE_HAND = 10, INVTYPE_CLOAK = 15,
 }
 
 -- A tooltip line naming Fishing in the client's own language ("Angeln", "Pêche"...) with a
@@ -145,7 +147,7 @@ Gear.WARDROBE_SLOTS = {
 	{ slot = 1, name = "Head" }, { slot = 2, name = "Neck" }, { slot = 3, name = "Shoulder" },
 	{ slot = 15, name = "Back" }, { slot = 5, name = "Chest" }, { slot = 9, name = "Wrist" },
 	{ slot = 10, name = "Hands" }, { slot = 6, name = "Waist" }, { slot = 7, name = "Legs" },
-	{ slot = 8, name = "Feet" },
+	{ slot = 8, name = "Feet" }, { slot = 4, name = "Shirt" },
 }
 
 -- Your choice for a slot, per character: an item ID, "keep" (what you're wearing stays) or
@@ -531,6 +533,27 @@ function Gear.OnCombatStart()
 end
 
 -- Global for the "Re-equip weapons" key binding.
+-- Done fishing: weapons and your own gear back on, and the session so far summed up. The stats
+-- window and mini bar stay open unless "Done fishing closes the stats window" is on. The session
+-- itself carries on until it's reset. The stats' sword button, the mini bar's, a key binding, and
+-- /onecast done.
+function OneCast_DoneFishing()
+	if Gear.HasSaved() then
+		OneCast_RestoreWeapons()
+	end
+	local close = ns.db and ns.db.doneCloses or false
+	if ns.Stats and ns.Stats.EndSession then
+		ns.Stats.EndSession(close)
+	end
+	if ns.Mini then
+		if close then
+			ns.Mini.Hide()
+		else
+			ns.Mini.KeepOpen()
+		end
+	end
+end
+
 function OneCast_RestoreWeapons()
 	if InCombatLockdown() and Gear.HasSaved() then
 		ns.Print("your weapons will go back on when combat ends.")

@@ -7,7 +7,7 @@ local _, ns = ...
 local WorldMap = {}
 ns.WorldMap = WorldMap
 
-local MOOD = { good = "|cff1eff00", warn = "|cffffd100", bad = "|cffff4040", unknown = "|cff9d9d9d" }
+local MOOD = { good = "|cff20ff20", warn = "|cffffd100", bad = "|cffff2020", unknown = "|cff9d9d9d" }
 local ZONE_TYPE = Enum.UIMapType and Enum.UIMapType.Zone or 3
 
 local strip, hovered, seen
@@ -121,7 +121,7 @@ local function Init()
 		strip:SetBackdropColor(0, 0, 0, 0.75)
 		strip:SetBackdropBorderColor(0.5, 0.5, 0.55, 0.9)
 	end
-	strip.text = strip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	strip.text = strip:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	strip.text:SetPoint("CENTER")
 	strip:Hide()
 

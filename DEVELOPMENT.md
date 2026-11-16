@@ -20,7 +20,7 @@ Each cast and reel is still one hardware press; nothing is automated.
 |---|---|
 | `Camp.lua` | Forever's camp fishing crafts, the Uncommon and Rare Fishing buffs, and catches made under them |
 | `Report.lua` | `/onecast report`: what's new to OneCast and the evidence for zone levels, as copyable text, and the report window |
-| `Themes.lua` | The window themes: a table of colours, tinting what each window registers, and each theme's scene (scenery, particles, emblem, the Fishing bar's water) |
+| `Themes.lua` | The text colours for the parchment pages and highlights (`Theme.Current()`), so every page inks the same |
 | `OneCast.lua` | Cast button, reel key override, CVar leases, the options (described once in `OPTIONS`, `CHOICES`, `OPTION_MAIN` and `OPTION_PAGES` for both the game's panel and the window's Options tab), minimap button, slash commands |
 | `Gear.lua` | Equipping the pole and any fishing gear from the bags, and putting weapons and gear back |
 | `Lure.lua` | Lure data, the character's choice, whether one is on the pole, and the presses that apply it |
@@ -33,17 +33,21 @@ Each cast and reel is still one hardware press; nothing is automated.
 | `FishData.lua` | Every fish and treasure in the collection: category, zones (most common first) and recipes |
 | `Odds.lua` | Each catch's chance per cast by zone and pool, from Classic's loot tables (generated), its rarity tier, what each pool gives, and pool names in each client language (from AzerothCore) |
 | `Collection.lua` | Account-wide record of which characters caught each fish, synced from each character's stats, and the "caught by" line on item tooltips |
-| `Extravaganza.lua` | The Stranglethorn Fishing Extravaganza: schedule (Classic's), Tastyfish counter and reminders |
+| `Extravaganza.lua` | The Stranglethorn Fishing Extravaganza: schedule, Tastyfish counter, reminders, and Forever's prizes |
 | `MapOverlays.lua` | Every explored-area overlay of each zone map, so the book's maps show fully revealed (generated from game data) |
-| `Book.lua` | The collection book window: fish grid, each fish's page with zones, map and recipes, and the Zones view of every zone's level |
+| `Book.lua` | The collection book window: fish grid, each fish's page with zones, map and recipes, the Zones ladder of every zone's level, and the Camp tab |
 | `Changelog.lua` | Release notes, shown in the What's new window and used for releases |
 | `WhatsNew.lua` | The What's new window and the login chat line |
 | `Hub.lua` | One window for everything: the side tabs, each page in the same place at the window's scale, the grip, the lock, the Options tab (categories, settings and a details pane) and reopening after a `/reload` |
-| `Mini.lua` | Mini mode: a small themed window in place of the stats while you fish |
+| `Mini.lua` | Mini mode: a slim bar in place of the stats while you fish |
 | `WorldMap.lua` | The fishing strip on the world map, following the zone on show or under the mouse |
 | `Junk.lua` | Selling the grey junk you fished up at a vendor |
-| `Journey.lua` | The Fisherman's journey: the Fishing ranks, how and where each is learned, and where to fish at each |
-| `Wardrobe.lua` | The fishing wardrobe: each slot's choice, the pole, and your character wearing it |
+| `Journey.lua` | The Fisherman's journey: the Fishing ranks, how and where each is learned, and where to fish at each; and the gear catalogue (`Journey.GEAR`, its vendors and spots) the wardrobe's Gear guide draws |
+| `Wardrobe.lua` | The fishing wardrobe: each slot's choice, the pole, and your character wearing it; the Gear guide tab |
+| `RecipeSellers.lua` | Who sells each fish recipe and where they stand (generated from Classic's vendors and Forever's maps) |
+| `Search.lua` | One search across catches, zones, pools, recipes, gear, ranks and settings |
+| `Controller.lua` | Controller support: the fishing and window buttons, window navigation in the gamepad interface, button icons and rumble |
+| `Onboarding.lua` | The welcome window and the cast key capture, bound with the game's own `SetBinding` |
 | `Bobber.lua` | The light beam on your bobber, drawn on the nameplate the game gives the soft-interact target |
 | `Media/*.tga` | Button glyphs: white with a dark outline, tinted gold in game |
 

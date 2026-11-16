@@ -1,6 +1,7 @@
--- OneCast's Fisherman's Journey: the four Fishing ranks, where you stand, and what's next.
--- Each rank's cap, whether you have it, how and where to learn it (with a waypoint), what it
--- needs, and where to fish while you're at it.
+-- OneCast's Fisherman's Journey. Ranks: the four Fishing ranks, where you stand,
+-- and what's next: each rank's cap, whether you have it, how and where to learn it (with a
+-- waypoint), what it needs, and where to fish while you're at it. Gear: every fishing pole and
+-- piece of fishing gear, its bonus and where it comes from.
 --
 -- From Forever's game data (wago.tools, 13 November 2026): the ranks are Classic's
 -- (Apprentice 75, Journeyman 150, Expert 225, Artisan 300); Expert is learned from "Expert
@@ -20,7 +21,8 @@ ns.Journey = Journey
 local WIDTH = 660
 local EDGE, GAP = 10, 8
 local CARD_HEIGHT = 98
-local GOOD, GREY, GOLD = "|cff1eff00", "|cff9d9d9d", "|cffffd100"
+local GOOD, GREY, GOLD = "|cff20ff20", "|cff9d9d9d", "|cffffd100"
+local GearCard, PaintGearCard, GearBest, PaintGearBest -- the Gear view's cards, below
 
 -- Nat Pagle's four fish, for Artisan.
 local NAT_FISH = { 16970, 16968, 16967, 16969 }
@@ -84,17 +86,30 @@ local function ZonesFor(r)
 	return list
 end
 
-local function ZoneText(r)
+local function ZoneText(r, most)
 	local list = ZonesFor(r)
 	local names = {}
 	for i, z in ipairs(list) do
-		if i > 4 then
-			names[#names + 1] = string.format("and %d more", #list - 4)
+		if i > (most or 4) then
+			names[#names + 1] = string.format("and %d more", #list - (most or 4))
 			break
 		end
 		names[#names + 1] = z.zone .. " " .. GREY .. z.needed .. "|r"
 	end
 	return #names > 0 and table.concat(names, ", ") or (GREY .. "none listed|r")
+end
+
+-- The zones on one line: as many as fit it (four at most), then "and N more". Long names
+-- (Stranglethorn Vale, Dustwallow Marsh) would otherwise run off the end of the card.
+local function SetZones(fs, r)
+	for most = 4, 1, -1 do
+		fs:SetText(GOLD .. "Fish in:|r " .. ZoneText(r, most))
+		local room = fs:GetWidth() or 0
+		local wide = fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth() or 0
+		if room <= 0 or wide <= room then
+			return
+		end
+	end
 end
 
 -- What a rank needs that you don't have yet, as text, or nil when you're ready.
@@ -151,24 +166,23 @@ local function Card(parent, r, y)
 	c.status = c:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 	c.status:SetPoint("TOPRIGHT", -12, -10)
 	c.status:SetJustifyH("RIGHT")
-	c.how = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	c.how = c:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	c.how:SetPoint("TOPLEFT", c.title, "BOTTOMLEFT", 0, -6)
 	c.how:SetPoint("RIGHT", -130, 0)
 	c.how:SetJustifyH("LEFT")
 	c.how:SetWordWrap(true)
-	c.zones = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	c.zones = c:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	c.zones:SetPoint("TOPLEFT", c.how, "BOTTOMLEFT", 0, -4)
 	c.zones:SetPoint("RIGHT", -12, 0)
 	c.zones:SetJustifyH("LEFT")
 	c.zones:SetWordWrap(false)
-	c.extra = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	c.extra = c:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	c.extra:SetPoint("TOPLEFT", c.zones, "BOTTOMLEFT", 0, -4)
 	c.extra:SetPoint("RIGHT", -12, 0)
 	c.extra:SetJustifyH("LEFT")
 	c.extra:SetWordWrap(false)
 	if r.where then
 		c.map = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
-		ns.Theme.Register(c.map, "button")
 		c.map:SetSize(112, 22)
 		c.map:SetPoint("TOPRIGHT", c.status, "BOTTOMRIGHT", 2, -6)
 		c.map:SetText("Show on map")
@@ -229,7 +243,7 @@ local function Paint(c, index, current, rank)
 	c.edge:SetColorTexture(color[1], color[2], color[3], 0.9)
 	c.bg:SetColorTexture(color[1], color[2], color[3], nextUp and 0.1 or 0.04)
 	c.how:SetText((learned and GREY or "|cffffffff") .. r.how .. "|r")
-	c.zones:SetText(GOLD .. "Fish in:|r " .. ZoneText(r))
+	SetZones(c.zones, r)
 	if r.natFish then
 		local parts = {}
 		for _, id in ipairs(NAT_FISH) do
@@ -250,26 +264,370 @@ end
 -- database (vendors, quest rewards and loot). The bonus is read from the game's own tooltip, so
 -- it's Forever's.
 Journey.GEAR = {
-	{ id = 6256, kind = "Pole", from = "Sold by fishing vendors all over Azeroth.", forever = true },
-	{ id = 6365, kind = "Pole", from = "Sold by some fishing vendors, among them Old Man Heming in Booty Bay.", forever = true },
-	{ id = 12225, kind = "Pole", from = "Reward from The Family and the Fishing Pole, an Alliance quest in Darkshore (level 10)." },
-	{ id = 6367, kind = "Pole", from = "Found in Shellfish Traps under the water, now and then." },
-	{ id = 19022, kind = "Pole", from = "Reward from Snapjaws, Mon!, a Horde quest in The Hinterlands (level 44)." },
-	{ id = 19970, kind = "Pole", from = "The Fishing Extravaganza's top prize: be first to bring 40 Tastyfish." },
-	{ id = 285094, kind = "Pole", from = "New in Forever: where it comes from isn't known yet.", forever = true },
-	{ id = 276203, kind = "Pole", from = "New in Forever: sold in Riverglades.", forever = true, ifBonus = true },
-	{ id = 276272, kind = "Head", from = "New in Forever: sold in Stranglethorn Vale.", forever = true },
-	{ id = 259846, kind = "Head", from = "New in Forever: where it comes from isn't known yet.", forever = true, ifBonus = true },
-	{ id = 244229, kind = "Shoulder", from = "New in Forever: where it comes from isn't known yet.", forever = true, ifBonus = true },
-	{ id = 19972, kind = "Head", from = "Fishing Extravaganza: hand in a Keefer's Angelfish." },
-	{ id = 19969, kind = "Feet", from = "Fishing Extravaganza: hand in a Brownell's Blue Striped Racer." },
-	{ id = 273495, kind = "Hands", from = "New in Forever: the Fishing enchant for your gloves.", forever = true },
+	{ id = 6256, short = "Fishing vendors everywhere", kind = "Pole", from = "Sold by fishing vendors all over Azeroth.", forever = true },
+	{ id = 6365, short = "Fishing vendors, Booty Bay", kind = "Pole", from = "Sold by some fishing vendors, among them Old Man Heming in Booty Bay.", forever = true },
+	{ id = 12225, short = "Alliance quest, Darkshore", faction = "Alliance", kind = "Pole", from = "Reward from The Family and the Fishing Pole, an Alliance quest in Darkshore (level 10).",
+		where = { map = 1439, x = 0.360, y = 0.448, label = "Gubber Blump, Auberdine" }, source = { "quest", 1141, "The Family and the Fishing Pole" } },
+	{ id = 6367, short = "Shellfish Traps", kind = "Pole", from = "Found in Shellfish Traps under the water, now and then." },
+	{ id = 19022, short = "Horde quest, The Hinterlands", faction = "Horde", kind = "Pole", from = "Reward from Snapjaws, Mon!, a Horde quest in The Hinterlands (level 44).",
+		where = { map = 1425, x = 0.802, y = 0.814, label = "Katoom the Angler, Revantusk Village" }, source = { "quest", 7815, "Snapjaws, Mon!" } },
+	{ id = 19970, short = "Extravaganza: first 50 winners", kind = "Pole", from = "The Fishing Extravaganza's prize: the first 50 on your ruleset to bring Riggle Bassbait 40 Speckled Tastyfish each get it, with an Extravagant Extravaganza Coin and the Master Angler! title for a week.",
+		where = { map = 1434, x = 0.274, y = 0.768, label = "Riggle Bassbait, Booty Bay" }, source = { "quest", 8193, "Master Angler" } },
+	{ id = 285094, short = "Lord Angler, Dustwallow Marsh", kind = "Pole", from = "New in Forever: dropped by Lord Angler, a rare level 44 by the shipwreck in Dustwallow Marsh's bay (about 1 kill in 4).", forever = true,
+		where = { map = 1445, x = 0.560, y = 0.618, label = "Lord Angler (rare), Dustwallow Marsh" }, source = { "npc", 14236, "Lord Angler" } },
+	{ id = 276203, short = "Vendor, Riverglades", kind = "Pole", from = "New in Forever: sold in Riverglades.", forever = true, ifBonus = true },
+	{ id = 276272, short = "Extravaganza coin, from Jang", kind = "Head", from = "New in Forever: Jang in Booty Bay trades it for an Extravagant Extravaganza Coin, the Fishing Extravaganza winners' prize.", forever = true,
+		where = { map = 1434, x = 0.274, y = 0.768, label = "Jang, Booty Bay" }, source = { "npc", 15078, "Jang" } },
+	{ id = 259846, short = "Source not known yet", kind = "Head", from = "New in Forever: where it comes from isn't known yet.", forever = true, ifBonus = true },
+	{ id = 244229, short = "Source not known yet", kind = "Shoulder", from = "New in Forever: where it comes from isn't known yet.", forever = true, ifBonus = true },
+	{ id = 19972, short = "Extravaganza: Keefer's Angelfish", kind = "Head", from = "Fishing Extravaganza: hand a Keefer's Angelfish to Fishbot 5000 in Booty Bay.",
+		where = { map = 1434, x = 0.274, y = 0.768, label = "Fishbot 5000, Booty Bay" }, source = { "quest", 8221, "Rare Fish - Keefer's Angelfish" } },
+	{ id = 19969, short = "Extravaganza: Brownell's Racer", kind = "Feet", from = "Fishing Extravaganza: hand a Brownell's Blue Striped Racer to Fishbot 5000 in Booty Bay.",
+		where = { map = 1434, x = 0.274, y = 0.768, label = "Fishbot 5000, Booty Bay" }, source = { "quest", 8225, "Rare Fish - Brownell's Blue Striped Racer" } },
+	{ id = 19971, short = "Extravaganza: Dezian Queenfish", kind = "Line", bonus = 5, from = "Fishing Extravaganza: hand a Dezian Queenfish to Fishbot 5000 in Booty Bay. Used on your pole, it gives the pole +5 Fishing for good.",
+		where = { map = 1434, x = 0.274, y = 0.768, label = "Fishbot 5000, Booty Bay" }, source = { "quest", 8224, "Rare Fish - Dezian Queenfish" } },
+	{ id = 273495, short = "Enchanters (Enchanting 145)", kind = "Hands", from = "The +2 Fishing enchant for your gloves: an enchanter with Formula: Enchant Gloves - Fishing (Enchanting 145) can put it on. Forever's enchant as an item is only on the test realm so far.", forever = true,
+		source = { "item", 11152, "Formula: Enchant Gloves - Fishing" } },
 }
-local GEAR_ROW = 29
+-- where: { map = uiMapID, x, y, label }, the spot to go to for it; source: { "quest", "npc" or
+-- "item", ID, name }, the Wowhead page for where it comes from.
 -- ifBonus: Forever's new items whose Fishing bonus its data doesn't say. They show once the
 -- game's tooltip for them has one, so a cosmetic hat or mantle never joins the list.
+-- bonus: the Fishing bonus where the tooltip doesn't give it as "+N" (the fishing line's).
+
+-- Who sells the vendor poles: CMaNGOS's Classic vendors, at their spots in Wowhead's Forever data
+-- (16 November 2026). [item] = { { npc, name, side (A, H or B), uiMapID, x, y }, ... }.
+Journey.VENDORS = {
+	[6256] = {
+		{ 66, "Tharynn Bouden", "A", 1429, 0.418, 0.670 },
+		{ 777, "Amy Davenport", "A", 1433, 0.238, 0.476 },
+		{ 843, "Gina MacGregor", "A", 1436, 0.574, 0.540 },
+		{ 989, "Banalash", "H", 1435, 0.444, 0.570 },
+		{ 1148, "Nerrist", "H", 1434, 0.326, 0.292 },
+		{ 1286, "Edna Mullby", "A", 1453, 0.580, 0.606 },
+		{ 1465, "Drac Roughcut", "A", 1432, 0.354, 0.488 },
+		{ 1678, "Vernon Hale", "A", 1433, 0.222, 0.476 },
+		{ 1684, "Khara Deepwater", "A", 1432, 0.394, 0.392 },
+		{ 2383, "Lindea Rabonne", "A", 1424, 0.500, 0.624 },
+		{ 2626, "Old Man Heming", "B", 1434, 0.274, 0.770 },
+		{ 2810, "Hammon Karwn", "A", 1417, 0.464, 0.474 },
+		{ 2821, "Keena", "H", 1417, 0.740, 0.324 },
+		{ 3029, "Sewa Mistrunner", "H", 1456, 0.552, 0.480 },
+		{ 3178, "Stuart Fleming", "A", 1437, 0.080, 0.582 },
+		{ 3333, "Shankys", "H", 1454, 0.694, 0.290 },
+		{ 3367, "Felika", "H", 1454, 0.526, 0.576 },
+		{ 3482, "Tari'qa", "H", 1413, 0.516, 0.300 },
+		{ 3497, "Kilxx", "B", 1413, 0.628, 0.382 },
+		{ 3499, "Ranik", "B", 1413, 0.618, 0.386 },
+		{ 3550, "Martine Tramblay", "H", 1420, 0.658, 0.594 },
+		{ 3556, "Andrew Hilbert", "H", 1421, 0.430, 0.404 },
+		{ 3572, "Zizzek", "B", 1413, 0.620, 0.390 },
+		{ 3779, "Syurana", "A", 1452, 0.514, 0.298 },
+		{ 3954, "Dalria", "A", 1440, 0.350, 0.520 },
+		{ 3955, "Shandrina", "A", 1440, 0.494, 0.670 },
+		{ 4222, "Voloren", "A", 1457, 0.464, 0.560 },
+		{ 4229, "Mythrin'dir", "A", 1457, 0.610, 0.174 },
+		{ 4561, "Daniel Bartlett", "H", 1458, 0.640, 0.388 },
+		{ 4574, "Lizbeth Cromwell", "H", 1458, 0.810, 0.292 },
+		{ 4775, "Felicia Doan", "H", 1458, 0.638, 0.492 },
+		{ 4897, "Helenia Olden", "A", 1445, 0.664, 0.514 },
+		{ 5162, "Tansy Puddlefizz", "A", 1455, 0.478, 0.064 },
+		{ 5163, "Burbik Gearspanner", "A", 1455, 0.464, 0.272 },
+		{ 5494, "Catherine Leland", "A", 1453, 0.454, 0.576 },
+		{ 5817, "Shimra", "H", 1454, 0.478, 0.806 },
+		{ 5940, "Harn Longcast", "H", 1412, 0.466, 0.592 },
+		{ 5942, "Zansoa", "H", 1411, 0.560, 0.734 },
+		{ 6301, "Gorbold Steelhand", "A", 1439, 0.380, 0.412 },
+		{ 7945, "Savanne", "A", 1444, 0.310, 0.460 },
+		{ 7947, "Vivianna", "A", 1444, 0.312, 0.434 },
+		{ 8145, "Sheendra Tallgrass", "H", 1444, 0.744, 0.428 },
+		{ 8363, "Shadi Mistrunner", "H", 1456, 0.404, 0.634 },
+		{ 8508, "Gretta Ganter", "A", 1426, 0.314, 0.446 },
+		{ 8934, "Christopher Hewen", "A", 1436, 0.522, 0.528 },
+		{ 10118, "Nessa Shadowsong", "A", 1438, 0.562, 0.924 },
+		{ 10216, "Gubber Blump", "A", 1439, 0.360, 0.448 },
+		{ 11189, "Qia", "B", 1452, 0.612, 0.372 },
+		{ 12022, "Lorelae Wintersong", "B", 1450, 0.484, 0.402 },
+		{ 12028, "Lah'Mawhani", "H", 1443, 0.230, 0.716 },
+		{ 12031, "Mai'Lahii", "H", 1443, 0.226, 0.720 },
+		{ 12043, "Kulwia", "H", 1442, 0.454, 0.594 },
+		{ 12245, "Vendor-Tron 1000", "B", 1443, 0.602, 0.382 },
+		{ 12941, "Jase Farlane", "B", 1423, 0.804, 0.576 },
+		{ 12957, "Blimo Gadgetspring", "B", 1447, 0.452, 0.908 },
+		{ 12958, "Gigget Zipcoil", "B", 1425, 0.344, 0.384 },
+		{ 12962, "Wik'Tar", "H", 1440, 0.118, 0.340 },
+		{ 14740, "Katoom the Angler", "H", 1425, 0.802, 0.814 },
+		{ 15179, "Mishta", "B", 1451, 0.498, 0.364 },
+	},
+	[6365] = {
+		{ 1678, "Vernon Hale", "A", 1433, 0.222, 0.476 },
+		{ 1684, "Khara Deepwater", "A", 1432, 0.394, 0.392 },
+		{ 2383, "Lindea Rabonne", "A", 1424, 0.500, 0.624 },
+		{ 2626, "Old Man Heming", "B", 1434, 0.274, 0.770 },
+		{ 3029, "Sewa Mistrunner", "H", 1456, 0.552, 0.480 },
+		{ 3178, "Stuart Fleming", "A", 1437, 0.080, 0.582 },
+		{ 3333, "Shankys", "H", 1454, 0.694, 0.290 },
+		{ 3497, "Kilxx", "B", 1413, 0.628, 0.382 },
+		{ 3550, "Martine Tramblay", "H", 1420, 0.658, 0.594 },
+		{ 3572, "Zizzek", "B", 1413, 0.620, 0.390 },
+		{ 4222, "Voloren", "A", 1457, 0.464, 0.560 },
+		{ 4574, "Lizbeth Cromwell", "H", 1458, 0.810, 0.292 },
+		{ 5162, "Tansy Puddlefizz", "A", 1455, 0.478, 0.064 },
+		{ 5494, "Catherine Leland", "A", 1453, 0.454, 0.576 },
+		{ 5940, "Harn Longcast", "H", 1412, 0.466, 0.592 },
+		{ 5942, "Zansoa", "H", 1411, 0.560, 0.734 },
+		{ 7945, "Savanne", "A", 1444, 0.310, 0.460 },
+		{ 8508, "Gretta Ganter", "A", 1426, 0.314, 0.446 },
+		{ 10118, "Nessa Shadowsong", "A", 1438, 0.562, 0.924 },
+		{ 12031, "Mai'Lahii", "H", 1443, 0.226, 0.720 },
+		{ 12962, "Wik'Tar", "H", 1440, 0.118, 0.340 },
+		{ 14740, "Katoom the Angler", "H", 1425, 0.802, 0.814 },
+	},
+}
+
+-- Your position on its continent, for the nearest vendor. Nil where the game won't say.
+local function PlayerWorld()
+	local here = C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+	local pos = here and C_Map.GetPlayerMapPosition and C_Map.GetPlayerMapPosition(here, "player")
+	if not (pos and C_Map.GetWorldPosFromMapPos) then
+		return nil
+	end
+	local ok, continent, world = pcall(C_Map.GetWorldPosFromMapPos, here, pos)
+	if ok and continent and world then
+		return continent, world
+	end
+end
+
+local function Distance(continent, world, mapID, x, y)
+	if not (continent and CreateVector2D) then
+		return math.huge
+	end
+	local ok, c, w = pcall(C_Map.GetWorldPosFromMapPos, mapID, CreateVector2D(x, y))
+	if not (ok and c == continent and w) then
+		return math.huge
+	end
+	local dx, dy = w.x - world.x, w.y - world.y
+	return dx * dx + dy * dy
+end
+
+-- Where to go for a piece of gear: its one spot, or for the vendor poles the nearest vendor
+-- on your side (the first listed when the game can't say where you are). Nil if neither.
+function Journey.GearSpot(g)
+	if g.where then
+		return g.where
+	end
+	local list = Journey.VENDORS[g.id]
+	if not list then
+		return nil
+	end
+	local faction = UnitFactionGroup and UnitFactionGroup("player")
+	local mine = faction == "Horde" and "H" or faction == "Alliance" and "A" or nil
+	local continent, world = PlayerWorld()
+	local best, bestDistance
+	for _, v in ipairs(list) do
+		if not mine or v[3] == "B" or v[3] == mine then
+			local d = Distance(continent, world, v[4], v[5], v[6])
+			if not best or d < bestDistance then
+				best, bestDistance = v, d
+			end
+		end
+	end
+	if best then
+		local info = C_Map.GetMapInfo and C_Map.GetMapInfo(best[4])
+		return { map = best[4], x = best[5], y = best[6], nearest = true,
+			label = best[2] .. (info and info.name and (", " .. info.name) or "") }
+	end
+end
+
+local function ShowGearSpot(spot)
+	if spot and ns.UI and ns.UI.ShowOnMap then
+		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		ns.UI.ShowOnMap(spot.map, spot.x, spot.y, spot.label)
+	end
+end
+
+-- A gear card's menu: the map, its Wowhead page and its source's, and a chat link.
+local function GearMenu(g)
+	local name = C_Item.GetItemNameByID(g.id) or ("item " .. g.id)
+	local entries = {}
+	local spot = Journey.GearSpot(g)
+	if spot then
+		entries[#entries + 1] = { "Show on map: " .. spot.label, function() ShowGearSpot(spot) end }
+	end
+	entries[#entries + 1] = { "Wowhead: " .. name, function() ns.UI.ShowWowhead("item", g.id, name) end }
+	if g.source then
+		entries[#entries + 1] = { "Wowhead: " .. g.source[3], function()
+			ns.UI.ShowWowhead(g.source[1], g.source[2], g.source[3])
+		end }
+	end
+	local _, link = C_Item.GetItemInfo(g.id)
+	if link and ns.InsertChatLink then
+		entries[#entries + 1] = { "Link in chat", function() ns.InsertChatLink(link) end }
+	end
+	ns.UI.ShowMenu(name, entries)
+end
 
 local frame
+
+-- The Legacy Challenges' own art ---------------------------------------------------------------
+-- The game's atlases for its challenge cards, drawn as its Legacy Challenges window draws them
+-- (Blizzard_LegacySystem), for the Gear tab's cards. Plain fills where they're missing.
+
+local function Atlas(texture, name, useSize)
+	local UI = ns.UI
+	for _, candidate in ipairs({ name, name .. "-c60" }) do
+		if UI.HasAtlas(candidate) then
+			texture:SetAtlas(candidate, useSize)
+			return true
+		end
+	end
+	return false
+end
+
+-- Gear cards ------------------------------------------------------------------------------------
+-- A piece of fishing gear on the Legacy Challenges' card: its icon in the game's frame, its name
+-- in its quality's colour, where it comes from in a few words, and its Fishing bonus large on the
+-- right with whether you have it under it. The full source is in its tooltip.
+local SLOT_ORDER = { "Pole", "Head", "Hands", "Feet" }
+
+GearCard = function(parent, g)
+	local card = CreateFrame("Button", nil, parent)
+	card.gear = g
+	card.bg = card:CreateTexture(nil, "BACKGROUND")
+	card.bg:SetAllPoints()
+	card.selected = card:CreateTexture(nil, "BORDER")
+	card.selected:SetAllPoints()
+	if not Atlas(card.selected, "Legacy-Challenge-Cards-selected") then
+		card.selected:SetColorTexture(1, 0.82, 0, 0.12)
+	end
+	card.selected:Hide()
+	card.icon = card:CreateTexture(nil, "ARTWORK", nil, 1)
+	card.icon:SetSize(34, 34)
+	card.icon:SetPoint("LEFT", 12, 0)
+	card.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+	card.iconFrame = card:CreateTexture(nil, "OVERLAY")
+	card.iconFrame:SetSize(44, 44)
+	card.iconFrame:SetPoint("CENTER", card.icon, "CENTER")
+	card.check = card:CreateTexture(nil, "OVERLAY", nil, 2)
+	card.check:SetSize(16, 14)
+	card.check:SetPoint("BOTTOMRIGHT", card.icon, "BOTTOMRIGHT", 6, -4)
+	if not Atlas(card.check, "worldquest-tracker-checkmark") then
+		card.check:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
+	end
+	card.bonus = card:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
+	card.bonus:SetPoint("TOPRIGHT", -12, -9)
+	card.status = card:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
+	card.status:SetPoint("TOPRIGHT", card.bonus, "BOTTOMRIGHT", 0, -2)
+	card.name = card:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	card.name:SetPoint("TOPLEFT", card.icon, "TOPRIGHT", 12, -1)
+	card.name:SetPoint("RIGHT", -64, 0)
+	card.name:SetJustifyH("LEFT")
+	card.name:SetWordWrap(false)
+	card.from = card:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
+	card.from:SetPoint("TOPLEFT", card.name, "BOTTOMLEFT", 0, -4)
+	card.from:SetPoint("RIGHT", -64, 0)
+	card.from:SetJustifyH("LEFT")
+	card.from:SetWordWrap(false)
+	card:SetScript("OnEnter", function(self)
+		self.selected:Show()
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetItemByID(self.gear.id)
+		GameTooltip:AddLine(" ")
+		GameTooltip:AddLine(self.gear.from, 1, 1, 1, true)
+		GameTooltip:AddLine(self.gear.forever and "From Forever's own data." or "Classic's source: Forever may differ.",
+			0.6, 0.6, 0.6, true)
+		local spot = Journey.GearSpot(self.gear)
+		if spot then
+			GameTooltip:AddLine("Click: waypoint at " .. spot.label .. (spot.nearest and " (the nearest for you)" or ""), 0.6, 0.8, 1, true)
+		end
+		GameTooltip:AddLine("Right-click: Wowhead and more", 0.6, 0.8, 1)
+		GameTooltip:Show()
+	end)
+	card:SetScript("OnLeave", function(self)
+		self.selected:Hide()
+		GameTooltip:Hide()
+	end)
+	card:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	card:SetScript("OnClick", function(self, button)
+		local _, link = C_Item.GetItemInfo(self.gear.id)
+		if link and IsModifiedClick and IsModifiedClick("CHATLINK") and ns.InsertChatLink then
+			ns.InsertChatLink(link)
+			return
+		end
+		local spot = button ~= "RightButton" and Journey.GearSpot(self.gear)
+		if spot then
+			ShowGearSpot(spot)
+		else
+			GearMenu(self.gear)
+		end
+	end)
+	return card
+end
+
+PaintGearCard = function(card, bonus, owned, equipped)
+	local g = card.gear
+	Atlas(card.bg, owned and "Legacy-Challenge-Cards" or "Legacy-Challenge-Cards-Disable")
+	Atlas(card.iconFrame, owned and "Legacy-Tree-Frame-icon-frame" or "Legacy-Tree-Frame-icon-frame-disable")
+	card.icon:SetTexture(C_Item.GetItemIconByID(g.id))
+	card.icon:SetDesaturated(not owned)
+	local name, _, quality = C_Item.GetItemInfo(g.id)
+	local color = quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
+	card.name:SetText((color and color.hex or "|cffffffff") .. (name or "...") .. "|r")
+	card.name:SetAlpha(owned and 1 or 0.75)
+	card.from:SetText((g.kind ~= "Pole" and (g.kind .. "  ·  ") or "") .. (g.short or g.from))
+	card.from:SetTextColor(owned and 0.85 or 0.6, owned and 0.85 or 0.6, owned and 0.85 or 0.6)
+	card.bonus:SetText(bonus and bonus > 0 and ("+" .. bonus) or "")
+	if owned then
+		card.bonus:SetTextColor(0.12, 1, 0)
+	else
+		card.bonus:SetTextColor(0.45, 0.65, 0.4)
+	end
+	card.status:SetText(equipped and (GOOD .. "Equipped|r") or owned and (GOOD .. "In bags|r") or "")
+	card.check:SetShown(owned and ns.db.collectionTicks ~= false)
+end
+
+-- Under the worn gear: the best of each you have, and the Fishing all of it adds up to.
+GearBest = function(parent)
+	local p = CreateFrame("Frame", nil, parent)
+	local bg = p:CreateTexture(nil, "BACKGROUND")
+	bg:SetAllPoints()
+	bg:SetColorTexture(0, 0, 0, 0.3)
+	p.title = p:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	p.title:SetPoint("TOPLEFT", 10, -8)
+	p.title:SetText("The best you have")
+	p.lines = {}
+	for i, slot in ipairs(SLOT_ORDER) do
+		local left = p:CreateFontString(nil, "OVERLAY", "OneCastFontNormalSmall")
+		left:SetPoint("TOPLEFT", 10, -10 - i * 16)
+		left:SetText(slot)
+		local right = p:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
+		right:SetPoint("TOPRIGHT", -10, -10 - i * 16)
+		right:SetPoint("LEFT", left, "RIGHT", 10, 0)
+		right:SetJustifyH("RIGHT")
+		right:SetWordWrap(false)
+		p.lines[slot] = right
+	end
+	p.total = p:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	p.total:SetPoint("BOTTOMRIGHT", -10, 8)
+	p.height = 10 + (#SLOT_ORDER + 1) * 16 + 30
+	p:SetHeight(p.height)
+	return p
+end
+
+PaintGearBest = function(p, best)
+	local total = 0
+	for _, slot in ipairs(SLOT_ORDER) do
+		local b = best[slot]
+		if b then
+			total = total + b.bonus
+			p.lines[slot]:SetText((C_Item.GetItemNameByID and C_Item.GetItemNameByID(b.gear.id) or "?") .. "  " .. GOOD
+				.. "+" .. b.bonus .. "|r")
+		else
+			p.lines[slot]:SetText(GREY .. "none yet|r")
+		end
+	end
+	p.total:SetText(string.format("All together: %s+%d Fishing|r", GOOD, total))
+end
 
 local function CreateWindow()
 	local UI = ns.UI
@@ -285,19 +643,17 @@ local function CreateWindow()
 	f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving)
 	UI.RememberPosition(f, "journey")
-	tinsert(UISpecialFrames, f:GetName())
-	UI.KeepOpenThroughOptions(f:GetName())
 
 
 	-- Where you stand: your rank, your skill along it, and what it takes to the cap.
 	f.headline = inset:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 	f.headline:SetPoint("TOPLEFT", EDGE + 4, -GAP - 2)
-	-- The stats page's own bar: Forever's Fishing bar, its water in the theme's colours.
+	-- The stats page's own bar: Forever's Fishing bar.
 	f.progress = UI.RankBar(inset, ns.GetFishingName and ns.GetFishingName() or "Fishing")
 	f.progress:ClearAllPoints()
 	f.progress:SetPoint("TOPLEFT", EDGE, -GAP - 26)
 	f.progress:SetPoint("TOPRIGHT", -EDGE, -GAP - 26)
-	f.togo = inset:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.togo = inset:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	f.togo:SetPoint("TOPRIGHT", -EDGE - 4, -GAP - 4)
 	f.togo:SetJustifyH("RIGHT")
 
@@ -309,90 +665,6 @@ local function CreateWindow()
 		f.cards[i] = Card(f.ranksView, r, y)
 		y = y - CARD_HEIGHT
 	end
-
-	-- Gear: every fishing pole and piece of fishing gear, its bonus, whether you have it, and
-	-- where it comes from.
-	f.gearView = CreateFrame("Frame", nil, inset)
-	f.gearView:SetAllPoints()
-	f.gearView:Hide()
-	f.gearRows = {}
-	for i, g in ipairs(Journey.GEAR) do
-		local row = CreateFrame("Button", nil, f.gearView)
-		-- Placed in PaintGear, which closes up around the rows it hides.
-		row:SetHeight(GEAR_ROW - 2)
-		ns.UI.RowBackground(row, i)
-		row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
-		row.icon = row:CreateTexture(nil, "ARTWORK")
-		row.icon:SetSize(26, 26)
-		row.icon:SetPoint("LEFT", 6, 0)
-		row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-		row.check = row:CreateTexture(nil, "OVERLAY")
-		row.check:SetSize(14, 14)
-		row.check:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 4, -3)
-		if ns.UI.HasAtlas("UI-LFG-ReadyMark") then
-			row.check:SetAtlas("UI-LFG-ReadyMark")
-		else
-			row.check:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready")
-		end
-		row.name = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-		row.name:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 8, 1)
-		row.name:SetWidth(250)
-		row.name:SetJustifyH("LEFT")
-		row.name:SetWordWrap(false)
-		row.bonus = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-		row.bonus:SetPoint("LEFT", row.name, "RIGHT", 4, 0)
-		row.from = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		row.from:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -2)
-		row.from:SetPoint("RIGHT", -8, 0)
-		row.from:SetJustifyH("LEFT")
-		row.from:SetWordWrap(false)
-		row.kind = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-		row.kind:SetPoint("TOPRIGHT", -8, -3)
-		row.gear = g
-		row:SetScript("OnEnter", function(self)
-			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			GameTooltip:SetItemByID(self.gear.id)
-			GameTooltip:AddLine(" ")
-			GameTooltip:AddLine(self.gear.from, 1, 1, 1, true)
-			GameTooltip:AddLine(self.gear.forever and "From Forever's own data." or "Classic's source: Forever may differ.",
-				0.6, 0.6, 0.6, true)
-			GameTooltip:Show()
-		end)
-		row:SetScript("OnLeave", GameTooltip_Hide)
-		row:SetScript("OnClick", function(self)
-			local _, link = C_Item.GetItemInfo(self.gear.id)
-			if link and IsModifiedClick and IsModifiedClick("CHATLINK") and ns.InsertChatLink then
-				ns.InsertChatLink(link)
-			end
-		end)
-		f.gearRows[i] = row
-	end
-
-	-- Ranks and Gear as tabs on top of the panel, right of the portrait, as on the stats window.
-	f.views, f.Tabs = {}, {}
-	for i, view in ipairs({ { "ranks", "Ranks" }, { "gear", "Gear" } }) do
-		local tab = UI.TryCreate("Button", "OneCastJourneyFrameTab" .. i, f, "PanelTopTabButtonTemplate")
-			or CreateFrame("Button", "OneCastJourneyFrameTab" .. i, f, "UIPanelButtonTemplate")
-		ns.Theme.Register(tab, "button")
-		tab:SetID(i)
-		tab:SetText(view[2])
-		tab:SetWidth(96)
-		if i == 1 then
-			tab:SetPoint("BOTTOMLEFT", inset, "TOPLEFT", 62, 0)
-		else
-			tab:SetPoint("LEFT", f.Tabs[i - 1], "RIGHT", 2, 0)
-		end
-		tab:SetScript("OnClick", function()
-			PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
-			f.view = view[1]
-			Journey.Refresh()
-		end)
-		f.Tabs[i], f.views[view[1]] = tab, tab
-	end
-	if PanelTemplates_SetNumTabs then
-		PanelTemplates_SetNumTabs(f, #f.Tabs)
-	end
-	f.view = "ranks"
 
 	f:SetScript("OnShow", Journey.Refresh)
 	local events = CreateFrame("Frame", nil, f)
@@ -442,54 +714,128 @@ function Journey.Refresh()
 			frame.togo:SetText(GOOD .. "Every rank learned.|r")
 		end
 	end
-	-- The view: ranks or gear, its tab selected.
-	local gear = frame.view == "gear"
-	frame.ranksView:SetShown(not gear)
-	frame.gearView:SetShown(gear)
-	if PanelTemplates_SetTab then
-		PanelTemplates_SetTab(frame, gear and 2 or 1)
-	end
-	if gear then
-		Journey.PaintGear()
-	end
 	for i, c in ipairs(frame.cards) do
 		Paint(c, i, current, rank)
 	end
 end
 
--- Each piece of gear: its name in its quality's colour, its Fishing bonus, whether you have it.
-function Journey.PaintGear()
+-- The gear catalogue -------------------------------------------------------------------------
+-- Every fishing pole and piece of fishing gear as cards: poles on the left, what you wear on the
+-- right, each under the window's header, and under the worn gear the best you have for each
+-- slot. Each card bright and ticked if you have it (on, or in your bags), dimmed if not, laid
+-- out down its column as tall as the column allows. Held by the wardrobe's Gear guide tab.
+local GEAR_HEADER, GEAR_CARD, GEAR_GAP = 24, 56, 4
+local GEAR_TOP = -GAP - 26 -- under the summary line
+
+local function PaintGearView(v)
+	local columns = { pole = {}, worn = {} }
 	local have, shown = 0, 0
-	for _, row in ipairs(frame.gearRows) do
-		local g = row.gear
+	local best = {} -- slot -> { gear, bonus } of the best you have
+	for _, card in ipairs(v.cards) do
+		local g = card.gear
 		local bonus = ns.Gear and ns.Gear.ItemBonus and ns.Gear.ItemBonus(g.id)
-		local show = not g.ifBonus or (bonus and bonus > 0)
-		row:SetShown(show and true or false)
+		if g.bonus and (bonus or 0) == 0 then
+			bonus = g.bonus
+		end
+		local equipped = C_Item.IsEquippedItem and C_Item.IsEquippedItem(g.id) or false
+		local owned = equipped or (C_Item.GetItemCount and C_Item.GetItemCount(g.id, true) or 0) > 0
+		-- New gear only once its bonus is known; the other faction's quest rewards only if you have one.
+		local show = (not g.ifBonus or (bonus and bonus > 0)) and (owned or Journey.ForYourFaction(g))
+		card:SetShown(show and true or false)
 		if show then
-			row:ClearAllPoints()
-			row:SetPoint("TOPLEFT", EDGE, -GAP - 66 - shown * GEAR_ROW)
-			row:SetPoint("TOPRIGHT", -EDGE, -GAP - 66 - shown * GEAR_ROW)
+			local list = columns[g.kind == "Pole" and "pole" or "worn"]
+			list[#list + 1] = card
 			shown = shown + 1
 		end
-		local name, _, quality = C_Item.GetItemInfo(g.id)
-		local color = quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
-		row.icon:SetTexture(C_Item.GetItemIconByID(g.id))
-		row.name:SetText((color and color.hex or "|cffffffff") .. (name or "...") .. "|r")
-		row.bonus:SetText(bonus and bonus > 0 and (GOOD .. "+" .. bonus .. " Fishing|r") or "")
-		local owned = (C_Item.GetItemCount and C_Item.GetItemCount(g.id, true) or 0) > 0
-			or (C_Item.IsEquippedItem and C_Item.IsEquippedItem(g.id)) or false
-		row.check:SetShown(owned)
-		row.icon:SetDesaturated(not owned)
-		row.kind:SetText(g.kind .. (owned and (GOOD .. "  You have it|r") or ""))
-		row.from:SetText((owned and GREY or "|cffd0d0d0") .. g.from .. "|r")
-		have = have + (show and owned and 1 or 0)
+		card.owned = owned
+		PaintGearCard(card, bonus, owned, equipped)
+		if show and owned then
+			have = have + 1
+			if bonus and bonus > 0 and (not best[g.kind] or bonus > best[g.kind].bonus) then
+				best[g.kind] = { gear = g, bonus = bonus }
+			end
+		end
 	end
-	frame.togo:SetText(string.format("%sYou have %d of %d. Hover one for its tooltip.|r", GREY, have, shown))
+	-- The cards as tall as fits: the poles' column, and the worn gear's with the best under it.
+	local room = ns.UI.PAGE_HEIGHT - 88 + GEAR_TOP - EDGE - GEAR_HEADER - 4
+	local bestHeight = v.best.height or 120
+	local height = math.min(GEAR_CARD + GEAR_GAP,
+		math.floor(room / math.max(#columns.pole, 1)),
+		math.floor((room - bestHeight - 8) / math.max(#columns.worn, 1)))
+	local half = (v:GetWidth() > 0 and v:GetWidth() or (v.width - 10)) / 2
+	for key, list in pairs(columns) do
+		local left = key == "pole" and EDGE or (half + 5)
+		local right = key == "pole" and -(half + 5) or -EDGE
+		local header = v.headers[key]
+		local owned = 0
+		for _, card in ipairs(list) do
+			owned = owned + (card.owned and 1 or 0)
+		end
+		header:ClearAllPoints()
+		header:SetPoint("TOPLEFT", left, GEAR_TOP)
+		header:SetPoint("TOPRIGHT", right, GEAR_TOP)
+		header.text:SetText(string.format("%s  %s(%d of %d)|r", key == "pole" and "Fishing poles" or "Worn gear",
+			GREY, owned, #list))
+		local y = GEAR_TOP - GEAR_HEADER - 4
+		for _, card in ipairs(list) do
+			card:SetHeight(height - GEAR_GAP)
+			card:ClearAllPoints()
+			card:SetPoint("TOPLEFT", left, y)
+			card:SetPoint("TOPRIGHT", right, y)
+			y = y - height
+		end
+		if key == "worn" then
+			v.best:ClearAllPoints()
+			v.best:SetPoint("TOPLEFT", left, y - 4)
+			v.best:SetPoint("TOPRIGHT", right, y - 4)
+		end
+	end
+	PaintGearBest(v.best, best)
+	v.summary:SetText(string.format("%sYou have %d of the %d pieces of fishing gear. Hover one for where it comes from.|r",
+		GREY, have, shown))
+end
+
+-- Gear any character can get, or one of your faction's.
+function Journey.ForYourFaction(g)
+	if not g.faction then
+		return true
+	end
+	local faction = UnitFactionGroup and UnitFactionGroup("player")
+	return not faction or faction == g.faction
+end
+
+-- A catalogue on `parent` (filling it), for a window `width` wide. v:Paint() redraws it.
+function Journey.GearView(parent, width)
+	local UI = ns.UI
+	local v = CreateFrame("Frame", nil, parent)
+	v:SetAllPoints()
+	v.width = width
+	v.summary = v:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
+	v.summary:SetPoint("TOPLEFT", EDGE + 4, -GAP - 2)
+	v.summary:SetPoint("RIGHT", -EDGE, 0)
+	v.summary:SetJustifyH("LEFT")
+	v.headers = { pole = UI.SectionHeader(v, 0), worn = UI.SectionHeader(v, 0) }
+	v.cards = {}
+	for i, g in ipairs(Journey.GEAR) do
+		v.cards[i] = GearCard(v, g)
+	end
+	v.best = GearBest(v)
+	v.Paint = PaintGearView
+	return v
 end
 
 function Journey.Show()
 	frame = frame or CreateWindow()
 	frame:Show()
+end
+
+-- Open on a view: the ranks here, or all the fishing gear in the wardrobe.
+function Journey.ShowView(view)
+	if view == "gear" and ns.Wardrobe and ns.Wardrobe.ShowGear then
+		ns.Wardrobe.ShowGear()
+		return
+	end
+	Journey.Show()
 end
 
 -- Finds for the data report -----------------------------------------------------------------
@@ -708,6 +1054,12 @@ local function FromText(f)
 	return "source not seen"
 end
 
+-- The same, for the player: no ids in brackets.
+local function PlainFrom(f)
+	local text = FromText(f):gsub("%s*%[[^%]]*%]", "")
+	return text == "source not seen" and "somewhere" or text
+end
+
 function Journey.Findings()
 	local out = {}
 	local finds = OneCastCharDB and OneCastCharDB.journeyFinds
@@ -728,7 +1080,8 @@ function Journey.Findings()
 			end
 		end
 		out[#out + 1] = { key = "journey:rank:" .. cap, text = string.format("Learned %s (up to %d) %s in %s",
-			rankName, cap, FromText(f), f.zone or "?") }
+			rankName, cap, FromText(f), f.zone or "?"), title = rankName,
+			detail = string.format("You learned it %s in %s. Where it's taught in Forever isn't known yet.", PlainFrom(f), f.zone or "?") }
 	end
 	local ids = {}
 	for id in pairs(finds.gear or {}) do
@@ -739,11 +1092,15 @@ function Journey.Findings()
 		local f = finds.gear[id]
 		out[#out + 1] = { key = "journey:gear:" .. id, id = id, text = string.format("Fishing gear OneCast doesn't list: %s (%d)%s, %s in %s",
 			f.item or ("item " .. id), id, (f.bonus or 0) > 0 and string.format(", +%d Fishing", f.bonus) or "",
-			FromText(f), f.zone or "?") }
+			FromText(f), f.zone or "?"), title = f.item or ("Item " .. id),
+			detail = string.format("%sFishing gear the Gear tab doesn't list: you got it %s in %s.",
+				(f.bonus or 0) > 0 and string.format("+%d Fishing. ", f.bonus) or "", PlainFrom(f), f.zone or "?") }
 	end
 	for spellID, f in pairs(finds.spells or {}) do
 		out[#out + 1] = { key = "journey:spell:" .. spellID, text = string.format("Learned %s (%d) %s in %s",
-			TRACKED_SPELLS[spellID] or "a fishing spell", spellID, FromText(f), f.zone or "?") }
+			TRACKED_SPELLS[spellID] or "a fishing spell", spellID, FromText(f), f.zone or "?"),
+			title = TRACKED_SPELLS[spellID] or "A fishing spell",
+			detail = string.format("You learned it %s in %s. Where it's taught isn't known yet.", PlainFrom(f), f.zone or "?") }
 	end
 	return out
 end

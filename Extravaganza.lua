@@ -1,10 +1,15 @@
 -- OneCast: the Stranglethorn Fishing Extravaganza. A countdown to the next contest, a
 -- Tastyfish counter while it runs, and chat reminders.
 --
--- The schedule is Classic Era's: every Sunday, 14:00 to 16:00 realm time, when Speckled
--- Tastyfish and the contest's rare fish bite in Stranglethorn Vale. The first player to
--- hand 40 Tastyfish to Riggle Bassbait in Booty Bay wins. Forever hasn't confirmed its
--- own schedule yet, so everything shown says it's Classic's.
+-- Every Sunday, 14:00 to 16:00 realm time, Speckled Tastyfish and the contest's rare fish bite
+-- in Stranglethorn Vale: Classic's schedule, which Forever kept (warcraft.wiki.gg's Forever
+-- pages, 14 November 2026).
+--
+-- The prizes are Forever's (its client data, Wowhead and warcraft.wiki.gg, 16 November 2026): the
+-- first 50 players on each ruleset to hand 40 Tastyfish to Riggle Bassbait in Booty Bay get the
+-- Arcanite Fishing Pole, an Extravagant Extravaganza Coin and the Master Angler! title for a
+-- week. Jang trades one coin for any one of her prizes. Fishbot 5000 trades each rare fish for
+-- a piece of fishing gear.
 
 local _, ns = ...
 
@@ -15,6 +20,17 @@ X.ZONE = "Stranglethorn Vale"
 X.TASTYFISH = 19807
 X.GOAL = 40
 X.SCHEDULE = "Sundays 14:00-16:00 realm time"
+X.WINNERS = 50
+X.COIN = 274026
+-- Jang's prizes, a coin each: the swim-form trinket, water-walking shoes, the cosmetic hat and
+-- bucket, and a pet.
+X.JANG = { 19979, 276274, 276272, 276273, 276275 }
+-- Fishbot 5000's trades: rare fish -> { item, its name until the game has it }.
+X.RARE = {
+	[19805] = { 19972, "Lucky Fishing Hat" },
+	[19806] = { 19971, "High Test Eternium Fishing Line" },
+	[19803] = { 19969, "Nat Pagle's Extreme Anglin' Boots" },
+}
 
 local WEEKDAY = 1          -- calendar weekday: 1 is Sunday
 local START_HOUR = 14
@@ -76,10 +92,16 @@ function X.StatusLine(zone)
 	end
 end
 
--- A sentence for the fish's page in the book.
-function X.Describe()
+-- A sentence for the fish's page in the book: when it bites, and what it's handed in for.
+function X.Describe(fishID)
 	local running, seconds = X.Status()
-	local text = "Bites only during the Stranglethorn Fishing Extravaganza, " .. X.SCHEDULE .. " in Classic."
+	local text = "Bites only during the Stranglethorn Fishing Extravaganza, " .. X.SCHEDULE .. "."
+	local rare = fishID and X.RARE[fishID]
+	if rare then
+		text = text .. " Fishbot 5000 in Booty Bay trades it for " .. (C_Item.GetItemNameByID(rare[1]) or rare[2]) .. "."
+	elseif fishID == X.TASTYFISH then
+		text = text .. string.format(" The first %d to bring Riggle Bassbait %d win the Arcanite Fishing Pole and a coin for one of Jang's prizes; Jang buys any you have left in fives.", X.WINNERS, X.GOAL)
+	end
 	if running then
 		return text .. " It's on now: " .. X.FormatWait(seconds) .. " left."
 	elseif running == false then
@@ -122,7 +144,7 @@ local function CheckGoal()
 		return
 	end
 	announcedGoal = true
-	ns.Print(string.format("%d %s! Hand them to Riggle Bassbait in Booty Bay to win.", X.GOAL, Tastyfish()))
+	ns.Print(string.format("%d %s! Hand them to Riggle Bassbait in Booty Bay: the first %d win the Arcanite Fishing Pole and a coin for one of Jang's prizes.", X.GOAL, Tastyfish(), X.WINNERS))
 	ns.RaidWarning(X.GOAL .. " Tastyfish: hurry to Booty Bay!")
 	PlaySound(SOUNDKIT.RAID_WARNING)
 	X.Waypoint()

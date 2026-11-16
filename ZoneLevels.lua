@@ -34,10 +34,15 @@ local LEVELS = {
 		"The Barrens",
 	},
 	[150] = {
+		-- Stonetalon Mountains' 150 is confirmed in Forever by a player's report (14 November 2026):
+		-- 2 of 17 got away at skill 125-149.
 		"Ashenvale", "Duskwood", "Hillsbrad Foothills", "Redridge Mountains",
 		"Stonetalon Mountains", "Wetlands",
 	},
 	[225] = {
+		-- Desolace's 225 is confirmed in Forever by a player's report (14 November 2026): fish got
+		-- away less often as skill rose towards 225 (3 of 4 at 150-174, 2 of 7 at 175-199, 1 of 7
+		-- at 200-224), and none in 231 catches from 225 up.
 		"Alterac Mountains", "Arathi Highlands", "Desolace", "Dustwallow Marsh",
 		"Stranglethorn Vale", "Swamp of Sorrows", "Thousand Needles", "Scarlet Monastery",
 		-- Forever's own, from a player's /onecast report (10 November 2026), fishing Eastwind

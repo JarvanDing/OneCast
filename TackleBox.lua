@@ -113,7 +113,7 @@ local function CreateButton()
 	b.glow:SetAllPoints()
 	b.count = b:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 	b.count:SetPoint("BOTTOMRIGHT", -2, 2)
-	b.time = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmallOutline")
+	b.time = b:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmallOutline")
 	b.time:SetPoint("TOP", b, "BOTTOM", 0, -2)
 	local hl = b:CreateTexture(nil, "HIGHLIGHT")
 	hl:SetAllPoints()
@@ -198,7 +198,11 @@ local function CreateRow(parent, index, y)
 	ns.UI.RowBackground(row, index)
 	row.selected = row:CreateTexture(nil, "BACKGROUND", nil, 1)
 	row.selected:SetAllPoints()
-	row.selected:SetColorTexture(1, 0.82, 0, 0.16)
+	if ns.UI.HasAtlas("options_list_active") then
+		row.selected:SetAtlas("options_list_active")
+	else
+		row.selected:SetColorTexture(1, 0.82, 0, 0.16)
+	end
 	row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
 
 	row.icon = row:CreateTexture(nil, "ARTWORK")
@@ -215,19 +219,20 @@ local function CreateRow(parent, index, y)
 	row.check:SetSize(14, 14)
 	row.check:SetPoint("CENTER", row.icon, "TOPRIGHT", -2, -2)
 
-	row.count = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	row.count = row:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	row.count:SetPoint("RIGHT", -6, 0)
 	row.count:SetWidth(COUNT_WIDTH)
 	row.count:SetJustifyH("RIGHT")
-	row.minutes = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	row.minutes = row:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
+	row.minutes:SetTextColor(0.78, 0.78, 0.78)
 	row.minutes:SetPoint("RIGHT", row.count, "LEFT", -4, 0)
 	row.minutes:SetWidth(MINUTES_WIDTH)
 	row.minutes:SetJustifyH("RIGHT")
-	row.bonus = row:CreateFontString(nil, "OVERLAY", "GameFontGreenSmall")
+	row.bonus = row:CreateFontString(nil, "OVERLAY", "OneCastFontGreenSmall")
 	row.bonus:SetPoint("RIGHT", row.minutes, "LEFT", -4, 0)
 	row.bonus:SetWidth(BONUS_WIDTH)
 	row.bonus:SetJustifyH("RIGHT")
-	row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	row.name = row:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
 	row.name:SetPoint("RIGHT", row.bonus, "LEFT", -4, 0)
 	row.name:SetJustifyH("LEFT")
@@ -247,7 +252,7 @@ local function CreateCheck(parent, index, y, label, tooltip, key)
 	local check = CreateFrame("CheckButton", nil, line, "UICheckButtonTemplate")
 	check:SetSize(ROW_HEIGHT, ROW_HEIGHT)
 	check:SetPoint("LEFT", 2, 0)
-	check.label = line:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall") -- gold, like the stat lines
+	check.label = line:CreateFontString(nil, "OVERLAY", "OneCastFontNormalSmall") -- gold, like the stat lines
 	check.label:SetPoint("LEFT", check, "RIGHT", 4, 0)
 	check.label:SetText(label)
 	check:SetScript("OnClick", function(self)
@@ -273,7 +278,7 @@ local function StatusText()
 	local left = Lure.Left()
 	if left > 0 then
 		local shown = Lure.Shown()
-		return string.format("|cff1eff00%s on your pole|r  |cffffffff%s left|r", shown and Lure.Name(shown) or "A lure",
+		return string.format("|cff20ff20%s on your pole|r  |cffffffff%s left|r", shown and Lure.Name(shown) or "A lure",
 			Lure.Clock(left))
 	end
 	local lure, reason, about = Lure.Selected()
@@ -282,7 +287,7 @@ local function StatusText()
 	elseif reason == "none" then
 		return "|cff9d9d9dNo lure on your pole.|r"
 	end
-	return "|cffff4040" .. Lure.ReasonText(reason, about) .. "|r"
+	return "|cffff2020" .. Lure.ReasonText(reason, about) .. "|r"
 end
 
 local function RedrawWindow()
@@ -321,7 +326,7 @@ local function RedrawWindow()
 	window.rateWithout.value:SetText(rates.without and string.format("%.0f", rates.without) or "-")
 	if rates.with and rates.without and rates.without > 0 then
 		local gain = (rates.with - rates.without) / rates.without * 100
-		window.rateGain.value:SetText(string.format("%s%+.0f%%|r", gain >= 0 and "|cff1eff00" or "|cffff4040", gain))
+		window.rateGain.value:SetText(string.format("%s%+.0f%%|r", gain >= 0 and "|cff20ff20" or "|cffff2020", gain))
 	else
 		window.rateGain.value:SetText("-")
 	end
@@ -342,11 +347,9 @@ local function CreateWindow()
 		local point, _, relPoint, x, y = self:GetPoint()
 		CharDB().tackleWindowPoint = { point, relPoint, x, y }
 	end)
-	tinsert(UISpecialFrames, f:GetName())
-	UI.KeepOpenThroughOptions(f:GetName())
 
 	-- Where the stats window has its tabs: right of the portrait, above the inset.
-	f.status = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.status = f:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	f.status:SetPoint("BOTTOMLEFT", inset, "TOPLEFT", 62, 6)
 	f.status:SetPoint("RIGHT", inset, "RIGHT", -6, 0)
 	f.status:SetJustifyH("LEFT")
@@ -415,7 +418,7 @@ local function CreateWindow()
 		ns.Hub.ShowOptions()
 	end)
 	options:SetPoint("BOTTOMRIGHT", -22, 3)
-	local hint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	local hint = f:CreateFontString(nil, "OVERLAY", "OneCastFontDisableSmall")
 	hint:SetPoint("LEFT", f, "BOTTOMLEFT", 12, 15)
 	hint:SetPoint("RIGHT", options, "LEFT", -6, 0)
 	hint:SetJustifyH("LEFT")

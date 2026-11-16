@@ -23,25 +23,35 @@ ns.Camp = Camp
 Camp.CRAFTS = {
 	{ key = "bowl", name = "Fish Bowl", recipe = 1229745, item = 279967, skill = 20,
 		reagents = { { 6291, 1, "Raw Brilliant Smallfish" }, { 3371, 1, "Empty Vial" } },
+		effect = "+8% to all stats for you and anyone sitting nearby, for an hour.",
 		does = "Placed by a campfire, it gives you and everyone sitting nearby +8% to all stats for an hour. It doesn't stack with Blessing of Kings." },
 	{ key = "rack", name = "Fishing Rack", recipe = 1262990, item = 279965, skill = 140,
 		blueprint = 273141, blueprintName = "Blueprint: Fishing Rack", buff = 1280341, buffName = "Uncommon Fishing",
 		blueprintFrom = "drops from Gelihast in Blackfathom Deeps, not on every kill. Other players can trade it to you.",
 		blueprintKnown = { name = "Gelihast", npc = 6243 }, -- confirmed: a drop from it isn't news
+		blueprintShort = "Gelihast, Blackfathom Deeps",
+		blueprintWhere = { zone = "Ashenvale", x = 0.145, y = 0.142, label = "Blackfathom Deeps, for Gelihast's Blueprint" },
+		effect = "Uncommon Fishing for an hour: extra rewards while you fish, and the Fish Bowl's stats.",
 		reagents = { { 4470, 2, "Simple Wood" }, { 8925, 1, "Crystal Vial" }, { 8365, 2, "Raw Mithril Head Trout" } },
 		does = "Placed by a campfire, it gives Uncommon Fishing for an hour: extra rewards while you fish. It also provides lures and the Fish Bowl's +8% stats, and can replace a Fish Bowl." },
 	{ key = "hut", name = "Fishing Hut", recipe = 1262998, item = 279966, skill = 300,
 		blueprint = 273119, blueprintName = "Blueprint: Fishing Hut", buff = 1280342, buffName = "Rare Fishing",
 		blueprintFrom = "reported to drop from Jammal'an the Prophet in the Sunken Temple (one player's report, not yet confirmed). Other players can trade it to you.",
+		blueprintShort = "Jammal'an the Prophet, Sunken Temple (unconfirmed)",
+		blueprintWhere = { zone = "Swamp of Sorrows", x = 0.695, y = 0.536, label = "The Sunken Temple, for Jammal'an's Blueprint" },
+		effect = "Rare Fishing for an hour: greater extra rewards while you fish, and the Fish Bowl's stats.",
 		reagents = { { 4470, 5, "Simple Wood" }, { 14048, 2, "Bolt of Runecloth" }, { 273295, 1, "Seasonal Fish Steaks" } },
 		does = "Placed by a campfire, it gives Rare Fishing for an hour: greater extra rewards while you fish. It also provides lures and the Fish Bowl's +8% stats, and can replace a Fish Bowl." },
 }
 
--- Cooking recipes: a campfire holds this many features.
+-- Cooking recipes: a campfire holds this many features. Basic comes with Cooking; the others are
+-- learned from blueprints that drop (Forever's client data and Wowhead, 16 November 2026).
 Camp.CAMPFIRES = {
-	{ name = "Basic Campfire", recipe = 1229737, holds = 3 },
-	{ name = "Journeyman Campfire", recipe = 1283400, holds = 5 },
-	{ name = "Expert Campfire", recipe = 1291341, holds = 10 },
+	{ name = "Basic Campfire", recipe = 1229737, holds = 3, from = "Learned with Cooking." },
+	{ name = "Journeyman Campfire", recipe = 1283400, holds = 5, blueprint = 273087,
+		from = "Learned from Blueprint: Journeyman Campfire (Cooking 90), dropped by Lord Serpentis in Wailing Caverns, about 1 kill in 17. Made with Star Wood." },
+	{ name = "Expert Campfire", recipe = 1291341, holds = 10, blueprint = 273101,
+		from = "Learned from Blueprint: Expert Campfire (Cooking 200), dropped by Slavecrusher Grox, about 1 kill in 23. Made with Thick Logs." },
 }
 Camp.FEATURE_MINUTES = 15  -- a placed feature stands this long
 Camp.SIT_SECONDS = 60      -- time by the fire before its benefits arrive

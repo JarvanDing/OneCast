@@ -21,7 +21,7 @@ local BOTTOM_ROOM = 96   -- under the slots: the summary and the buttons
 local LABEL_WIDTH = 190
 local MODEL_WIDTH = WIDTH - 10 - 2 * EDGE - 2 * (SLOT + 8 + LABEL_WIDTH) - 2 * GAP
 local ZOOM_MIN, ZOOM_MAX, ZOOM_STEP = 0.55, 1.5, 0.08
-local GOOD, GREY, GOLD, RED = "|cff1eff00", "|cff9d9d9d", "|cffffd100", "|cffff4040"
+local GOOD, GREY, GOLD, RED = "|cff20ff20", "|cff9d9d9d", "|cffffd100", "|cffff2020"
 
 local frame
 
@@ -212,9 +212,9 @@ local function SlotButton(parent, info, x, y, right)
 	b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 	b.bonus = b:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 	b.bonus:SetPoint("BOTTOMRIGHT", -2, 2)
-	b.name = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	b.item = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	b.how = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	b.name = b:CreateFontString(nil, "OVERLAY", "OneCastFontNormalSmall")
+	b.item = b:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
+	b.how = b:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	for _, fs in ipairs({ b.name, b.item, b.how }) do
 		fs:SetWidth(LABEL_WIDTH)
 		fs:SetWordWrap(false)
@@ -323,14 +323,42 @@ local function CreateWindow()
 	f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving)
 	UI.RememberPosition(f, "wardrobe")
-	tinsert(UISpecialFrames, f:GetName())
-	UI.KeepOpenThroughOptions(f:GetName())
 
-	f.status = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.status = f:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	f.status:SetPoint("BOTTOMLEFT", inset, "TOPLEFT", 62, 6)
 	f.status:SetPoint("RIGHT", inset, "RIGHT", -6, 0)
 	f.status:SetJustifyH("LEFT")
-	f.status:SetText("What you wear to fish. It goes on with your pole and comes off with your weapons.")
+
+	-- Two tabs: the outfit you fish in, and every piece of fishing gear there is.
+	local outfit = CreateFrame("Frame", nil, inset)
+	outfit:SetAllPoints()
+	f.outfit = outfit
+	f.catalog = ns.Journey.GearView(inset, WIDTH)
+	f.catalog:Hide()
+	f.Tabs, f.tab = {}, "outfit"
+	for i, tab in ipairs({ { "outfit", "Outfit" }, { "gear", "Gear guide" } }) do
+		local b = UI.TryCreate("Button", "OneCastWardrobeFrameTab" .. i, f, "PanelTopTabButtonTemplate")
+			or CreateFrame("Button", "OneCastWardrobeFrameTab" .. i, f, "UIPanelButtonTemplate")
+		b:SetID(i)
+		b:SetText(tab[2])
+		b:SetWidth(i == 1 and 90 or 110)
+		if i == 1 then
+			b:SetPoint("BOTTOMLEFT", inset, "TOPLEFT", 62, 0)
+		else
+			b:SetPoint("LEFT", f.Tabs[i - 1], "RIGHT", 2, 0)
+		end
+		b:SetScript("OnClick", function()
+			PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
+			f.tab = tab[1]
+			Wardrobe.Refresh()
+		end)
+		f.Tabs[i] = b
+	end
+	if PanelTemplates_SetNumTabs then
+		PanelTemplates_SetNumTabs(f, #f.Tabs)
+	end
+	-- The tabs take the place of the line that said what the page is for.
+	f.status:Hide()
 
 	-- The slots, down both sides like the character sheet and spread over its full height: six
 	-- on the left, four and the pole on the right, the pole on the bottom row.
@@ -343,13 +371,13 @@ local function CreateWindow()
 		local right = i > ROWS
 		local row = right and (i - ROWS - 1) or (i - 1)
 		local x = right and (WIDTH - 10 - EDGE - SLOT) or EDGE
-		f.slots[#f.slots + 1] = SlotButton(inset, info, x, top - row * step, right)
+		f.slots[#f.slots + 1] = SlotButton(outfit, info, x, top - row * step, right)
 	end
 
 	-- You, in the middle, wearing it, as tall as the columns. Drag to turn, the wheel zooms,
 	-- double-click resets.
 	local modelLeft = EDGE + SLOT + 8 + LABEL_WIDTH + GAP
-	local model = CreateFrame("DressUpModel", nil, inset)
+	local model = CreateFrame("DressUpModel", nil, outfit)
 	model:SetPoint("TOPLEFT", modelLeft, top)
 	model:SetSize(MODEL_WIDTH, columnHeight)
 	model:EnableMouse(true)
@@ -363,6 +391,10 @@ local function CreateWindow()
 		floor:SetGradient("VERTICAL", CreateColor(0, 0, 0, 0.45), CreateColor(0, 0, 0, 0))
 	else
 		floor:SetVertexColor(0, 0, 0, 0.3)
+	end
+	-- Turned and zoomed with the mouse: nothing for a controller to stop on.
+	if ns.Controller then
+		ns.Controller.NoStop(model)
 	end
 	model:SetScript("OnMouseDown", function(self, button)
 		if button == "LeftButton" then
@@ -398,14 +430,15 @@ local function CreateWindow()
 	end)
 	f.model = model
 	-- At the model's foot: how to move it.
-	f.modelHint = inset:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	f.modelHint = outfit:CreateFontString(nil, "OVERLAY", "OneCastFontDisableSmall")
 	f.modelHint:SetPoint("BOTTOM", model, "BOTTOM", 0, 2)
+	-- With a controller, the right stick stays the camera's here: there's nothing to select in
+	-- the model, so it never takes the stick to zoom.
 	f.modelHint:SetDrawLayer("OVERLAY", 7)
 	f.modelHint:SetText("Drag to turn  ·  wheel to zoom  ·  double-click to reset")
 
 	-- At the model's head: the outfit, or what you wear now.
-	f.compare = CreateFrame("Button", nil, inset, "UIPanelButtonTemplate")
-	ns.Theme.Register(f.compare, "button")
+	f.compare = CreateFrame("Button", nil, outfit, "UIPanelButtonTemplate")
 	f.compare:SetSize(150, 20)
 	f.compare:SetPoint("TOP", model, "TOP", 0, 0)
 	f.compare:SetFrameLevel(model:GetFrameLevel() + 2)
@@ -424,29 +457,27 @@ local function CreateWindow()
 	-- The pole: the right side's last slot.
 	local poleInfo = { name = "Fishing pole", pole = true }
 	local poleRow = ROWS - 1 -- level with Wrist, a little apart from the armour
-	f.pole = SlotButton(inset, poleInfo, WIDTH - 10 - EDGE - SLOT, top - poleRow * step, true)
+	f.pole = SlotButton(outfit, poleInfo, WIDTH - 10 - EDGE - SLOT, top - poleRow * step, true)
 
 	-- The summary: your Fishing now and with the outfit, or what to look for.
-	f.total = inset:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	f.total:SetPoint("BOTTOM", inset, "BOTTOM", 0, 64)
+	f.total = outfit:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	f.total:SetPoint("BOTTOM", outfit, "BOTTOM", 0, 64)
 	f.total:SetWidth(WIDTH - 60)
-	f.totalNote = inset:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.totalNote = outfit:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	f.totalNote:SetPoint("TOP", f.total, "BOTTOM", 0, -4)
 	f.totalNote:SetWidth(WIDTH - 60)
 	f.totalNote:SetWordWrap(true)
 
-	f.wear = CreateFrame("Button", nil, inset, "UIPanelButtonTemplate")
-	ns.Theme.Register(f.wear, "button")
+	f.wear = CreateFrame("Button", nil, outfit, "UIPanelButtonTemplate")
 	f.wear:SetSize(150, 24)
-	f.wear:SetPoint("BOTTOMRIGHT", inset, "BOTTOM", -4, 14)
+	f.wear:SetPoint("BOTTOMRIGHT", outfit, "BOTTOM", -4, 14)
 	f.wear:SetText("Wear it now")
 	f.wear:SetScript("OnClick", function()
 		ns.Gear.WearNow()
 	end)
-	f.off = CreateFrame("Button", nil, inset, "UIPanelButtonTemplate")
-	ns.Theme.Register(f.off, "button")
+	f.off = CreateFrame("Button", nil, outfit, "UIPanelButtonTemplate")
 	f.off:SetSize(150, 24)
-	f.off:SetPoint("BOTTOMLEFT", inset, "BOTTOM", 4, 14)
+	f.off:SetPoint("BOTTOMLEFT", outfit, "BOTTOM", 4, 14)
 	f.off:SetText("Take it off")
 	f.off:SetScript("OnClick", function()
 		if not ns.Gear.Restore() then
@@ -478,7 +509,7 @@ local function CreateWindow()
 	f.auto = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
 	f.auto:SetSize(22, 22)
 	f.auto:SetPoint("BOTTOMLEFT", 8, 3)
-	f.auto.label = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.auto.label = f:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	f.auto.label:SetPoint("LEFT", f.auto, "RIGHT", 2, 0)
 	f.auto.label:SetText("Wear it whenever the cast key puts your pole on")
 	f.auto:SetScript("OnClick", function(self)
@@ -490,7 +521,6 @@ local function CreateWindow()
 		end
 	end)
 	f.reset = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-	ns.Theme.Register(f.reset, "button")
 	f.reset:SetSize(120, 20)
 	f.reset:SetPoint("BOTTOMRIGHT", -24, 5)
 	f.reset:SetText("Reset choices")
@@ -538,6 +568,20 @@ function Wardrobe.Refresh()
 	if not (frame and frame:IsShown()) then
 		return
 	end
+	-- The tab: the outfit, or every piece of fishing gear.
+	local gear = frame.tab == "gear"
+	frame.outfit:SetShown(not gear)
+	frame.catalog:SetShown(gear)
+	frame.auto:SetShown(not gear)
+	frame.auto.label:SetShown(not gear)
+	frame.reset:SetShown(not gear)
+	if PanelTemplates_SetTab then
+		PanelTemplates_SetTab(frame, gear and 2 or 1)
+	end
+	if gear then
+		frame.catalog:Paint()
+		return
+	end
 	local model = frame.model
 	if model.SetUnit then
 		model:SetUnit("player")
@@ -574,8 +618,13 @@ function Wardrobe.Refresh()
 	local gain = outfit - worn
 	if outfit > 0 and rank then
 		local now = rank + (modifier or 0)
-		frame.total:SetText(string.format("Fishing %d %s->|r %s%d|r with this outfit  %s(+%d from gear)|r",
-			now, GREY, GOOD, now + math.max(0, gain), GREY, outfit))
+		if gain > 0 then
+			frame.total:SetText(string.format("Fishing %d %s->|r %s%d|r with this outfit  %s(+%d from gear)|r",
+				now, GREY, GOOD, now + gain, GREY, outfit))
+		else
+			-- Nothing to gain: an arrow from a number to itself says nothing.
+			frame.total:SetText(string.format("Fishing %d  %s+%d from this outfit|r", now, GOOD, outfit))
+		end
 	elseif outfit > 0 then
 		frame.total:SetText(string.format("This outfit: %s+%d Fishing|r", GOOD, outfit))
 	else
@@ -598,6 +647,14 @@ function Wardrobe.Refresh()
 	local any = OneCastCharDB and (OneCastCharDB.outfitPole or (OneCastCharDB.outfit and next(OneCastCharDB.outfit)))
 	frame.reset:SetEnabled(any and true or false)
 	frame.auto:SetChecked(ns.db and ns.db.fishingOutfit and true or false)
+end
+
+-- Open on every piece of fishing gear.
+function Wardrobe.ShowGear()
+	frame = frame or CreateWindow()
+	frame.tab = "gear"
+	frame:Show()
+	Wardrobe.Refresh()
 end
 
 function Wardrobe.Show()

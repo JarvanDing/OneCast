@@ -12,6 +12,152 @@ local _, ns = ...
 local Hub = {}
 ns.Hub = Hub
 
+-- Escape ----------------------------------------------------------------------------------------
+-- OneCast's windows stay open through Escape unless "Escape closes OneCast windows" is on: it's
+-- for the game (closing its own windows, then its menu), and OneCast is open while you fish. Its
+-- short-lived frames (right-click menus, the welcome), and with that setting its windows too,
+-- close with Escape, one at a time, newest first, but only when none of the game's windows is open:
+-- the game closes every window on its list (UISpecialFrames) at once, so those frames aren't on
+-- it, and a keyboard watcher of OneCast's sees Escape (or whatever's bound to the game menu) first
+-- while one is open. The watcher can't hold a key back in combat, so in combat they go on the
+-- game's list after all, and come off again after.
+local escapable = {} -- frame -> when it was last shown
+local mainWindow = {} -- frame -> true: a OneCast window, escapable only with the setting on
+
+local function Escapable(frame)
+	return not mainWindow[frame] or (ns.db and ns.db.escapeCloses) or false
+end
+local watcher = CreateFrame("Frame", "OneCastEscapeWatcher", UIParent)
+watcher:Hide()
+watcher:SetFrameStrata("BACKGROUND") -- after anything typing or capturing a key
+watcher:EnableKeyboard(true)
+if not InCombatLockdown() then
+	watcher:SetPropagateKeyboardInput(true)
+end
+
+local function Shown(frame)
+	return frame and frame.IsShown and frame:IsShown() or false
+end
+
+-- One of the game's own windows is open: Escape is for that.
+local function GameWindowOpen()
+	for _, name in ipairs(UISpecialFrames or {}) do
+		local frame = _G[name]
+		if Shown(frame) and not (escapable[frame] and Escapable(frame)) then
+			return true
+		end
+	end
+	if GetUIPanel then
+		for _, side in ipairs({ "left", "center", "right", "doublewide", "fullscreen" }) do
+			local ok, panel = pcall(GetUIPanel, side)
+			if ok and panel then
+				return true
+			end
+		end
+	end
+	for _, name in ipairs({ "WorldMapFrame", "GameMenuFrame", "SettingsPanel", "ContainerFrameCombinedBags", "StaticPopup1" }) do
+		if Shown(_G[name]) then
+			return true
+		end
+	end
+	for i = 1, 13 do
+		if Shown(_G["ContainerFrame" .. i]) then
+			return true
+		end
+	end
+	return false
+end
+
+-- The OneCast window shown last, if any is.
+local function Latest()
+	local latest, at
+	for frame, shownAt in pairs(escapable) do
+		if Shown(frame) and Escapable(frame) and (not at or shownAt > at) then
+			latest, at = frame, shownAt
+		end
+	end
+	return latest
+end
+
+local function UpdateWatcher()
+	if InCombatLockdown() then
+		return
+	end
+	watcher:SetShown(Latest() ~= nil)
+end
+
+local function IsEscape(key)
+	return key == "ESCAPE" or GetBindingAction(key) == "TOGGLEGAMEMENU"
+end
+
+watcher:SetScript("OnKeyDown", function(self, key)
+	if InCombatLockdown() or not IsEscape(key) then
+		return -- through to the game, as every other key goes
+	end
+	local frame = not GameWindowOpen() and Latest()
+	if not frame then
+		return
+	end
+	-- This one's OneCast's: held back from the game, and the window closed.
+	self:SetPropagateKeyboardInput(false)
+	frame:Hide()
+	C_Timer.After(0, function()
+		if not InCombatLockdown() then
+			self:SetPropagateKeyboardInput(true)
+		end
+		UpdateWatcher()
+	end)
+end)
+
+-- Combat: OneCast's windows on the game's list, which closes them with the rest; after, off again.
+local combatEvents = CreateFrame("Frame")
+combatEvents:RegisterEvent("PLAYER_REGEN_DISABLED")
+combatEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
+combatEvents:SetScript("OnEvent", function(_, event)
+	if event == "PLAYER_REGEN_DISABLED" then
+		watcher:Hide()
+		for frame in pairs(escapable) do
+			if frame:GetName() and Escapable(frame) then
+				tinsert(UISpecialFrames, frame:GetName())
+			end
+		end
+	else
+		for i = #UISpecialFrames, 1, -1 do
+			local frame = _G[UISpecialFrames[i]]
+			if frame and escapable[frame] then
+				table.remove(UISpecialFrames, i)
+			end
+		end
+		watcher:SetPropagateKeyboardInput(true)
+		UpdateWatcher()
+	end
+end)
+
+-- `frame` closes with Escape, as the game's own windows do, but on its own. `main`: one of
+-- OneCast's windows, which closes so only with "Escape closes OneCast windows" on.
+function ns.UI.EscapeCloses(frame, main)
+	mainWindow[frame] = main or nil
+	if escapable[frame] then
+		UpdateWatcher()
+		return
+	end
+	escapable[frame] = 0
+	frame:HookScript("OnShow", function(self)
+		escapable[self] = GetTime()
+		UpdateWatcher()
+	end)
+	frame:HookScript("OnHide", function()
+		UpdateWatcher()
+	end)
+	if frame:IsShown() then
+		escapable[frame] = GetTime()
+		UpdateWatcher()
+	end
+end
+
+-- The setting changed: the watcher on or off to match.
+ns.UI.UpdateEscape = UpdateWatcher
+
 local TAB_SIZE, TAB_GAP = 32, 14
 local RAIL_TOP = 48 -- below the window's title bar
 local RAIL_TOP_LEFT = 72 -- below the portrait, on the left
@@ -141,6 +287,29 @@ function Hub.LayoutTabs()
 	rail:SetHeight(math.max(TAB_SIZE, y))
 end
 
+-- The side tabs on show, top to bottom, and the open page's place among them: for paging with
+-- a controller's triggers.
+function Hub.SideTabs()
+	local list, current = {}, nil
+	if not rail then
+		return list, nil
+	end
+	local key = CurrentKey()
+	for _, tab in ipairs(rail.tabs) do
+		if tab:IsShown() then
+			list[#list + 1] = tab
+			if tab.key == key then
+				current = #list
+			end
+		end
+	end
+	return list, current
+end
+
+function Hub.Rail()
+	return rail
+end
+
 local function HiddenCount()
 	local n = 0
 	for key in pairs(ns.db and ns.db.hiddenTabs or {}) do
@@ -182,6 +351,7 @@ local function CreateRail()
 		-- After the spellbook's side tabs: an icon on a tab-shaped backing, lit when chosen.
 		local tab = CreateFrame("CheckButton", nil, r)
 		tab:SetSize(TAB_SIZE, TAB_SIZE)
+		tab.padMore = "Hide tab" -- with a controller, X opens its menu
 		tab:SetPoint("TOPLEFT", 0, -(i - 1) * (TAB_SIZE + TAB_GAP))
 		local back = tab:CreateTexture(nil, "BACKGROUND")
 		back:SetTexture("Interface\\SpellBook\\SpellBook-SkillLineTab")
@@ -258,6 +428,10 @@ local function AddGrip(frame)
 	grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
 	grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
 	grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+	grip.gamepadSkip = true
+	if ns.Controller then
+		ns.Controller.NoStop(grip)
+	end
 	grip:SetScript("OnMouseDown", function()
 		if ns.db and ns.db.lockWindow then
 			return
@@ -299,6 +473,8 @@ function Hub.Attach(key, frame, currentKey)
 	panels[frame] = currentKey or function()
 		return key
 	end
+	ns.UI.CloseOwn(frame) -- its X works in combat too
+	ns.UI.EscapeCloses(frame, true)
 	frame:SetClampedToScreen(true)
 	AddGrip(frame)
 	-- A locked window doesn't move.
@@ -326,6 +502,9 @@ function Hub.Attach(key, frame, currentKey)
 	frame:HookScript("OnDragStop", function(self)
 		SavePoint(self)
 	end)
+	if ns.Controller then
+		ns.Controller.Navigate(frame)
+	end
 	if frame:IsShown() then
 		Hub.Activate(frame)
 	end
@@ -341,8 +520,11 @@ function Hub.Activate(frame)
 		previous:Hide()
 	end
 	rail = rail or CreateRail()
+	local inPage = ns.Controller and ns.Controller.Native() and not InCombatLockdown()
+	rail:SetParent(inPage and frame or UIParent)
+	rail.inPage = inPage and frame or nil
 	Hub.UpdateSide()
-	rail:SetScale(frame:GetScale() or 1)
+	rail:SetScale(inPage and 1 or (frame:GetScale() or 1))
 	rail:SetFrameStrata(frame:GetFrameStrata() or "DIALOG")
 	rail:SetFrameLevel((frame:GetFrameLevel() or 0) + 20)
 	rail:SetAlpha(1)
@@ -411,7 +593,7 @@ function Hub.ShowTour()
 		tour.title = tour:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 		tour.title:SetPoint("TOPLEFT", 12, -10)
 		tour.title:SetText("One window for OneCast")
-		tour.text = tour:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		tour.text = tour:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 		tour.text:SetPoint("TOPLEFT", tour.title, "BOTTOMLEFT", 0, -4)
 		tour.text:SetWidth(196)
 		tour.text:SetJustifyH("LEFT")
@@ -478,7 +660,7 @@ function Hub.SetScale(scale)
 	active:SetScale(scale)
 	PlaceAtPoint(active)
 	if rail then
-		rail:SetScale(scale)
+		rail:SetScale(rail.inPage and 1 or scale) -- inside the page, it scales with it
 	end
 end
 
@@ -523,7 +705,7 @@ end
 -- Every OneCast setting, in the window: built from the same description as the game's options
 -- panel (ns.OPTIONS, OPTION_CHOICES, OPTION_MAIN, OPTION_PAGES), and each row is that panel's own
 -- setting, so the two always agree and a new option shows in both. As wide as the collection, a
--- category at a time. Only the cast key stays in the game's options: key bindings are set there.
+-- category at a time. The cast key is set here too, with the game's own binding (Onboarding.lua).
 
 local OPTIONS_WIDTH, ROW, HEADER, GAP = 840, 24, 26, 8
 local EDGE = 10
@@ -571,9 +753,11 @@ local LIST_WIDTH = OPTIONS_WIDTH - 10 - 2 * EDGE - NAV_WIDTH - DETAIL_WIDTH - 2 
 local NAV_ROW = 34
 local CATEGORY = {
 	General = { icon = "Interface\\Icons\\INV_Misc_Gear_01", blurb = "How OneCast looks, and what it shows where." },
-	Fishing = { icon = "Interface\\Icons\\Trade_Fishing", blurb = "The cast key, your pole and fishing gear, and reminders while you're on the water." },
+	Fishing = { icon = "Interface\\Icons\\Trade_Fishing", blurb = "How you cast and reel, your pole and fishing gear, and what happens to what you catch." },
 	Lures = { item = 6533, icon = "Interface\\Icons\\INV_Misc_Orb_03", blurb = "Which lure OneCast uses on this character, and the tackle box button." },
-	Sound = { icon = "Interface\\Icons\\INV_Misc_Horn_01", blurb = "Hear the splash over everything else while your line is out." },
+	["While fishing"] = { icon = "Interface\\Icons\\INV_Misc_Horn_01", blurb = "What you see and hear with your line out: your bobber marked, and the splash over everything else." },
+	Controller = { icon = "Interface\\Icons\\INV_Misc_EngGizmos_17", blurb = "Fish with a controller: the button that casts and reels, the one that opens OneCast, prompts and rumble." },
+	Accessibility = { icon = "Interface\\Icons\\INV_Misc_Spyglass_03", blurb = "Bigger text and controller buttons, ticks on what you have, and calmer windows with less moving." },
 	["Stats and alerts"] = { icon = "Interface\\Icons\\INV_Misc_Book_09", blurb = "The stats window and mini bar, catch alerts, reminders and the collection." },
 }
 
@@ -588,6 +772,50 @@ local function ArrowButton(parent, which)
 	return b
 end
 
+-- A row's name as a button: a stop for a controller in line with the checkboxes (the D-pad only
+-- moves to controls in the direction pressed, and a row's arrows are far over on the right). A
+-- (or a click) moves to the next choice or step, X (or a right-click) to the one before.
+local function NameButton(line, controls, step, enter, leave, rowClick)
+	local b = CreateFrame("Button", nil, line)
+	b:SetSize(ROW, ROW)
+	b:SetPoint("LEFT", 2, 0)
+	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	b:SetScript("OnClick", function(_, button)
+		step(button == "RightButton" and -1 or 1)
+	end)
+	b:SetScript("OnEnter", enter)
+	b:SetScript("OnLeave", leave)
+	b.padAdjust = true -- with a controller: left and right change it
+	-- The mouse: on a row of choices, a click anywhere on the name does the same.
+	if rowClick then
+		line:SetScript("OnMouseUp", function(_, button)
+			if b:IsEnabled() and (button == "LeftButton" or button == "RightButton") then
+				step(button == "RightButton" and -1 or 1)
+			end
+		end)
+	end
+	local C = ns.Controller
+	if C then
+		-- With a controller: up and down move between rows, left and right change this one.
+		C.Adjust(b, function() step(-1) end, function() step(1) end)
+		-- Only the small stop is one: not the row, its arrows or its slider.
+		C.NoStop(line)
+		for _, control in ipairs(controls) do
+			C.NoStop(control)
+		end
+	end
+	return b
+end
+
+-- With a controller, how to change a row from its name.
+local function PadHint(tooltip)
+	local C = ns.Controller
+	if not (C and C.Native and C.Native()) then
+		return tooltip
+	end
+	return (tooltip or "") .. "\n\n" .. C.Glyph("PADDLEFT") .. " " .. C.Glyph("PADDRIGHT") .. "  change it"
+end
+
 local function CreateOptions()
 	local UI = ns.UI
 	local f, inset = UI.CreateShell("OneCastOptionsWindow", "Options", "Interface\\Icons\\INV_Misc_Gear_01")
@@ -600,11 +828,9 @@ local function CreateOptions()
 	f:SetScript("OnDragStart", f.StartMoving)
 	f:SetScript("OnDragStop", f.StopMovingOrSizing)
 	f:SetPoint("CENTER")
-	tinsert(UISpecialFrames, f:GetName())
-	UI.KeepOpenThroughOptions(f:GetName())
 
 	-- Right of the portrait, above the inset, as on the data report.
-	f.status = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.status = f:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	f.status:SetPoint("BOTTOMLEFT", inset, "TOPLEFT", 62, 6)
 	f.status:SetPoint("RIGHT", inset, "RIGHT", -6, 0)
 	f.status:SetJustifyH("LEFT")
@@ -620,7 +846,7 @@ local function CreateOptions()
 	local choices = ns.OPTION_CHOICES or {}
 	local parents = ns.OPTION_PARENT or {}
 
-	-- The details on the right: parchment, in the theme's ink.
+	-- The details on the right: parchment, in its ink.
 	local detail = CreateFrame("Frame", nil, content)
 	detail:SetPoint("TOPRIGHT", -EDGE, -GAP)
 	detail:SetPoint("BOTTOMRIGHT", -EDGE, EDGE)
@@ -633,7 +859,6 @@ local function CreateOptions()
 		paper:SetTexture("Interface\\QuestFrame\\QuestBG")
 		paper:SetTexCoord(0, 0.586, 0, 0.65)
 	end
-	ns.Theme.Register(paper, "parchment")
 	local edge = detail:CreateTexture(nil, "BORDER")
 	edge:SetColorTexture(0.55, 0.40, 0.15, 0.8)
 	edge:SetPoint("TOPLEFT")
@@ -666,7 +891,6 @@ local function CreateOptions()
 		detail.cmd:SetTextColor(theme.inkSoft[1], theme.inkSoft[2], theme.inkSoft[3])
 	end
 	InkDetail()
-	ns.Theme.OnChange(InkDetail)
 
 	-- What the details show: a setting (title, text, its value now, its command), or a category.
 	local function ShowDetail(title, text, now, cmd)
@@ -691,7 +915,6 @@ local function CreateOptions()
 	divider:SetPoint("TOPLEFT", nav, "TOPRIGHT", PANE_GAP / 2, 0)
 	divider:SetPoint("BOTTOMLEFT", nav, "BOTTOMRIGHT", PANE_GAP / 2, 0)
 	divider:SetWidth(1)
-	ns.Theme.Register(divider, "header")
 
 	local pages = {}
 	f.rows, f.checks, f.choiceRows, f.pages, f.navButtons, f.pageHeights = {}, {}, {}, {}, {}, {}
@@ -707,7 +930,11 @@ local function CreateOptions()
 		UI.RowBackground(line, index)
 		local hover = line:CreateTexture(nil, "BACKGROUND", nil, 2)
 		hover:SetAllPoints()
-		hover:SetColorTexture(1, 0.82, 0.3, 0.08)
+		if UI.HasAtlas("options_list_hover") then
+			hover:SetAtlas("options_list_hover")
+		else
+			hover:SetColorTexture(1, 0.82, 0.3, 0.08)
+		end
 		hover:Hide()
 		line.hover = hover
 		line.key, line.parent = key, parents[key]
@@ -721,7 +948,9 @@ local function CreateOptions()
 		ShowDetail(title, text, now, cmd)
 	end
 	local function Unhover(line)
-		line.hover:Hide()
+		if line and line.hover then
+			line.hover:Hide()
+		end
 	end
 
 	local function CheckRow(opt)
@@ -753,7 +982,10 @@ local function CreateOptions()
 		check:SetScript("OnLeave", function() Unhover(line) end)
 		line:SetScript("OnEnter", Enter)
 		line:SetScript("OnLeave", Unhover)
-		-- The label ticks the box too.
+		-- The label ticks the box too. With a controller, the box alone is the stop.
+		if ns.Controller then
+			ns.Controller.NoStop(line)
+		end
 		line:SetScript("OnMouseUp", function(_, button)
 			if button == "LeftButton" and check:IsEnabled() then
 				check:SetChecked(not check:GetChecked())
@@ -768,6 +1000,47 @@ local function CreateOptions()
 			check.label:SetAlpha(on and 1 or 0.45)
 		end
 		f.checks[#f.checks + 1] = check
+		return line
+	end
+
+	-- The cast key, set right here: click its button, then press the key. It's the game's own
+	-- binding, the one under Key Bindings > OneCast.
+	local KEY_TIP = "The key that does all of OneCast's fishing: press it to cast, and again when "
+		.. "the bobber splashes to reel in.\n\nClick the button, then press the key you want. "
+		.. "Shift, Ctrl and Alt combinations and side mouse buttons work too; Escape cancels. "
+		.. "It's the same key as Key Bindings > OneCast > Cast / reel."
+	local function KeyRow()
+		local line = Line("castKey")
+		line:EnableMouse(true)
+		local text = line:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+		text:SetPoint("LEFT", LABEL_LEFT, 0)
+		text:SetPoint("RIGHT", -(CONTROL_WIDTH + 8), 0)
+		text:SetJustifyH("LEFT")
+		text:SetWordWrap(false)
+		text:SetText("Cast and reel key")
+		local O = ns.Onboarding
+		local button = O.CaptureButton(line, CONTROL_WIDTH, ROW - 2, function()
+			f:Refresh()
+		end)
+		button:SetPoint("RIGHT", -2, 0)
+		local function Now()
+			return O.KeyText() or "not bound"
+		end
+		local function Enter()
+			Hover(line, "Cast and reel key", KEY_TIP, Now(), "setup")
+		end
+		line:SetScript("OnEnter", Enter)
+		line:SetScript("OnLeave", Unhover)
+		button:HookScript("OnEnter", Enter)
+		button:HookScript("OnLeave", function() Unhover(line) end)
+		button:HookScript("OnClick", Enter)
+		if ns.Controller then
+			ns.Controller.NoStop(line) -- the button's the stop
+		end
+		line.Update = function()
+			button:Refresh()
+		end
+		line.SetActive = function() end
 		return line
 	end
 
@@ -807,7 +1080,7 @@ local function CreateOptions()
 			return spec.format and spec.format(v) or tostring(v)
 		end
 		local function Enter()
-			Hover(line, spec.label, spec.tooltip, Show(Current()))
+			Hover(line, spec.label, PadHint(spec.tooltip), Show(Current()))
 		end
 		local function Step(delta)
 			local v = Current()
@@ -834,6 +1107,8 @@ local function CreateOptions()
 		nextButton:SetScript("OnClick", function()
 			Step(1)
 		end)
+		local name = NameButton(line, { prevButton, nextButton }, Step, Enter, function() Unhover(line) end, true)
+		line.name = name
 		for _, b in ipairs({ prevButton, nextButton }) do
 			b:SetScript("OnEnter", Enter)
 			b:SetScript("OnLeave", function() Unhover(line) end)
@@ -846,6 +1121,7 @@ local function CreateOptions()
 		line.SetActive = function(_, on)
 			prevButton:SetEnabled(on)
 			nextButton:SetEnabled(on)
+			name:SetEnabled(on)
 			text:SetAlpha(on and 1 or 0.45)
 			value:SetAlpha(on and 1 or 0.45)
 		end
@@ -869,8 +1145,15 @@ local function CreateOptions()
 			or UI.TryCreate("Slider", nil, line, "UISliderTemplate")
 			or CreateFrame("Slider", nil, line)
 		slider:SetOrientation("HORIZONTAL")
-		slider:SetPoint("LEFT", line, "RIGHT", -CONTROL_WIDTH, 0)
-		slider:SetPoint("RIGHT", value, "LEFT", -6, 0)
+		local down = ArrowButton(line, "Prev")
+		down:SetSize(18, 18)
+		down:SetPoint("LEFT", line, "RIGHT", -CONTROL_WIDTH, 0)
+		local up = ArrowButton(line, "Next")
+		up:SetSize(18, 18)
+		up:SetPoint("RIGHT", value, "LEFT", -4, 0)
+		slider:SetPoint("LEFT", down, "RIGHT", 4, 0)
+		slider:SetPoint("RIGHT", up, "LEFT", -4, 0)
+		line.down, line.up = down, up
 		slider:SetHeight(18)
 		slider:SetMinMaxValues(spec.min, spec.max)
 		slider:SetValueStep(spec.step)
@@ -887,7 +1170,7 @@ local function CreateOptions()
 			return math.floor((v - spec.min) / spec.step + 0.5) * spec.step + spec.min
 		end
 		local function Enter()
-			Hover(line, spec.label, spec.tooltip, Show(tonumber(OptionValue(key, spec.char)) or spec.min))
+			Hover(line, spec.label, PadHint(spec.tooltip), Show(tonumber(OptionValue(key, spec.char)) or spec.min))
 		end
 		local updating = false
 		slider:SetScript("OnValueChanged", function(_, v, userInput)
@@ -905,6 +1188,26 @@ local function CreateOptions()
 				SetOption(key, Snap(self:GetValue()))
 			end
 		end)
+		local function Step(by)
+			local v = Snap((tonumber(OptionValue(key, spec.char)) or spec.min) + by * spec.step)
+			v = math.max(spec.min, math.min(spec.max, v))
+			PlaySound(SOUNDKIT.U_CHAT_SCROLL_BUTTON or SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			SetOption(key, v)
+			line.Update()
+			Enter()
+		end
+		down:SetScript("OnClick", function()
+			Step(-1)
+		end)
+		up:SetScript("OnClick", function()
+			Step(1)
+		end)
+		for _, b in ipairs({ down, up }) do
+			b:SetScript("OnEnter", Enter)
+			b:SetScript("OnLeave", function() Unhover(line) end)
+		end
+		local name = NameButton(line, { down, up, slider }, Step, Enter, function() Unhover(line) end)
+		line.name = name
 		line:SetScript("OnEnter", Enter)
 		line:SetScript("OnLeave", Unhover)
 		line.Update = function()
@@ -916,6 +1219,9 @@ local function CreateOptions()
 		end
 		line.SetActive = function(_, on)
 			slider:SetEnabled(on)
+			down:SetEnabled(on)
+			up:SetEnabled(on)
+			name:SetEnabled(on)
 			slider:SetAlpha(on and 1 or 0.45)
 			text:SetAlpha(on and 1 or 0.45)
 			value:SetAlpha(on and 1 or 0.45)
@@ -935,14 +1241,14 @@ local function CreateOptions()
 		for i = 2, #section do
 			local key = section[i]
 			local row
-			if choices[key] then
+			if key == "castKey" then
+				row = KeyRow()
+			elseif choices[key] then
 				row = choices[key].list and ChoiceRow(key, choices[key]) or SliderRow(key, choices[key])
 			elseif byKey[key] then
 				row = CheckRow(byKey[key])
 			end
-			if key == "theme" then
-				f.themeRow, f.themeValue = row, row.value
-			elseif key == "tabSide" then
+			if key == "tabSide" then
 				f.sideRow = row
 			end
 		end
@@ -996,7 +1302,11 @@ local function CreateOptions()
 		b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
 		b.selected = b:CreateTexture(nil, "BACKGROUND")
 		b.selected:SetAllPoints()
-		b.selected:SetColorTexture(1, 0.82, 0.3, 0.16)
+		if ns.UI.HasAtlas("options_list_active") then
+			b.selected:SetAtlas("options_list_active") -- as the game's own options list
+		else
+			b.selected:SetColorTexture(1, 0.82, 0.3, 0.16)
+		end
 		b.selected:Hide()
 		b.icon = b:CreateTexture(nil, "ARTWORK")
 		b.icon:SetSize(24, 24)
@@ -1013,11 +1323,25 @@ local function CreateOptions()
 			Select(cat.name)
 		end)
 		f.navButtons[cat.name] = b
+		f.navList = f.navList or {}
+		f.navList[i] = b
+		b.category = cat.name
 	end
+	-- For a controller's bumpers: the categories, and the one on show.
+	f.gamepadTabs = function()
+		local current = ns.db and ns.db.optionsPage or "General"
+		for i, b in ipairs(f.navList) do
+			if b.category == current then
+				return f.navList, i
+			end
+		end
+		return f.navList, 1
+	end
+	f.gamepadTabsVertical = true
+	f.gamepadTabsLabel = "Category"
 
 	-- The one thing that stays in the game's options: your cast key.
 	local keys = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-	ns.Theme.Register(keys, "button")
 	keys:SetSize(140, 22)
 	keys:SetPoint("BOTTOMLEFT", 10, 4)
 	keys:SetText("Key bindings")
@@ -1054,7 +1378,11 @@ local function CreateOptions()
 	return f
 end
 
-function Hub.ShowOptions()
+-- `category`, if given, is the one to show ("Fishing", "Controller").
+function Hub.ShowOptions(category)
 	optionsFrame = optionsFrame or CreateOptions()
 	optionsFrame:Show()
+	if category and optionsFrame.Select then
+		optionsFrame.Select(category)
+	end
 end

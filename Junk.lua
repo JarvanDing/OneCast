@@ -14,16 +14,9 @@ local STEP = 0.15 -- seconds between sales, so the server keeps up
 local button
 local selling = false
 
--- "button", "auto" or "off". Test builds before 0.9.0 had a checkbox (sellJunk) for automatic selling.
+-- "button", "auto" or "off".
 function Junk.Mode()
-	local db = ns.db
-	if not db then
-		return "button"
-	end
-	if db.junkMode == nil and db.sellJunk ~= nil then
-		db.junkMode = db.sellJunk and "auto" or "button"
-	end
-	return db.junkMode or "button"
+	return ns.db and ns.db.junkMode or "button"
 end
 
 -- Every stack of fishing junk in the bags: { bag, slot, id, count, price }, and the total.

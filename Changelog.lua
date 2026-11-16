@@ -6,6 +6,52 @@ local _, ns = ...
 
 ns.CHANGELOG = {
 	{
+		version = "1.0.0",
+		date = "16 November 2026",
+		sections = {
+			{ "New", {
+				{ "Choose your cast key in OneCast.", "A welcome window at your first login asks for your key: click, press the key you want, done. It's also the first row of Options > Fishing, and /onecast setup brings the window back." },
+				{ "Controller support.", "With your pole on, A / Cross casts and reels; hold both triggers to put the pole on first, and Y / Triangle opens the OneCast window. In Forever's gamepad interface, OneCast's windows join the game's navigation. Your controller's own button icons show throughout, at a size you choose, and alerts can rumble. All of it under Options > Controller; /onecast pad shows what OneCast sees of your controller." },
+				{ "Done fishing.", "A button on the stats window and the mini bar, a key binding and /onecast done: your weapons and gear go back on and the session is summed up, without resetting it. Thanks to DashiDoshi for the idea!" },
+				{ "Your shirt in the wardrobe.", "The fishing outfit has a Shirt slot. Thanks to clank0819 for the idea!" },
+				{ "What was inside.", "Open a trunk, crate or clam you fished up and what it held counts as part of your catch: under it on the Session tab as a tree, in what the session's worth, and in your data report." },
+				{ "Each catch's worth.", "The Session tab shows what each catch is worth, how many got away, your fish per hour against your best, and what's new for your collection." },
+				{ "Fast loot.", "With auto loot on, your whole catch is taken the moment the loot window opens, quicker than the game's own auto loot. Only fishing loot and what's inside the trunks and crates you fish up. Off by default, under Options > Fishing." },
+				{ "Search.", "One search across catches, zones, pools, recipes, gear, ranks and settings, from the collection's search box or /onecast search." },
+				{ "The Gear guide.", "The wardrobe's second tab: every fishing pole and piece of fishing gear with its bonus and where it comes from. Click a card for a waypoint (the quest giver, the rare that drops it, Booty Bay's prize vendors, or the nearest fishing vendor on your side), right-click for Wowhead. Gear only the other faction can get is left out." },
+				{ "Where to fish, as a ladder.", "The Zones tab is rebuilt: each Fishing level a rung, your skill marked on the ladder, how many of each zone's fish you've caught, and what's still to catch here." },
+				{ "Recipe sellers.", "A fish's recipes say who sells each one to you, with a waypoint to the nearest." },
+				{ "Camp, rebuilt.", "The Camp tab shows each craft's reagents against what you have, where its blueprint drops with a waypoint to the dungeon, the campfires and where the Journeyman and Expert blueprints come from, and your camp buff right now." },
+				{ "The Extravaganza's prizes.", "Forever's Fishing Extravaganza: the first 50 winners get the Arcanite Fishing Pole and a coin for one of Jang's prizes. Each rare contest fish's page says what Fishbot 5000 trades it for, and the High Test Eternium Fishing Line is in the Gear guide." },
+				{ "Accessibility.", "A new Options page: larger text in every window, bigger controller buttons, the ticks on what you've caught turned off, and reduced motion." },
+				{ "Your windows, your call.", "Two settings under Stats and alerts: whether Done fishing closes the stats window, and whether Escape closes OneCast's windows. Both off: OneCast stays open until you close it." },
+			} },
+			{ "Changed", {
+				{ "A look that's Forever's own.", "Buttons, scrollbars, lists, text and spacing follow the game's own interface throughout. Themes are gone, and so are the bobber marker's styles and the custom beam colour: the beam keeps its colour choices." },
+				{ "Your session lasts until you reset it.", "A break, a /reload or putting your weapons back on no longer starts a new session. Only the Reset button does." },
+				{ "Escape is the game's.", "Escape no longer closes OneCast's windows along with your bags or map: it's left to the game, unless you turn on Escape closes OneCast windows." },
+				{ "One wanted list.", "Wanted fish and catch goals are one list: right-click a catch to want it, or want a number of them." },
+				{ "The data report, redesigned.", "Two columns: what you've found, each explained, and the report ready to share. It no longer says anything in chat: a badge on its tab shows when there's something new." },
+				{ "Auction prices.", "Prices come from whichever price addon you have, with no setting to choose it." },
+				{ "Pools on the map.", "Remembered pools are drawn as the game's fishing-hole icon, grouped where they're close together." },
+				{ "Data checked against Forever.", "Every fish, recipe, gear piece, lure and camp craft checked against Forever's newest game data and Wowhead's Forever database. Outland's pools, which Forever doesn't have, are gone from the pool tooltips." },
+				{ "Removed.", "The Session tab's Catch next row, and the fish you hadn't caught yet in Caught this session: it lists only what you caught." },
+			} },
+			{ "Fixed", {
+				{ "Closing in combat.", "A window's X works in combat, without an Interface action failed error." },
+				{ "Your sound comes back.", "Your music, ambience and dialog volumes come back when your weapons go back on." },
+				{ "The game's options.", "OneCast's page in the game's options no longer causes a blocked-action error elsewhere in them, such as Social. Thanks to BreadGar for reporting it!" },
+				{ "Larger text.", "Pages that ran out of room with larger text now fit." },
+				{ "The journey's zones.", "A rank's Fish in line no longer runs off the end of its card: it lists as many zones as fit, then how many more. Hover the card for all of them." },
+				{ "The mini bar.", "Closed by hand, it comes back after a break from fishing, as the stats window does, even if your pole never came off. Turning mini mode off closes a bar that's open." },
+				{ "The wardrobe's total.", "When you're already wearing your fishing outfit, it shows your Fishing and what the outfit adds, not an arrow from a number to the same number." },
+			} },
+			{ "Reported by Cyndaria", {
+				{ "Desolace and Stonetalon confirmed.", "Desolace needs 225 in Forever: fish got away less and less as skill rose towards it, and none in 231 catches from 225 up. Stonetalon Mountains needs 150: 2 of 17 got away just under it." },
+			} },
+		},
+	},
+	{
 		version = "0.9.1a",
 		date = "14 November 2026",
 		sections = {

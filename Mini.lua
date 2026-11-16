@@ -1,8 +1,7 @@
 -- OneCast mini mode: a slim bar in place of the stats window while you fish. Your skill and
--- how the zone suits it, the session's catches and rate, your lure, and any catch goals.
+-- how the zone suits it, the session's catches and rate, your lure, and your wanted list.
 -- Opens when you cast if "Mini bar instead of the stats window" is on, and closes when your
 -- weapons go back on, as the window does. Click it for the full stats; right-click or its X closes it until the pole comes off.
--- It's a small OneCast window, so it follows the theme like the rest.
 
 local _, ns = ...
 
@@ -10,14 +9,15 @@ local Mini = {}
 ns.Mini = Mini
 
 local WIDTH = 300
+local LATEST_HEIGHT = 28 -- the latest catch's card
 local PAD = 8
-local MOOD = { good = "|cff1eff00", warn = "|cffffd100", bad = "|cffff4040", unknown = "|cff9d9d9d" }
+local MOOD = { good = "|cff20ff20", warn = "|cffffd100", bad = "|cffff2020", unknown = "|cff9d9d9d" }
 
 local frame
 local autoOpened = false
 
 local function Line(parent, font)
-	local fs = parent:CreateFontString(nil, "OVERLAY", font or "GameFontHighlightSmall")
+	local fs = parent:CreateFontString(nil, "OVERLAY", font or "OneCastFontHighlightSmall")
 	fs:SetJustifyH("LEFT")
 	fs:SetWordWrap(false)
 	return fs
@@ -25,8 +25,7 @@ end
 
 -- A compact frame of its own: the game's window art is built for full-size windows, and its
 -- heavy top and bottom swamp a bar this short. The dialog border, the windows' gilded section
--- band as its title, holding your skill, and a dark panel, all registered with the theme, so
--- it takes the theme's colours, scenery and particles like the windows do.
+-- band as its title, holding your skill, and a dark panel.
 local BORDER = 9         -- inside the dialog border
 local BAND_HEIGHT = 22   -- the title band
 local TITLE_HEIGHT = BORDER + BAND_HEIGHT + 1 -- from the top to the panel
@@ -63,9 +62,23 @@ local function Create()
 	close:SetPoint("TOPRIGHT", -BORDER + 1, -BORDER + 1)
 	close:SetFrameLevel(f:GetFrameLevel() + 5)
 	f.CloseButton = close
+	if UI and UI.CloseOwn then
+		UI.CloseOwn(f) -- its X works in combat too
+	end
+	-- Done fishing: weapons and gear back on.
+	local done = UI and UI.IconButton and UI.IconButton(f, "Weapons", "Done fishing: your weapons and gear back on. The session carries on until you reset it.", function()
+		OneCast_DoneFishing()
+	end)
+	if done then
+		done:SetSize(20, 20)
+		done.icon:SetSize(14, 14)
+		done:SetPoint("RIGHT", close, "LEFT", -1, 0)
+		done:SetFrameLevel(f:GetFrameLevel() + 5)
+		f.done = done
+	end
 	local band = f:CreateTexture(nil, "ARTWORK")
 	band:SetPoint("TOPLEFT", BORDER, -BORDER)
-	band:SetPoint("RIGHT", close, "LEFT", 0, 0)
+	band:SetPoint("RIGHT", done or close, "LEFT", 0, 0)
 	band:SetHeight(BAND_HEIGHT)
 	if UI and UI.HasAtlas and UI.HasAtlas("UI-Character-Info-Title") then
 		band:SetAtlas("UI-Character-Info-Title")
@@ -96,11 +109,6 @@ local function Create()
 	f:SetScript("OnDragStop", f.StopMovingOrSizing)
 	if UI and UI.RememberPosition then
 		UI.RememberPosition(f, "mini")
-	end
-	ns.Theme.Frame(f, inset, true)
-	ns.Theme.Register(f.band, "header") -- after the frame, so the band takes the header's tint
-	if f.border then
-		ns.Theme.Register(f.border, "frame")
 	end
 	-- Closed with its X: it stays closed for this stretch of fishing.
 	if f.CloseButton then
@@ -142,8 +150,26 @@ local function Create()
 	f.session = Line(inset)
 	f.session:SetPoint("TOPLEFT", f.zone, "BOTTOMLEFT", 0, -3)
 	f.session:SetPoint("RIGHT", -PAD, 0)
+	-- The latest catch, as a small card under the session.
+	f.latest = CreateFrame("Frame", nil, inset)
+	f.latest:SetHeight(LATEST_HEIGHT)
+	f.latest:SetPoint("TOPLEFT", f.session, "BOTTOMLEFT", 0, -4)
+	f.latest:SetPoint("RIGHT", -PAD, 0)
+	f.latest.icon = f.latest:CreateTexture(nil, "ARTWORK")
+	f.latest.icon:SetSize(LATEST_HEIGHT - 2, LATEST_HEIGHT - 2)
+	f.latest.icon:SetPoint("LEFT", 0, 0)
+	f.latest.border = f.latest:CreateTexture(nil, "OVERLAY")
+	f.latest.border:SetAllPoints(f.latest.icon)
+	f.latest.border:SetTexture("Interface\\Common\\WhiteIconFrame")
+	f.latest.name = Line(f.latest, "GameFontHighlight")
+	f.latest.name:SetPoint("TOPLEFT", f.latest.icon, "TOPRIGHT", 6, -1)
+	f.latest.name:SetPoint("RIGHT", 0, 0)
+	f.latest.sub = Line(f.latest, "OneCastFontHighlightSmall")
+	f.latest.sub:SetTextColor(0.78, 0.78, 0.78)
+	f.latest.sub:SetPoint("BOTTOMLEFT", f.latest.icon, "BOTTOMRIGHT", 6, 1)
+	f.latest.sub:SetPoint("RIGHT", 0, 0)
+	f.latest:Hide()
 	f.lure = Line(inset)
-	f.lure:SetPoint("TOPLEFT", f.session, "BOTTOMLEFT", 0, -3)
 	f.lure:SetPoint("RIGHT", -PAD, 0)
 	-- The Fishing Extravaganza: while it runs, or in the hours before.
 	f.contest = Line(inset)
@@ -203,30 +229,46 @@ function Mini.Refresh()
 	local Stats = ns.Stats
 	local rank, maxRank, modifier = Stats.FishingSkill()
 	frame.titleText:SetText(rank and string.format("%s %d/%d%s", ns.GetFishingName and ns.GetFishingName() or "Fishing",
-		rank, maxRank, (modifier or 0) > 0 and string.format(" |cff1eff00+%d|r", modifier) or "") or "Fishing")
+		rank, maxRank, (modifier or 0) > 0 and string.format(" |cff20ff20+%d|r", modifier) or "") or "Fishing")
 	local zone = Stats.CurrentZone()
 	local badge = zone and Stats.ZoneBadge(zone)
 	frame.zone:SetText(badge and ZoneLine(zone, badge) or "")
 	frame.session:SetText(Stats.Summary() or "|cff9d9d9dNo casts yet this session.|r")
+	-- The latest catch: its icon, its name, and when.
+	local last = Stats.LatestCatch and Stats.LatestCatch()
+	local card = frame.latest
+	card:SetShown(last and true or false)
+	if last then
+		card.icon:SetTexture(last.icon)
+		local color = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[last.quality or 1]
+		card.name:SetText(last.name or "?")
+		card.name:SetTextColor(color and color.r or 1, color and color.g or 1, color and color.b or 1)
+		card.border:SetVertexColor(color and color.r or 1, color and color.g or 1, color and color.b or 1)
+		card.sub:SetText("Latest catch  ·  " .. Stats.Since(last.time) .. ((last.quantity or 1) > 1 and ("  ·  x" .. last.quantity) or ""))
+	end
 	local lure, problem
 	if ns.Lure then
 		lure, problem = ns.Lure.StatusLine()
 	end
-	frame.lure:SetText(lure and ((problem and "|cffff4040" or "|cffd0d0d0") .. "Lure: " .. lure .. "|r") or "")
+	frame.lure:SetText(lure and ((problem and "|cffff2020" or "|cffd0d0d0") .. "Lure: " .. lure .. "|r") or "")
 
-	-- Goals: the unfinished ones first.
+	-- The wanted list: what's still wanted first.
 	local list = {}
-	for id, g in pairs(Stats.Goals and Stats.Goals() or {}) do
-		list[#list + 1] = { id = id, g = g }
+	for id, w in pairs(Stats.Wanted and Stats.Wanted() or {}) do
+		list[#list + 1] = { id = id, g = w }
 	end
 	table.sort(list, function(a, b)
-		local da, db = a.g.got >= a.g.target, b.g.got >= b.g.target
+		local da, db = a.g.target and a.g.got >= a.g.target or false, b.g.target and b.g.got >= b.g.target or false
 		if da ~= db then
 			return not da
 		end
 		return (a.g.name or "") < (b.g.name or "")
 	end)
-	local previous = lure and frame.lure or frame.session
+	local below = last and frame.latest or frame.session
+	frame.lure:ClearAllPoints()
+	frame.lure:SetPoint("TOPLEFT", below, "BOTTOMLEFT", 0, last and -4 or -3)
+	frame.lure:SetPoint("RIGHT", -PAD, 0)
+	local previous = lure and frame.lure or below
 	local lines = (lure and 3 or 2)
 	-- The Extravaganza, when there's something to say about it.
 	local contest = ns.Extravaganza and ns.Extravaganza.StatusLine and ns.Extravaganza.StatusLine(zone)
@@ -243,13 +285,14 @@ function Mini.Refresh()
 		local fs = GoalLine(i)
 		local g = entry.g
 		local icon = C_Item.GetItemIconByID(entry.id)
-		local done = g.got >= g.target
+		local done = g.target and g.got >= g.target
 		fs:ClearAllPoints()
 		fs:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 0, -3)
 		fs:SetPoint("RIGHT", -PAD, 0)
-		fs:SetText(string.format("%s%s  %s%d/%d|r", icon and ("|T" .. icon .. ":12:12:0:0:64:64:5:59:5:59|t ") or "",
-			g.name or C_Item.GetItemNameByID(entry.id) or ("item " .. entry.id),
-			done and "|cff1eff00" or "|cff71d5ff", math.min(g.got, g.target), g.target))
+		local count = g.target and string.format("%s%d/%d|r", done and "|cff20ff20" or "|cff71d5ff", math.min(g.got, g.target), g.target)
+			or ((g.got or 0) > 0 and string.format("|cffffd100x%d|r", g.got) or "|cffffd100wanted|r")
+		fs:SetText(string.format("%s%s  %s", icon and ("|T" .. icon .. ":12:12:0:0:64:64:5:59:5:59|t ") or "",
+			g.name or C_Item.GetItemNameByID(entry.id) or ("item " .. entry.id), count))
 		fs:Show()
 		previous = fs
 		lines = lines + 1
@@ -257,9 +300,13 @@ function Mini.Refresh()
 	for i = #list + 1, #frame.goals do
 		frame.goals[i]:Hide()
 	end
+	-- With a controller: what the buttons do, in a legend under the bar, as under the windows.
+	if ns.Controller and ns.Controller.UpdateMiniLegend then
+		ns.Controller.UpdateMiniLegend(frame)
+	end
 	frame.lure:SetShown(lure ~= nil)
 	-- The title, the lines (12 high, 3 apart) with a little room above and below, the border.
-	frame:SetHeight(TITLE_HEIGHT + BOTTOM + 6 + lines * 12 + (lines - 1) * 3 + 7)
+	frame:SetHeight(TITLE_HEIGHT + BOTTOM + 6 + lines * 12 + (lines - 1) * 3 + 7 + (last and (LATEST_HEIGHT + 4) or 0))
 end
 
 function Mini.Show(auto)
@@ -269,11 +316,20 @@ function Mini.Show(auto)
 	Mini.Refresh()
 end
 
+-- Done fishing, kept open: no longer closing itself when the weapons go back on.
+function Mini.KeepOpen()
+	autoOpened = false
+end
+
 function Mini.Hide()
 	autoOpened = false
 	if frame then
 		frame:Hide()
 	end
+end
+
+function Mini.Frame()
+	return frame
 end
 
 function Mini.IsShown()

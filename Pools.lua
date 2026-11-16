@@ -19,7 +19,7 @@ local MAX_PER_MAP = 200
 
 local PATTERNS = {
 	" School$", "^School of ", " Swarm$", " Wreckage$", " Debris$", " Flotsam$", "^Oil Spill$",
-	"^Patch of Elemental Water$", "Churning Waters?$", "^Strange Pool$", "^Pure Water$",
+	"^Patch of Elemental Water$", "Churning Waters?$",
 }
 
 -- A pool's English name, whatever the client's language. Anything else comes back as it was.
@@ -166,7 +166,7 @@ local function AddPoolLoot(tooltip, name, show)
 		local icon = C_Item.GetItemIconByID(id)
 		local caught = ns.Collection and ns.Collection.Get(id).total > 0
 		local left = (icon and ("|T" .. icon .. ":14:14:0:0:64:64:5:59:5:59|t ") or "") .. itemName
-			.. (caught and "" or "  |cff1eff00not caught yet|r")
+			.. (caught and "" or "  |cff20ff20not caught yet|r")
 		local right = pct >= 1 and string.format("%s%%", (string.format("%.1f", pct):gsub("%.0$", ""))) or ns.OneIn(pct)
 		if caught then
 			tooltip:AddDoubleLine(left, right, 0.85, 0.85, 0.85, 0.7, 0.7, 0.7)

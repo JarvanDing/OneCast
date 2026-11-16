@@ -27,21 +27,13 @@ local SECTION_COLOR = {
 }
 local REPORTED_COLOR = { 0.42, 0.20, 0.55 }
 
--- On a dark page (a theme whose ink is light), the colours are lifted so they still read.
-local darkPage = false
-
 local function SectionColor(name)
-	local c = name:find("^Reported by") and REPORTED_COLOR or SECTION_COLOR[name]
-	if c and darkPage then
-		return { c[1] * 0.45 + 0.55, c[2] * 0.45 + 0.55, c[3] * 0.45 + 0.55 }
-	end
-	return c
+	return name:find("^Reported by") and REPORTED_COLOR or SECTION_COLOR[name]
 end
 
 -- Parchment ink, like quest text.
 local INK = { 0.18, 0.10, 0.02 }
 local INK_SOFT = { 0.32, 0.22, 0.12 }
-local LEAD = "|cff7a2a00" -- the bold-ish opening phrase of each bullet
 
 local frame
 local selected = 1
@@ -67,7 +59,6 @@ end
 local function Inset(parent)
 	local f = TryCreate("Frame", nil, parent, "InsetFrameTemplate")
 	if f then
-		ns.Theme.Panel(f)
 	else
 		f = CreateFrame("Frame", nil, parent, "BackdropTemplate")
 		f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -258,9 +249,6 @@ local function CreateWindow()
 	f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving)
 	ns.UI.RememberPosition(f, "whatsNew")
-	tinsert(UISpecialFrames, f:GetName())
-	ns.Theme.Frame(f, f.Inset)
-	ns.UI.KeepOpenThroughOptions(f:GetName())
 
 	-- Top line: how much there is, newest first.
 	local summary = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -278,7 +266,7 @@ local function CreateWindow()
 	listTitle:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 	listTitle:SetPoint("TOPLEFT", 16, -14)
 	listTitle:SetText("OneCast")
-	local listCount = list:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	local listCount = list:CreateFontString(nil, "OVERLAY", "OneCastFontDisableSmall")
 	listCount:SetPoint("TOPRIGHT", -16, -20)
 	listCount:SetText("mouse wheel to move")
 	list:EnableMouseWheel(true)
@@ -292,25 +280,31 @@ local function CreateWindow()
 		row:SetHeight(ROW_HEIGHT)
 		row:SetPoint("TOPLEFT", 8, -46 - (i - 1) * ROW_HEIGHT)
 		row:SetPoint("TOPRIGHT", -8, -46 - (i - 1) * ROW_HEIGHT)
-		-- Chosen: a soft wash with a gold edge, not a solid block.
+		-- Chosen: the game's options list art, or a soft wash with a gold edge without it.
 		row.selectedBg = row:CreateTexture(nil, "BACKGROUND")
 		row.selectedBg:SetAllPoints()
-		row.selectedBg:SetColorTexture(1, 0.82, 0.3, 0.14)
 		row.selectedEdge = row:CreateTexture(nil, "BORDER")
 		row.selectedEdge:SetPoint("TOPLEFT")
 		row.selectedEdge:SetPoint("BOTTOMLEFT")
 		row.selectedEdge:SetWidth(3)
-		row.selectedEdge:SetColorTexture(1, 0.82, 0.3, 0.95)
+		if ns.UI.HasAtlas("options_list_active") then
+			row.selectedBg:SetAtlas("options_list_active")
+			row.selectedEdge:SetAlpha(0)
+		else
+			row.selectedBg:SetColorTexture(1, 0.82, 0.3, 0.14)
+			row.selectedEdge:SetColorTexture(1, 0.82, 0.3, 0.95)
+		end
 		row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
 		row.label = row:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 		row.label:SetPoint("TOPLEFT", 12, -6)
 		row.label:SetText("Version " .. release.version)
-		row.date = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+		row.date = row:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
+		row.date:SetTextColor(0.78, 0.78, 0.78)
 		row.date:SetPoint("TOPLEFT", row.label, "BOTTOMLEFT", 0, -3)
 		local n = CountChanges(release)
 		row.date:SetText(release.date .. "  ·  " .. n .. (n == 1 and " change" or " changes"))
 		-- The one you're running.
-		row.count = row:CreateFontString(nil, "OVERLAY", "GameFontGreenSmall")
+		row.count = row:CreateFontString(nil, "OVERLAY", "OneCastFontGreenSmall")
 		row.count:SetPoint("RIGHT", -10, 0)
 		row.count:SetText(release.version == ns.VERSION and "Installed" or "")
 		row:SetScript("OnClick", function()
@@ -326,7 +320,6 @@ local function CreateWindow()
 	page:SetPoint("BOTTOMRIGHT", -12, 64)
 	local parchment = page:CreateTexture(nil, "BACKGROUND")
 	parchment:SetAllPoints()
-	ns.Theme.Register(parchment, "parchment")
 	if HasAtlas("QuestBG-Parchment") then
 		parchment:SetAtlas("QuestBG-Parchment")
 	else
@@ -350,15 +343,33 @@ local function CreateWindow()
 	end
 	f.scroll, f.content = scroll, content
 
+	-- With a controller: the notes as one stop (the game's navigation can't reach a scroll bar
+	-- beside its text). There, the right stick and the D-pad's up and down scroll them.
+	local function ScrollBy(pixels)
+		local max = math.max(0, content:GetHeight() - scroll:GetHeight())
+		scroll:SetVerticalScroll(math.max(0, math.min(max, scroll:GetVerticalScroll() + pixels)))
+	end
+	local notes = CreateFrame("Button", nil, page)
+	notes:SetPoint("TOPLEFT", scroll, "TOPLEFT", 0, 0)
+	notes:SetPoint("BOTTOMRIGHT", scroll, "BOTTOMRIGHT", 0, 0)
+	notes:SetFrameLevel(scroll:GetFrameLevel() + 2)
+	notes:EnableMouse(false) -- the mouse reads and wheels the page as ever
+	notes.padScrollStop = true
+	f.notes = notes
+	f.padScrollOwns = function(button)
+		return button == notes
+	end
+	if ns.Controller then
+		ns.Controller.AdjustVertical(notes, function() ScrollBy(-60) end, function() ScrollBy(60) end)
+	end
+
 	-- Bottom: Newer / Older on the left, Close on the right.
 	f.newer = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-	ns.Theme.Register(f.newer, "button")
 	f.newer:SetSize(110, 22)
 	f.newer:SetPoint("BOTTOMLEFT", 12, 36)
 	f.newer:SetText("< Newer")
 	f.newer:SetScript("OnClick", function() Select(selected - 1) end)
 	f.older = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-	ns.Theme.Register(f.older, "button")
 	f.older:SetSize(110, 22)
 	f.older:SetPoint("LEFT", f.newer, "RIGHT", 12, 0)
 	f.older:SetText("Older >")
@@ -382,7 +393,7 @@ local function CreateWindow()
 		end
 	end)
 	url:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-	local hint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	local hint = f:CreateFontString(nil, "OVERLAY", "OneCastFontDisableSmall")
 	hint:SetPoint("LEFT", url, "RIGHT", 8, 0)
 	hint:SetText("click, then Ctrl+C")
 
@@ -446,16 +457,3 @@ events:SetScript("OnEvent", function()
 	end)
 end)
 
--- This window's soft ink is a touch darker than the book's on the game's own parchment.
-local FOREVER_SOFT = { INK_SOFT[1], INK_SOFT[2], INK_SOFT[3] }
-
-ns.Theme.OnChange(function(theme)
-	local soft = theme.id == ns.Theme.DEFAULT and FOREVER_SOFT or theme.inkSoft
-	INK[1], INK[2], INK[3] = theme.ink[1], theme.ink[2], theme.ink[3]
-	darkPage = (theme.ink[1] + theme.ink[2] + theme.ink[3]) > 1.5
-	INK_SOFT[1], INK_SOFT[2], INK_SOFT[3] = soft[1], soft[2], soft[3]
-	LEAD = theme.lead
-	if frame and frame:IsShown() then
-		RenderPage()
-	end
-end)
