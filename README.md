@@ -50,7 +50,7 @@ And around it:
 ![Mini mode: your Fishing skill, whether fish get away in this zone, your catches and fish per hour, and your latest catch, with Done fishing beside the close button](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/mini.png?v=1.0.0)
 
 ### 🧰 The tackle box
-![The tackle box: choose a lure (or none), apply it with the cast key, and your fish per hour with and without one](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/tackle-box.png?v=1.0.0)
+![The tackle box: choose a lure (or none), apply it with the cast key, and your fish per hour with and without one](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/tackle-box.png?v=1.0.0b)
 
 - A small button appears while your pole is on, showing your lure, how many you have and the time left. It pulses when the lure is about to run out.
 - **You choose the lure** for each character, so a rare one is only spent if you pick it. Or pick **Best I can use** if you don't mind spending them.
@@ -65,11 +65,11 @@ And around it:
 - Pick its colour: arcane, gold, ice blue, your class colour and more.
 
 ### 📖 The fishing collection
-![The collection book: every fish, with the ones you've caught in colour and how many](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/collection.png?v=1.0.0)
+![The collection book: every fish, with the ones you've caught in colour and how many](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/collection.png?v=1.0.0b)
 
-![The Treasure tab: chests, crates, trunks, the Rumsey Rums and The 1 Ring, with the ones you've fished up in colour](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/treasure.png?v=1.0.0)
+![The Treasure tab: chests, crates, trunks, the Rumsey Rums and The 1 Ring, with the ones you've fished up in colour](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/treasure.png?v=1.0.0b)
 
-![A fish's page: what it is and how rare, your catches on each character, by day and at night, every zone it's caught in with your catches and the skill each needs, a map, and the recipes it's used in with their sellers](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/fish-page.png?v=1.0.0)
+![A fish's page: what it is and how rare, your catches on each character, by day and at night, every zone it's caught in with your catches and the skill each needs, a map, and the recipes it's used in with their sellers](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/fish-page.png?v=1.0.0b)
 
 - **Every fish in WoW Forever** and the **treasure** you can fish up: 113 catches across fish, special catches, trophy fish, bloated fish and treasure like **The 1 Ring** and the **Rumsey Rums**. Shared across all your characters, including what you caught before installing.
 - **How rare is it?** Every catch has a rarity, from Common to Very rare, with its odds (The 1 Ring is about 1 in 2,000 catches), zone by zone.
@@ -82,7 +82,7 @@ And around it:
 - **Remembered pools:** cast at a pool and the spot is marked on the book's zone maps.
 
 ### 🗺️ Where to fish next
-![The Zones tab: a ladder of Fishing levels with yours marked on it, each level's zones and how many of their fish you've caught, and what's still to catch](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/zones.png?v=1.0.0)
+![The Zones tab: a ladder of Fishing levels with yours marked on it, each level's zones and how many of their fish you've caught, and what's still to catch](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/zones.png?v=1.0.0b)
 
 - **Zones tab:** a ladder of every zone by the Fishing it needs, with your skill marked on it and how many of each rung's fish you've caught. Click a zone to see its fish.
 - **Is this zone right for you?** A skill bar shows your Fishing, lure bonus included, and whether fish will get away here. Short of a zone's level? OneCast names a lure in your bags that would cover it.
@@ -99,25 +99,25 @@ And around it:
 - Fish on your wanted list get their own alert.
 
 ### 👒 The fishing wardrobe
-![The fishing wardrobe: each slot's fishing item around your character wearing the outfit, the pole, and the Fishing it adds](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/wardrobe.png?v=1.0.0)
+![The fishing wardrobe: each slot's fishing item around your character wearing the outfit, the pole, and the Fishing it adds](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/wardrobe.png?v=1.0.0b)
 
 - Choose what you fish in, slot by slot, on a page laid out like the character sheet, with your character wearing it.
 - Each slot takes the best Fishing bonus in your bags, an item you pick, or what you're wearing. Pick the pole too.
 - See your Fishing with the outfit against what you wear now.
 - It goes on with the pole and comes off with your weapons.
 
-![The Gear guide: every fishing pole and piece of fishing gear as cards, with its Fishing bonus, whether you have it and where it comes from, and the best you have for each slot](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/gear-guide.png?v=1.0.0)
+![The Gear guide: every fishing pole and piece of fishing gear as cards, with its Fishing bonus, whether you have it and where it comes from, and the best you have for each slot](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/gear-guide.png?v=1.0.0b)
 
 - **Gear guide:** every fishing pole and piece of fishing gear, with its Fishing bonus, whether you have it, and where it comes from. Click a card for a **waypoint** to where you get it: the quest giver, the rare that drops it, Booty Bay's prize vendors, or the nearest fishing vendor on your side. Right-click for its Wowhead page and its source's. Gear only the other faction can get is left out.
 
 ### 🧭 Fisherman's journey
-![Fisherman's journey: Apprentice to Artisan, each with how to learn it, where to fish and what it needs, Show on map for Expert's book and Nat Pagle, and your progress to your cap](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/journey.png?v=1.0.0)
+![Fisherman's journey: Apprentice to Artisan, each with how to learn it, where to fish and what it needs, Show on map for Expert's book and Nat Pagle, and your progress to your cap](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/journey.png?v=1.0.0b)
 
 - The four Fishing ranks, Apprentice to Artisan: where you stand and how many catches to your cap, and for each rank how and where to learn it and where to fish at that stage.
 - **Show on map** sets a waypoint to Expert's book in Booty Bay and to Nat Pagle for the Artisan quest. Nat's four fish tick off as you catch them.
 
 ### 🏕️ Fishing at camp
-![The Camp tab: the Fish Bowl, Fishing Rack and Fishing Hut with their reagents and where the blueprints drop, your camp buff right now, and the campfires](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/camp.png?v=1.0.0)
+![The Camp tab: the Fish Bowl, Fishing Rack and Fishing Hut with their reagents and where the blueprints drop, your camp buff right now, and the campfires](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/camp.png?v=1.0.0b)
 
 - A **Camp tab** for Forever's fishing crafts: the **Fish Bowl**, **Fishing Rack** and **Fishing Hut**, with what each does, whether you've learned it, and your reagents against what it takes.
 - **Where the blueprints drop**, with a click for a waypoint to the dungeon's entrance.
@@ -139,7 +139,7 @@ And around it:
 - Turn off the **ticks** on what you've caught, or **reduce motion** to stop OneCast's animations.
 
 ### ⚙️ Fits right in
-![The Options tab: categories on the left, their settings in the middle, and the one you hover explained on the right](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/options.png?v=1.0.0)
+![The Options tab: categories on the left, their settings in the middle, and the one you hover explained on the right](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/options.png?v=1.0.0b)
 
 - Built from WoW Forever's own art and UI style, so it looks like part of the game.
 - **One window for everything:** stats, tackle box, wardrobe, collection, Camp, Fisherman's journey, data report, What's new and options, with side tabs to move between them. It opens wherever you last dragged it, on the page you had open.
@@ -187,7 +187,7 @@ And around it:
 - Auction values need Auctionator, TradeSkillMaster or Naowh Forever installed.
 
 ## Help fill in Forever's numbers
-![The data report: what you've found that OneCast doesn't know yet, and the report ready to copy and share](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/report.png?v=1.0.0)
+![The data report: what you've found that OneCast doesn't know yet, and the report ready to copy and share](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/report.png?v=1.0.0b)
 
 Nobody has published Forever's real zone fishing levels, or where its rarer fish are found. Type `/onecast report`, click **Select report**, press Ctrl+C and paste it in a comment here or in a [data report on GitHub](https://github.com/rynmon/OneCast/issues/new?template=data-report.yml). The report window has both links ready to copy. When your fishing turns up something OneCast doesn't know, the Data report tab shows a badge until you share. The report lists your catches and getaways with the skill each happened at, any fish the collection is missing, and what the trunks you opened held, and nothing about who you are. With enough reports, OneCast can swap Classic's numbers for Forever's own.
 
