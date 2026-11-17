@@ -87,7 +87,7 @@ And around it:
 - **Zones tab:** a ladder of every zone by the Fishing it needs, with your skill marked on it and how many of each rung's fish you've caught. Click a zone to see its fish.
 - **Is this zone right for you?** A skill bar shows your Fishing, lure bonus included, and whether fish will get away here. Short of a zone's level? OneCast names a lure in your bags that would cover it.
 - Zones without a known level are judged from your own catches and getaways.
-- **On the world map:** a zone's fishing level, how your skill stands and your fish caught there.
+- **On the world map:** a zone's fishing level, how your skill stands and your fish caught there, on a card you can drag anywhere and size with Ctrl + mouse wheel.
 
 ### 💰 What your catch is worth
 - Vendor value of everything caught, and per hour of fishing, counting what was inside the trunks and crates you opened.

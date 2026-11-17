@@ -6,6 +6,15 @@ local _, ns = ...
 
 ns.CHANGELOG = {
 	{
+		version = "1.0.2",
+		date = "17 November 2026",
+		sections = {
+			{ "Reported by brisi73", {
+				{ "The world map card.", "Fishing on the world map is now a small card you can drag anywhere on the map and size with Ctrl + mouse wheel over it, so it never covers your coordinates. It starts in the middle of the map's foot, stays where you put it at any map size, and right-click puts it back." },
+			} },
+		},
+	},
+	{
 		version = "1.0.1",
 		date = "17 November 2026",
 		sections = {

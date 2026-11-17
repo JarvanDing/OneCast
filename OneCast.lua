@@ -169,7 +169,7 @@ local OPTIONS = {
 	{ cmd = "pooltips", key = "poolTooltip", label = "What a pool gives, on its tooltip",
 		tooltip = "Hover a fishing pool to see what it gives, with Classic's odds, and what you haven't caught yet." },
 	{ cmd = "map", key = "mapStrip", label = "Fishing levels on the world map",
-		tooltip = "A strip on the world map with the zone's fishing level, how your skill stands and your fish caught there. On a continent, it follows the zone under the mouse." },
+		tooltip = "A small card on the world map with the zone's fishing level, how your skill stands and your fish caught there. On a continent, it follows the zone under the mouse. Drag it anywhere, Ctrl + mouse wheel over it to size it, right-click to put it back." },
 	{ cmd = "badges", key = "tabBadges", label = "Green dots on the side tabs",
 		tooltip = "A green dot on the Report tab when you've found something to share, and on What's new when there's a version you haven't read." },
 	{ cmd = "minimap", key = "minimapButton", label = "Show minimap button",
