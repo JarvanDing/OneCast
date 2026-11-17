@@ -71,7 +71,7 @@ And around it:
 
 ![A fish's page: what it is and how rare, your catches on each character, by day and at night, every zone it's caught in with your catches and the skill each needs, a map, and the recipes it's used in with their sellers](https://raw.githubusercontent.com/rynmon/OneCast/main/assets/screenshots/fish-page.png?v=1.0.0b)
 
-- **Every fish in WoW Forever** and the **treasure** you can fish up: 113 catches across fish, special catches, trophy fish, bloated fish and treasure like **The 1 Ring** and the **Rumsey Rums**. Shared across all your characters, including what you caught before installing.
+- **Every fish in WoW Forever** and the **treasure** you can fish up: 114 catches across fish, special catches, trophy fish, bloated fish and treasure like **The 1 Ring** and the **Rumsey Rums**. Shared across all your characters, including what you caught before installing.
 - **How rare is it?** Every catch has a rarity, from Common to Very rare, with its odds (The 1 Ring is about 1 in 2,000 catches), zone by zone.
 - **Who caught it:** a catch's tooltip says how rare it is and which of your characters caught it, in your bags, chat links or the auction house.
 - **Its own page:** your catches on every character, when and where you first caught it, every zone it's caught in on a **map**, and the **recipes** it's used in, with who sells each recipe and a waypoint to the nearest seller.
@@ -92,7 +92,7 @@ And around it:
 ### 💰 What your catch is worth
 - Vendor value of everything caught, and per hour of fishing, counting what was inside the trunks and crates you opened.
 - **Sell your fishing junk** at a vendor in one click, or automatically: only the grey items you fished up.
-- Auction value with **Auctionator**, **TradeSkillMaster** or **Naowh Forever**. Open the auction house and scan your whole catch with Auctionator in one click.
+- Auction value with **Auctionator**, **TradeSkillMaster** or **Naowh Forever**, and with more than one installed, choose whose prices to use. Open the auction house and scan your whole catch with Auctionator in one click.
 
 ### ✨ Rare catch alerts
 - A raid-warning flash and sound for anything green or better (you choose the quality).

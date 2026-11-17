@@ -711,7 +711,7 @@ function Journey.Refresh()
 			frame.togo:SetText(string.format("%s%d to your cap%s|r", GREY, maxRank - rank,
 				catches and string.format(", about %d catches", catches) or ""))
 		else
-			frame.togo:SetText(GOOD .. "Every rank learned.|r")
+			frame.togo:SetText(GOOD .. "Every rank learned: " .. maxRank .. " is as high as Fishing goes.|r")
 		end
 	end
 	for i, c in ipairs(frame.cards) do

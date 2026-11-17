@@ -42,6 +42,8 @@ local defaults = {
 	alert = true,
 	alertQuality = 2, -- Uncommon
 	openOnCast = true,
+	openOnPole = false,
+	auctionSource = "auto",
 	loginMessage = true,
 	statsScale = 100, -- percent
 	autoEquip = true,
@@ -126,6 +128,8 @@ local OPTIONS = {
 		tooltip = "Stop OneCast's window being moved or resized by accident. Turn it off to move it again." },
 	{ cmd = "autoopen", key = "openOnCast", label = "Open stats when you cast",
 		tooltip = "Open the stats window when you start fishing. If you close it (X or minimap button), it stays closed until you take a 2-minute break from fishing." },
+	{ cmd = "openpole", key = "openOnPole", label = "Open stats when your pole goes on",
+		tooltip = "Open the stats window (or the mini bar) every time you equip a fishing pole, even if you closed it while fishing earlier. It won't take over the OneCast window while another page is open." },
 	{ cmd = "mini", key = "statsMini", label = "Mini bar instead of the stats window",
 		tooltip = "When you cast, open a slim bar in place of the stats window: your skill and the zone, catches and fish per hour, your lure and your wanted list. Click it for the full stats. /onecast mini turns it on or off." },
 	{ cmd = "summary", key = "sessionSummary", label = "Session summary in chat",
@@ -180,7 +184,7 @@ local OPTION_PAGES = {
 	{ name = "Fishing",
 		{ "Casting", "castKey", "doubleClick", "softInteract" },
 		{ "Pole and gear", "autoEquip", "fishingOutfit", "restoreDelay", "restoreOnCombat" },
-		{ "Loot and bags", "autoLootFishing", "fastLoot", "autoLootHint", "bagWarning", "junkMode" },
+		{ "Loot and bags", "autoLootFishing", "fastLoot", "autoLootHint", "bagWarning", "junkMode", "auctionSource" },
 	},
 	{ name = "Lures",
 		{ "Your lure", "lureChoice", "autoLure" },
@@ -200,7 +204,7 @@ local OPTION_PAGES = {
 		{ "Motion", "reduceMotion" },
 	},
 	{ name = "Stats and alerts",
-		{ "Windows", "openOnCast", "statsMini", "closeOnDone", "doneCloses", "escapeCloses", "fadeStats", "sessionSummary" },
+		{ "Windows", "openOnCast", "openOnPole", "statsMini", "closeOnDone", "doneCloses", "escapeCloses", "fadeStats", "sessionSummary" },
 		{ "Alerts and reminders", "alert", "alertSound", "alertQuality", "skillToast", "goalAlerts", "newCatchMessage", "extravaganza", "campReminder" },
 	},
 }
@@ -237,6 +241,20 @@ local CHOICES = {
 		onChange = function()
 			if ns.Bobber then
 				ns.Bobber.Retint()
+			end
+		end },
+	auctionSource = { label = "Auction prices from", kind = "string",
+		tooltip = "Which addon the stats take auction prices from, if you have more than one: Automatic takes Auctionator's, then TSM's, then Naowh Forever's, whichever has a price. Only the ones you have installed are listed.",
+		list = function()
+			local list = { { "auto", "Automatic" } }
+			for _, source in ipairs(ns.Stats and ns.Stats.PriceSources and ns.Stats.PriceSources() or {}) do
+				list[#list + 1] = { source.key, source.name }
+			end
+			return list
+		end,
+		onChange = function()
+			if ns.Stats then
+				ns.Stats.RefreshIfShown()
 			end
 		end },
 	junkMode = { label = "Fishing junk at vendors", kind = "string",
@@ -1353,7 +1371,7 @@ events:SetScript("OnEvent", function(_, event, ...)
 			-- Settings of features 1.0 removed (themes, milestones, the clean view, the bobber's
 			-- styles and height, the auction source, the report's chat hints): gone from the saves.
 			for _, key in ipairs({ "theme", "themeEffects", "bobberStyle", "bobberHeight", "beamCustom",
-				"auctionSource", "cleanView", "reportHint", "milestones", "milestonesSeeded", "milestonesOn",
+				"cleanView", "reportHint", "milestones", "milestonesSeeded", "milestonesOn",
 				"milestoneAlerts", "sellJunk" }) do
 				db[key] = nil
 			end

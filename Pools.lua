@@ -112,6 +112,8 @@ function Pools.Forget()
 end
 
 local hovered, hoveredAt
+local tipPool, tipAt     -- the pool last hovered with a pole on, whether or not spots are remembered
+local castPool, castMap  -- the pool a cast went out at, and the zone map, until its loot
 
 local function Commit(name)
 	if Pools.Remember(name) and ns.Book and ns.Book.RefreshIfShown then
@@ -125,12 +127,46 @@ function Pools.OnCast()
 		Commit(hovered)
 	end
 	hovered = nil
+	castPool, castMap = nil, nil
+	if tipPool and GetTime() - tipAt <= HOVER_KEEP then
+		castPool, castMap = tipPool, ZonePosition()
+	end
 end
 
--- What a pool gives, on its tooltip: each collection catch with Classic's odds, marked if no
--- character of yours has caught it yet. Up to MAX_LOOT lines, the likeliest first.
-local MAX_LOOT = 8
-local LOOT_HEADER = "|cff71d5ffOneCast:|r what it gives (Classic's odds)"
+-- What a pool's trunk and rum are where you fish it, from what it's given you:
+-- OneCastDB.poolSeen[uiMapID][pool] = { [itemID] = true }. Forever's own, so it's trusted
+-- over Classic's several kinds.
+local function SeenHere(mapID, pool)
+	local byMap = mapID and ns.db and ns.db.poolSeen and ns.db.poolSeen[mapID]
+	return byMap and byMap[pool]
+end
+
+-- Fishing loot after a cast at a pool: any of its slot items is what that pool gives here.
+function Pools.OnLoot(loot)
+	local pool, mapID = castPool, castMap
+	castPool, castMap = nil, nil
+	local entries = pool and mapID and ns.POOL_LOOT and ns.POOL_LOOT[pool]
+	if not entries then
+		return
+	end
+	for _, entry in ipairs(entries) do
+		for _, id in ipairs(entry.ids or {}) do
+			for _, l in ipairs(loot) do
+				if l.id == id then
+					ns.db.poolSeen = ns.db.poolSeen or {}
+					ns.db.poolSeen[mapID] = ns.db.poolSeen[mapID] or {}
+					ns.db.poolSeen[mapID][pool] = ns.db.poolSeen[mapID][pool] or {}
+					ns.db.poolSeen[mapID][pool][id] = true
+				end
+			end
+		end
+	end
+end
+
+-- What a pool gives, on its tooltip, per catch by Classic's odds: each item in its quality's
+-- colour, marked if it's in the collection and no character of yours has caught it yet. A
+-- trunk or rum that depends on the waters lists the ones it can be, or the one it's been here.
+local LOOT_HEADER = "|cff9d9d9dEach catch, by Classic's odds|r"
 
 -- Whether this tooltip already has the lines: our own Show() fires OnShow again.
 local function HasLoot(tooltip)
@@ -145,33 +181,76 @@ local function HasLoot(tooltip)
 	return false
 end
 
+local ICON = ":14:14:0:0:64:64:5:59:5:59|t "
+
+-- An item as a tooltip line's left side: its icon, its name in its quality's colour, and
+-- "not caught yet" if it's a collection catch none of your characters has.
+local function ItemText(id, indent)
+	local fish = ns.FISH_BY_ID and ns.FISH_BY_ID[id]
+	local name = C_Item.GetItemNameByID(id) or (fish and fish.name) or (ns.POOL_ITEM_NAMES and ns.POOL_ITEM_NAMES[id])
+		or ("item " .. id)
+	local quality = C_Item.GetItemQualityByID and C_Item.GetItemQualityByID(id)
+	local color = quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
+	local icon = C_Item.GetItemIconByID(id)
+	local missing = fish and ns.Collection and ns.Collection.Get(id).total == 0
+	return (indent or "") .. (icon and ("|T" .. icon .. ICON) or "") .. (color and color.hex or "|cffffffff") .. name .. "|r"
+		.. (missing and "  |cff20ff20not caught yet|r" or "")
+end
+
+-- A trunk or rum on its slot's one line, with the word they share dropped (Iron Bound, Black
+-- Label): grey, or green if it's a collection catch none of your characters has.
+local function ShortName(id, what)
+	local fish = ns.FISH_BY_ID and ns.FISH_BY_ID[id]
+	local name = C_Item.GetItemNameByID(id) or (fish and fish.name) or ("item " .. id)
+	if what == "trunk" then
+		name = name:gsub(" Trunk$", "")
+	elseif what == "rum" then
+		name = name:gsub("^Rumsey Rum ", "")
+	end
+	local missing = fish and ns.Collection and ns.Collection.Get(id).total == 0
+	return (missing and "|cff20ff20" or "|cffa0a0a0") .. name .. "|r"
+end
+
+local function Percent(pct)
+	return pct >= 1 and string.format("%s%%", (string.format("%.1f", pct):gsub("%.0$", ""))) or ns.OneIn(pct)
+end
+
 local adding = false
 -- `show`: call Show after adding, from the OnShow fallback. The game's tooltip data shows the
 -- tooltip itself once its post-calls have run.
 local function AddPoolLoot(tooltip, name, show)
-	local loot = ns.POOL_LOOT and ns.POOL_LOOT[English(name)]
+	local pool = English(name)
+	local loot = ns.POOL_LOOT and ns.POOL_LOOT[pool]
 	if adding or not loot or not (ns.db and ns.db.poolTooltip ~= false) or HasLoot(tooltip) then
 		return
 	end
 	adding = true
-	tooltip:AddLine(LOOT_HEADER, 0.8, 0.8, 0.8)
-	for i, entry in ipairs(loot) do
-		if i > MAX_LOOT then
-			tooltip:AddLine(string.format("  and %d more", #loot - MAX_LOOT), 0.6, 0.6, 0.6)
-			break
-		end
-		local id, pct = entry[1], entry[2]
-		local fish = ns.FISH_BY_ID and ns.FISH_BY_ID[id]
-		local itemName = C_Item.GetItemNameByID(id) or (fish and fish.name) or ("item " .. id)
-		local icon = C_Item.GetItemIconByID(id)
-		local caught = ns.Collection and ns.Collection.Get(id).total > 0
-		local left = (icon and ("|T" .. icon .. ":14:14:0:0:64:64:5:59:5:59|t ") or "") .. itemName
-			.. (caught and "" or "  |cff20ff20not caught yet|r")
-		local right = pct >= 1 and string.format("%s%%", (string.format("%.1f", pct):gsub("%.0$", ""))) or ns.OneIn(pct)
-		if caught then
-			tooltip:AddDoubleLine(left, right, 0.85, 0.85, 0.85, 0.7, 0.7, 0.7)
+	local seen = SeenHere(ZonePosition(), pool)
+	tooltip:AddLine(LOOT_HEADER)
+	for _, entry in ipairs(loot) do
+		if entry.ids then
+			-- A trunk or rum: the one it's been here, or the ones it can be.
+			local here = {}
+			for _, id in ipairs(entry.ids) do
+				if seen and seen[id] then
+					here[#here + 1] = id
+				end
+			end
+			if #here > 0 then
+				for i, id in ipairs(here) do
+					tooltip:AddDoubleLine(ItemText(id), i == 1 and Percent(entry.pct) or "", 1, 1, 1, 0.7, 0.7, 0.7)
+				end
+			else
+				tooltip:AddDoubleLine("|cffbbbbbb" .. (entry.what == "rum" and "A rum, by the waters:" or "A trunk, by the waters:") .. "|r",
+					Percent(entry.pct), 1, 1, 1, 0.7, 0.7, 0.7)
+				local names = {}
+				for _, id in ipairs(entry.ids) do
+					names[#names + 1] = ShortName(id, entry.what)
+				end
+				tooltip:AddLine("    " .. table.concat(names, "|cff808080 · |r"), 0.6, 0.6, 0.6, true)
+			end
 		else
-			tooltip:AddDoubleLine(left, right, 1, 1, 1, 1, 1, 1)
+			tooltip:AddDoubleLine(ItemText(entry[1]), Percent(entry[2]), 1, 1, 1, 0.7, 0.7, 0.7)
 		end
 	end
 	if show then
@@ -186,7 +265,15 @@ local function OnPoolTooltip(tooltip, name, show)
 		return
 	end
 	AddPoolLoot(tooltip, name, show)
-	if not ns.db.rememberPools or not ns.Lure.MainHandPole() then
+	if not ns.Lure.MainHandPole() then
+		return
+	end
+	-- For what its trunk and rum turn out to be here: the next cast is at it.
+	tipPool, tipAt = English(name), GetTime()
+	if ns.IsFishing and ns.IsFishing() then
+		castPool, castMap = tipPool, ZonePosition()
+	end
+	if not ns.db.rememberPools then
 		return
 	end
 	if ns.IsFishing and ns.IsFishing() then

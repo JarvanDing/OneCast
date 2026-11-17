@@ -6,6 +6,43 @@ local _, ns = ...
 
 ns.CHANGELOG = {
 	{
+		version = "1.0.1",
+		date = "17 November 2026",
+		sections = {
+			{ "New", {
+				{ "Open stats when your pole goes on.", "A new setting under Stats and alerts: the stats window (or the mini bar) opens every time you equip a fishing pole, even if you closed it earlier. Off by default." },
+				{ "For Fishing 300.", "At 300, the highest there is, the Session tab's skill rows make way for two that still matter: your Fishing with your gear and lure, and whether it's enough for these waters (some need 425), and what none of your characters has caught here yet. Click either for the gear guide or the zone's fish." },
+				{ "Choose your auction prices.", "Auction prices from is back, under Fishing > Loot and bags: with more than one price addon installed, pick Auctionator, TSM or Naowh Forever, or leave it on Automatic." },
+			} },
+			{ "Changed", {
+				{ "Pool tooltips, corrected.", "Each pool's chances now add up to a whole catch, Stranglekelp included. Most pools come in kinds with their own trunk and rum, which the tooltip used to list all at once: it now says which trunks and rums a pool can give, and once one comes up where you fish, names that one there. Item names are in their quality's colour, and Patch of Elemental Water has a tooltip too." },
+				{ "Auction worth, as you'd really sell it.", "Auction value and gold per hour no longer leave out what has no auction price: grey junk, bound items, anything not scanned yet, and anything worth more to a vendor all count at the vendor's price. The Spots tab now counts what was inside the trunks and crates you fished up in each zone, as the Session tab does." },
+				{ "New waters, confirmed fish.", "Excavation Site: Wetlands is on the Zones tab, its level still to learn. Keefer's Angelfish, Dezian Queenfish and Speckled Tastyfish are confirmed in Forever's Fishing Extravaganza." },
+			} },
+			{ "Fixed", {
+				{ "Rums aren't containers.", "Drinking a Rumsey Rum could file whatever you looted next under it, as if it had been opened. Only things that open count now, and anything wrongly filed under a rum, bottle or ring is taken back out." },
+				{ "At 300.", "With Artisan's 300, the highest Fishing goes in Forever, the stats no longer say to train to go higher. Where a zone needs more than 300, it says a lure or fishing gear makes up the rest, instead of counting catches that can't get you there. And at your cap, the Fishing bar fills right to the end." },
+				{ "Dalaran.", "The game sometimes names City of Dalaran just Dalaran, and those catches had no level. Both count as City of Dalaran now, and catches kept under Dalaran join it." },
+			} },
+			{ "Reported by Cyndaria", {
+				{ "City of Dalaran needs 225.", "3 of 19 got away at skill 200-224, and none in 42 catches from 225 up." },
+				{ "Casts that miss the water.", "A cast that doesn't land in fishable water no longer counts as a cast, and isn't reported as an unknown message." },
+			} },
+			{ "Reported by OhhMyGeek", {
+				{ "Deviate Scale.", "Fished up in Wailing Caverns, where Classic never gave it: now a special catch in the collection. Stranglethorn Vale's 225 is confirmed too: fish got away less and less up to it, and none in 309 catches from 225 up." },
+			} },
+			{ "Reported by mooshroomdragon", {
+				{ "Deviate Scale in The Barrens.", "Fished up there too, so it's listed in both. Stormwind City's 75 is confirmed again: fish got away up to 74, and none in 70 catches from 75 up." },
+			} },
+			{ "Reported by jfenn30000", {
+				{ "Quest items left out.", "Fishing up Gaffer Jacks for Darkshore's quest no longer shows as something new for your data report." },
+			} },
+			{ "Reported by more of you", {
+				{ "Thank you.", "Tide, SivvyGG, BreadGar, clank0819, user_ylmtyqo58jc23fsc, user_3esotn7e32yjuggw67334 and user_grzw4jp0w7586q7x sent reports that confirmed zone levels and where each rank is learned. Every report helps." },
+			} },
+		},
+	},
+	{
 		version = "1.0.0",
 		date = "16 November 2026",
 		sections = {

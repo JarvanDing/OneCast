@@ -96,7 +96,7 @@ local function CurrentZone()
 	if not zone or zone == "" then
 		return UNKNOWN or "Unknown"
 	end
-	return zone
+	return ns.ZONE_ALIASES and ns.ZONE_ALIASES[zone] or zone
 end
 
 local function ZoneTotals(zone)
@@ -169,6 +169,12 @@ function Stats.FormatDuration(seconds)
 		return string.format("%dh %02dm", h, m)
 	end
 	return string.format("%dm %02ds", m, seconds % 60)
+end
+
+-- The highest Fishing skill there is: the last rank's cap (Artisan's 300 in Forever).
+function Stats.TopSkill()
+	local ranks = ns.Journey and ns.Journey.RANKS
+	return ranks and ranks[#ranks] and ranks[#ranks].cap or 300
 end
 
 local function PerHour(totals)
@@ -473,9 +479,19 @@ function Stats.PriceSources()
 	return list
 end
 
--- Auction price per unit and where it came from: the first price addon with a price for it,
+-- Auction price per unit and where it came from. "Auction prices from" (auctionSource) picks
+-- one source; Automatic, or a choice that isn't installed, takes the first with a price:
 -- Auctionator, then TradeSkillMaster, then Naowh Forever.
 local function AuctionPrice(itemID)
+	local choice = ns.db and ns.db.auctionSource or "auto"
+	if choice ~= "auto" then
+		for _, source in ipairs(SOURCES) do
+			if source.key == choice and source.installed() then
+				local price = source.price(itemID)
+				return price, price and source.name or nil
+			end
+		end
+	end
 	for _, source in ipairs(SOURCES) do
 		local price = source.price(itemID)
 		if price then
@@ -498,12 +514,16 @@ local Containers = {} -- the pending opening, the loot handler and the count of 
 local Worth           -- below: the items to price for a set of totals
 do
 local openable -- itemID -> true for fished-up containers, from the collection's data
+-- Treasure that doesn't open: the rums are drinks, the bottle's junk and the ring's worn.
+local NOT_CONTAINER = { [20709] = true, [21114] = true, [21151] = true, [6651] = true, [8350] = true }
+Stats.NOT_CONTAINER = NOT_CONTAINER
 local function Openable(itemID)
 	if not openable then
 		openable = {}
 		for _, fish in ipairs(ns.FISH or {}) do
 			local name = fish.name or ""
-			if fish.cat == "treasure" or fish.cat == "bloated" or (name:find("Clam") and not name:find("Meat")) then
+			if (fish.cat == "treasure" or fish.cat == "bloated" or (name:find("Clam") and not name:find("Meat")))
+				and not NOT_CONTAINER[fish.id] then
 				openable[fish.id] = true
 			end
 		end
@@ -516,10 +536,43 @@ Containers.WINDOW = 3 -- seconds from using it to its loot
 -- The fished-up container just used from the bags: Containers.pending = { id, at }.
 local function NoteOpened(bag, slot)
 	local id = C_Container and C_Container.GetContainerItemID and C_Container.GetContainerItemID(bag, slot)
-	if Openable(id) then
-		Containers.pending = { id = id, at = GetTime() }
+	if not Openable(id) then
+		return
+	end
+	-- The game knows whether an item holds loot: a locked chest doesn't until it's picked.
+	local info = C_Container.GetContainerItemInfo and C_Container.GetContainerItemInfo(bag, slot)
+	if type(info) == "table" and info.hasLoot == false then
+		return
+	end
+	Containers.pending = { id = id, at = GetTime() }
+end
+
+-- Before 1.0.1, drinking a rum could file the next loot under it, as if it had been opened:
+-- what it "held" comes out of the totals again.
+local function ForgetNotContainers(totals)
+	if not totals then
+		return
+	end
+	for id in pairs(NOT_CONTAINER) do
+		local held = totals.inside and totals.inside[id]
+		for itemID, entry in pairs(held or {}) do
+			local all = totals.contents and totals.contents[itemID]
+			if all then
+				all.count = all.count - entry.count
+				if all.count <= 0 then
+					totals.contents[itemID] = nil
+				end
+			end
+		end
+		if totals.inside then
+			totals.inside[id] = nil
+		end
+		if totals.opened then
+			totals.opened[id] = nil
+		end
 	end
 end
+Stats.ForgetNotContainers = ForgetNotContainers
 if C_Container and C_Container.UseContainerItem then
 	hooksecurefunc(C_Container, "UseContainerItem", NoteOpened)
 end
@@ -591,6 +644,11 @@ function Containers.Loot(containerID)
 	end
 	Add(Session())
 	Add(charDB.lifetime)
+	-- And in the zone where it was last caught, for that zone's worth on the Spots tab.
+	local caughtIn = charDB.lastCaught and charDB.lastCaught[containerID]
+	if caughtIn and caughtIn.zone and charDB.zoneStats[caughtIn.zone] then
+		Add(charDB.zoneStats[caughtIn.zone])
+	end
 	-- And for the report, by container.
 	charDB.containerLoot = charDB.containerLoot or {}
 	local record = charDB.containerLoot[containerID] or { opened = 0, items = {} }
@@ -621,6 +679,41 @@ local function TotalValue(items, priceOf)
 	end
 	return total, missing, sources
 end
+
+-- What `items` are worth, priced once: { vendor, auction, loading (a vendor price still
+-- loading), unpriced (something with no auction price yet), sources (the price addons used),
+-- priced (any auction price at all) }. The auction worth is what you'd really get: grey junk
+-- and what can't be auctioned (bound on pickup, quest items) at the vendor's price, the rest at
+-- its auction price, or the vendor's when that's more or there's no auction price.
+local function Value(items)
+	local v = { vendor = 0, auction = 0, loading = false, unpriced = false, sources = {} }
+	for id, item in pairs(items) do
+		local vendor = VendorPrice(id)
+		if vendor then
+			v.vendor = v.vendor + vendor * item.count
+		else
+			v.loading = true
+		end
+		local _, _, quality, _, _, _, _, _, _, _, _, _, _, bindType = C_Item.GetItemInfo(id)
+		local tradable = quality ~= 0 and bindType ~= 1 and bindType ~= 4
+		local ah, source
+		if tradable then
+			ah, source = AuctionPrice(id)
+		end
+		if ah and ah >= (vendor or 0) then
+			v.auction = v.auction + ah * item.count
+			v.sources[source] = true
+		else
+			v.auction = v.auction + (vendor or 0) * item.count
+			if tradable and not ah then
+				v.unpriced = true
+			end
+		end
+	end
+	v.priced = next(v.sources) ~= nil
+	return v
+end
+Stats.Value = Value -- for the tests
 
 local function AddCatch(totals, zone, loot)
 	totals.catches = totals.catches + 1
@@ -932,6 +1025,32 @@ function Stats.OnCast()
 	end
 end
 
+-- "Open stats when your pole goes on": each time a fishing pole is equipped, the stats (or the
+-- mini bar) open, closed by hand earlier or not. A pole already on at login wasn't just put on:
+-- what's equipped is only noted once you're in the world, when the game has it.
+local hadPole
+function Stats.NotePole()
+	hadPole = ns.HasFishingPole and ns.HasFishingPole() or false
+end
+function Stats.CheckPoleOn()
+	local has = ns.HasFishingPole and ns.HasFishingPole() or false
+	local was = hadPole
+	hadPole = has
+	if not has or was ~= false or not (ns.db and ns.db.openOnPole) then
+		return
+	end
+	dismissed = false
+	if ns.db.statsMini and ns.Mini then
+		ns.Mini.dismissed = false
+		if not ns.Mini.IsShown() then
+			ns.Mini.Show(true)
+		end
+	elseif not (frame and frame:IsShown()) and not ns.Hub.IsOpen() then
+		Stats.Show()
+		autoOpened = true
+	end
+end
+
 local function OnLootReady(autoLooted)
 	if not awaitingLoot or not IsFishingLoot() then
 		return
@@ -962,6 +1081,9 @@ local function OnLootReady(autoLooted)
 	AddToLog(zone, loot)
 	if ns.Camp then
 		ns.Camp.OnCatch(zone, loot)
+	end
+	if ns.Pools and ns.Pools.OnLoot then
+		ns.Pools.OnLoot(loot)
 	end
 
 	-- The spot the line went out at, and the realm hour, for each item.
@@ -1026,6 +1148,26 @@ local function GameMessageKind(messageType, message)
 		return "escaped"
 	elseif ERR_FISH_NOT_HOOKED and message == ERR_FISH_NOT_HOOKED then
 		return "notHooked"
+	elseif (SPELL_FAILED_NOT_FISHABLE and message == SPELL_FAILED_NOT_FISHABLE)
+		or message:find("didn't land in fishable water", 1, true) then
+		return "notFishable"
+	end
+end
+
+-- A cast that didn't land in water: it was counted when the line went out, so it comes off again.
+local function UndoCast()
+	if not (awaitingLoot and charDB) then
+		return
+	end
+	awaitingLoot = false
+	local s = Session()
+	s.casts = math.max(0, s.casts - 1)
+	charDB.lifetime.casts = math.max(0, charDB.lifetime.casts - 1)
+	if castZone then
+		local zoneTotals = ZoneTotals(castZone)
+		zoneTotals.casts = math.max(0, zoneTotals.casts - 1)
+		local spotTotals = SpotTotals(zoneTotals, castSpot)
+		spotTotals.casts = math.max(0, spotTotals.casts - 1)
 	end
 end
 
@@ -1268,32 +1410,35 @@ WhatCaught = function(s)
 		opened, opened == 1 and "" or "s", opened == 1 and "" or "s")
 end
 
+-- What it sells for at auction, said once for the tiles: grey junk and bound items count at the
+-- vendor's price, and so does anything worth more there or with no auction price yet.
+local AUCTION_NOTE = "\n\nJunk, bound items and anything with no auction price (or worth more to a vendor) count at the vendor's price."
+
 -- Gold per hour of fishing: at auction prices where an addon has them, else the vendor's.
-local function GoldTile(items, seconds, what)
-	local ah, _, sources = TotalValue(items, AuctionPrice)
-	local auction = next(sources) ~= nil
-	local copper = auction and ah or TotalValue(items, VendorPrice)
-	local value = copper > 0 and seconds and seconds >= 60 and ShortGold(copper / seconds * 3600)
-	return Tile(value, auction and "gold/hr (AH)" or "gold/hr (vendor)",
+local function GoldTile(value, seconds, what)
+	local auction = value.priced
+	local copper = auction and value.auction or value.vendor
+	local shown = copper > 0 and seconds and seconds >= 60 and ShortGold(copper / seconds * 3600)
+	return Tile(shown, auction and "gold/hr (AH)" or "gold/hr (vendor)",
 		"What " .. what .. " is worth per hour of fishing, at " .. (auction and "auction" or "vendor") .. " prices."
-		.. (auction and ("\n\nAuction prices from: " .. PriceSources(sources)) or " Auctionator, TSM or Naowh Forever add auction prices."))
+		.. (auction and ("\n\nAuction prices from: " .. PriceSources(value.sources) .. AUCTION_NOTE)
+			or " Auctionator, TSM or Naowh Forever add auction prices."))
 end
 
 -- Vendor and auction gold per hour of fishing, as two tiles.
-local function VendorTile(items, seconds, what)
-	local copper = TotalValue(items, VendorPrice)
+local function VendorTile(value, seconds, what)
+	local copper = value.vendor
 	return Tile(copper > 0 and seconds and seconds >= 60 and ShortGold(copper / seconds * 3600), "vendor/hr",
 		"What " .. what .. " sells to a vendor for, per hour of fishing.")
 end
 
 
-local function AuctionTile(items, seconds, what)
-	local copper, unpriced, sources = TotalValue(items, AuctionPrice)
-	local priced = next(sources) ~= nil
+local function AuctionTile(value, seconds, what)
+	local copper, priced = value.auction, value.priced
 	local tip = "Needs Auctionator, TradeSkillMaster or Naowh Forever, with prices scanned at the auction house."
 	if priced then
-		tip = "What " .. what .. " is worth at auction, per hour of fishing.\n\nPrices from: " .. PriceSources(sources)
-			.. (unpriced and "\nSome of it has no auction price, so it isn't counted." or "")
+		tip = "What " .. what .. " is worth at auction, per hour of fishing.\n\nPrices from: " .. PriceSources(value.sources)
+			.. AUCTION_NOTE .. (value.unpriced and "\nScan at the auction house to price the rest." or "")
 	elseif #Stats.PriceSources() > 0 then
 		local names = {}
 		for _, source in ipairs(Stats.PriceSources()) do
@@ -1307,12 +1452,10 @@ local function AuctionTile(items, seconds, what)
 end
 
 -- What items are worth, to a vendor and at auction: "1g 73s vendor  ·  9g 75s AH".
-local function WorthText(items)
-	local vendor, missing = TotalValue(items, VendorPrice)
-	local text = Coins(vendor) .. GREY .. (missing and " vendor (loading)|r" or " vendor|r")
-	local ah, _, sources = TotalValue(items, AuctionPrice)
-	if next(sources) then
-		text = text .. SEP .. Coins(ah) .. GREY .. " AH|r"
+local function WorthText(value, items)
+	local text = Coins(value.vendor) .. GREY .. (value.loading and " vendor (loading)|r" or " vendor|r")
+	if value.priced then
+		text = text .. SEP .. Coins(value.auction) .. GREY .. " AH|r"
 	elseif next(items) and ns.Prices and ns.Prices.CanScan() then
 		text = text .. SEP .. GREY .. "scan at the AH|r"
 	end
@@ -1456,6 +1599,7 @@ local function NowView(zone)
 	local skillRate = gained > 0 and Rate(gained, s.activeTime)
 	-- What's priced: the catch, with what was inside what you opened in place of the containers.
 	local worth, what = Worth(s), WhatCaught(s)
+	local value = Value(worth) -- priced once, for the tiles and the Worth row
 	-- The fish an hour, against your best.
 	local best = charDB.bests and charDB.bests.rate
 	local rateTip = "Catches per hour of fishing this session. Breaks of over 2 minutes don't count."
@@ -1469,8 +1613,8 @@ local function NowView(zone)
 	end
 	local tiles = {
 		Tile(rate and string.format("%.0f", rate), "fish/hr", rateTip),
-		VendorTile(worth, s.activeTime, what),
-		AuctionTile(worth, s.activeTime, what),
+		VendorTile(value, s.activeTime, what),
+		AuctionTile(value, s.activeTime, what),
 	}
 
 	-- Caught, and how many got away: the share of bites lost says if the zone's too much for you.
@@ -1505,18 +1649,23 @@ local function NowView(zone)
 			end,
 		} }
 	end
-	if rank then
+	local capped = rank and maxRank and rank >= maxRank and maxRank >= Stats.TopSkill()
+	if capped then
+		-- At the highest Fishing there is, skill-ups are over: what's left is whether your gear
+		-- is enough for these waters, and what's still to catch in them.
+		Append(stats, Stats.CappedRows(zone))
+	elseif rank then
 		stats[#stats + 1] = { "Skill gained", (gained > 0 and (GREEN .. "+" .. gained .. "|r") or "+0")
 			.. (skillRate and (SEP .. string.format("%.0f/hr", skillRate)) or "") }
-	end
-	if rank and rank >= maxRank then
-		stats[#stats + 1] = { "Skill cap", GREY .. "at " .. maxRank .. ": train to go higher|r" }
-	elseif rank then
-		stats[#stats + 1] = { "Next point", CatchesAndTime(CatchesToGo(rank, 1)) }
-		stats[#stats + 1] = { "To " .. maxRank, CatchesAndTime(CatchesToGo(rank, maxRank - rank)) }
+		if rank >= maxRank then
+			stats[#stats + 1] = { "Skill cap", GREY .. "at " .. maxRank .. ": train to go higher|r" }
+		else
+			stats[#stats + 1] = { "Next point", CatchesAndTime(CatchesToGo(rank, 1)) }
+			stats[#stats + 1] = { "To " .. maxRank, CatchesAndTime(CatchesToGo(rank, maxRank - rank)) }
+		end
 	end
 	-- What it's worth, vendor and auction in one row.
-	stats[#stats + 1] = { "Worth", WorthText(worth) }
+	stats[#stats + 1] = { "Worth", WorthText(value, worth) }
 	local contest = ns.Extravaganza and ns.Extravaganza.StatusLine(zone)
 	if contest then
 		stats[#stats + 1] = { "Extravaganza", contest }
@@ -1596,12 +1745,14 @@ local function FarmView(zone)
 	end
 	local z = charDB.zoneStats[zone] or NewTotals()
 	local rate = PerHour(z)
+	local zoneWorth = Worth(z)
+	local value = Value(zoneWorth)
 	local spots = SpotRows(z, zone)
 	local bestSpot = spots[1]
 	local tiles = {
 		Tile(rate and string.format("%.0f", rate), "fish/hr here",
 			"Catches per hour of all your fishing in " .. zone .. "."),
-		GoldTile(z.items, z.activeTime, "your catch here"),
+		GoldTile(value, z.activeTime, "your catch here"),
 		Tile(bestSpot and bestSpot.rate and string.format("%.0f", bestSpot.rate), "best spot/hr",
 			bestSpot and ("Your best spot here: " .. bestSpot.name .. ".") or "Your best spot here, per hour."),
 	}
@@ -1612,7 +1763,7 @@ local function FarmView(zone)
 	local stats = {
 		{ "Caught here", caught },
 		{ "Best spot", bestSpot and bestSpot.name or (GREY .. "-|r") },
-		{ "Worth", WorthText(z.items) },
+		{ "Worth", WorthText(value, zoneWorth) },
 	}
 
 	if charDB.farmList == "fish" then
@@ -1763,6 +1914,83 @@ function Stats.ZoneStatus(zone, spot)
 	return status
 end
 
+-- At the highest Fishing there is, in place of skill gained and the cap: your Fishing with your
+-- gear and lure against what these waters need, and what none of your characters has caught here.
+function Stats.CappedRows(zone)
+	local rows = {}
+	local rank, _, modifier = FishingSkill()
+	local effective = rank + (modifier or 0)
+	local status = Stats.ZoneStatus(zone, GetSubZoneText and GetSubZoneText() or nil)
+	local verdict
+	if status.needed and effective >= status.needed then
+		verdict = GREEN .. "enough here|r"
+	elseif status.needed then
+		verdict = RED .. (status.needed - effective) .. " short of " .. status.needed .. "|r"
+	end
+	rows[#rows + 1] = { "With gear", tostring(effective)
+		.. ((modifier or 0) > 0 and (GREY .. " (" .. rank .. " + " .. modifier .. ")|r") or "")
+		.. (verdict and (SEP .. verdict) or ""), {
+		tip = function(tooltip)
+			tooltip:SetText("Your Fishing with your gear")
+			tooltip:AddLine(string.format("%d skill%s.", rank, (modifier or 0) > 0
+				and string.format(", +%d from your lure and fishing gear", modifier) or ", nothing added by a lure or gear"), 1, 1, 1, true)
+			if status.needed then
+				tooltip:AddLine(string.format("%s needs %d for no fish to get away.", status.place, status.needed), 1, 1, 1, true)
+			end
+			tooltip:AddLine("Past 300, only a lure and fishing gear add more: the wardrobe's Gear guide has the best of it.", 0.7, 0.7, 0.7, true)
+		end,
+		click = function()
+			if ns.Wardrobe and ns.Wardrobe.ShowGear then
+				ns.Wardrobe.ShowGear()
+			end
+		end,
+	} }
+	-- What's left to catch in these waters, by every character.
+	local missing = {}
+	for _, fish in ipairs(ns.FISH or {}) do
+		if ns.Collection and ns.Collection.Get(fish.id).total == 0 then
+			local here = false
+			for _, z in ipairs(fish.zones or {}) do
+				here = here or z == zone
+			end
+			for _, more in ipairs(fish.more or {}) do
+				here = here or more[1] == zone
+			end
+			if here then
+				missing[#missing + 1] = fish
+			end
+		end
+	end
+	if #missing == 0 then
+		rows[#rows + 1] = { "Still to catch", GREEN .. "nothing: every known catch here|r" }
+	else
+		local names = {}
+		for i = 1, math.min(1, #missing) do
+			names[i] = C_Item.GetItemNameByID(missing[i].id) or missing[i].name
+		end
+		rows[#rows + 1] = { "Still to catch", #missing .. GREY .. ": " .. table.concat(names, ", ")
+			.. (#missing > 1 and ("…") or "") .. "|r", {
+			tip = function(tooltip)
+				tooltip:SetText("Still to catch in " .. zone)
+				for _, fish in ipairs(missing) do
+					local icon = C_Item.GetItemIconByID(fish.id)
+					tooltip:AddLine((icon and ("|T" .. icon .. ":14:14|t ") or "") .. (C_Item.GetItemNameByID(fish.id) or fish.name), 1, 1, 1)
+				end
+				tooltip:AddLine(" ")
+				tooltip:AddLine("Click: this zone in the collection", 0.6, 0.8, 1)
+			end,
+			click = function()
+				if ns.Book and ns.Book.ShowZoneFish then
+					ns.Book.ShowZoneFish(zone)
+				elseif ns.Book then
+					ns.Book.Show()
+				end
+			end,
+		} }
+	end
+	return rows
+end
+
 -- The zone's status as a coloured sentence, for dark backgrounds.
 function Stats.ZoneVerdict(zone, spot)
 	local rank, maxRank = FishingSkill()
@@ -1795,6 +2023,15 @@ function Stats.ZoneVerdict(zone, spot)
 	if hint then
 		return string.format("|cffff2020%s needs %d: %d short, fish will get away.|r |cffffd100%s|r",
 			zone, status.needed, status.short, hint)
+	end
+	-- Past the highest rank's cap, no skill gets there: only lures and fishing gear can.
+	local top = Stats.TopSkill()
+	if rank >= top then
+		return string.format("|cffff2020%s needs %d: %d short, fish will get away.|r %sA lure or fishing gear makes up the rest.|r",
+			zone, status.needed, status.short, GREY)
+	elseif rank + status.short > top then
+		return string.format("|cffff2020%s needs %d: %d short, fish will get away.|r %sabout %d catches to go (train first), then a lure or fishing gear for the last %d.|r",
+			zone, status.needed, status.short, GREY, CatchesToGo(rank, top - rank), rank + status.short - top)
 	end
 	return string.format("|cffff2020%s needs %d: %d short, fish will get away.|r %sabout %d catches to go%s.|r",
 		zone, status.needed, status.short, GREY, CatchesToGo(rank, status.short),
@@ -1989,7 +2226,7 @@ local function WaterBar(parent, name)
 	local fill = holder:CreateTexture(nil, "ARTWORK", nil, 2)
 	fill:SetAtlas(WATER_FILL)
 	fill:SetPoint("TOPLEFT", 5, -3)
-	fill:SetPoint("TOPRIGHT", -7, -3)
+	fill:SetPoint("TOPRIGHT", -3, -3) -- the frame's right side is thinner: a full bar reaches it
 	fill:SetHeight(18)
 
 	local flare = holder:CreateTexture(nil, "ARTWORK", nil, 2)
@@ -2070,8 +2307,9 @@ local function WaterBar(parent, name)
 
 	local current, target, from, started
 	local function Place(fraction)
-		-- As Blizzard's bar: the mask is the bar's width times your progress.
-		mask:SetWidth(math.max(1, holder:GetWidth() * fraction))
+		-- As Blizzard's bar: the mask is the bar's width times your progress. Full, its soft right
+		-- edge is pushed past the water's end, so the last of it isn't faded.
+		mask:SetWidth(math.max(1, holder:GetWidth() * fraction + (fraction >= 1 and 40 or 0)))
 		flare:SetShown(fraction > 0.01 and fraction < 1 and HasAtlas(WATER_FLARE))
 	end
 	local function Slide(self)
@@ -3580,6 +3818,7 @@ events:RegisterEvent("SKILL_LINES_CHANGED")
 events:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 events:RegisterEvent("ZONE_CHANGED") -- a new sub-zone: a lake can have its own level
 events:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+events:RegisterEvent("PLAYER_ENTERING_WORLD") -- what's equipped, for "Open stats when your pole goes on"
 events:SetScript("OnEvent", function(_, event, ...)
 	if event == "ADDON_LOADED" then
 		if ... == ADDON then
@@ -3593,6 +3832,13 @@ events:SetScript("OnEvent", function(_, event, ...)
 			charDB.skill = charDB.skill or {}
 			charDB.bests = charDB.bests or {}
 			MigrateWanted()
+			Stats.ForgetNotContainers(charDB.session)
+			Stats.ForgetNotContainers(charDB.lifetime)
+			for id in pairs(Stats.NOT_CONTAINER) do
+				if charDB.containerLoot then
+					charDB.containerLoot[id] = nil
+				end
+			end
 			-- Notable catches and when each item was last caught start from the catch log.
 			if not charDB.notable then
 				charDB.notable = {}
@@ -3621,8 +3867,15 @@ events:SetScript("OnEvent", function(_, event, ...)
 					end
 				end
 			end
-			-- Stats filed under a dungeon's other name before 0.7.0 join the tables' one.
+			-- Stats filed under a zone's other name (a dungeon's, before 0.7.0; Dalaran) join the tables' one.
+			local aliases = {}
 			for old, new in pairs(ns.INSTANCE_ALIASES or {}) do
+				aliases[old] = new
+			end
+			for old, new in pairs(ns.ZONE_ALIASES or {}) do
+				aliases[old] = new
+			end
+			for old, new in pairs(aliases) do
 				local stats = charDB.zoneStats
 				if stats[old] and not stats[new] then
 					stats[new], stats[old] = stats[old], nil
@@ -3665,6 +3918,8 @@ events:SetScript("OnEvent", function(_, event, ...)
 		local kind = GameMessageKind(messageType, message)
 		if kind == "escaped" then
 			OnFishEscaped()
+		elseif kind == "notFishable" then
+			UndoCast()
 		elseif kind == "notHooked" then
 			if awaitingLoot and charDB then
 				-- Reeled before a bite: an empty cast that says nothing about the zone's level.
@@ -3694,6 +3949,12 @@ events:SetScript("OnEvent", function(_, event, ...)
 		-- The skill, zone or gear changed: redraw.
 		if event == "SKILL_LINES_CHANGED" and charDB then
 			CheckSkill()
+		end
+		-- A pole just put on: the stats open, with "Open stats when your pole goes on".
+		if event == "PLAYER_EQUIPMENT_CHANGED" then
+			Stats.CheckPoleOn()
+		elseif event == "PLAYER_ENTERING_WORLD" and hadPole == nil then
+			Stats.NotePole()
 		end
 		-- Weapons back on after fishing: a window that opened itself closes itself.
 		if event == "PLAYER_EQUIPMENT_CHANGED" and autoOpened and ns.db and ns.db.closeOnDone then
