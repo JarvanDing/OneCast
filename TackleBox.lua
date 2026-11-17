@@ -19,7 +19,7 @@ local DEFAULT_POINT = { "CENTER", "CENTER", 0, -220 }
 local TICK = 0.5           -- seconds between redraws while shown
 local WARN_LEFT = 30       -- seconds left when the button starts to pulse
 -- Window layout, matching the stats window's.
-local WINDOW_WIDTH, ROW_HEIGHT, STAT_HEIGHT = 340, 22, 17
+local WINDOW_WIDTH, ROW_HEIGHT = 340, 22
 local HEADER_HEIGHT, SECTION_GAP = 28, 8 -- a 24 header and 4 under it; 8 between sections
 local INSET_TOP, INSET_BOTTOM = 60, 28 -- the frame around the inset (see CreateShell)
 local COUNT_WIDTH, MINUTES_WIDTH, BONUS_WIDTH = 30, 26, 32
@@ -45,7 +45,7 @@ local function ShowTooltip(self)
 	local left = Lure.Left()
 	local casting = Lure.IsCasting()
 	if casting then
-		GameTooltip:AddLine("正在使用 " .. Lure.Name(casting) .. "…", 1, 1, 1)
+		GameTooltip:AddLine("正在使用 " .. Lure.Name(casting) .. "...", 1, 1, 1)
 	elseif left > 0 then
 		local shown = Lure.Shown()
 		GameTooltip:AddLine(string.format("%s 已装上，剩余 %s。", shown and Lure.Name(shown) or "诱饵",
@@ -113,7 +113,7 @@ local function CreateButton()
 	b.glow:SetAllPoints()
 	b.count = b:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 	b.count:SetPoint("BOTTOMRIGHT", -2, 2)
-	b.time = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmallOutline")
+	b.time = b:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmallOutline")
 	b.time:SetPoint("TOP", b, "BOTTOM", 0, -2)
 	local hl = b:CreateTexture(nil, "HIGHLIGHT")
 	hl:SetAllPoints()
@@ -198,7 +198,11 @@ local function CreateRow(parent, index, y)
 	ns.UI.RowBackground(row, index)
 	row.selected = row:CreateTexture(nil, "BACKGROUND", nil, 1)
 	row.selected:SetAllPoints()
-	row.selected:SetColorTexture(1, 0.82, 0, 0.16)
+	if ns.UI.HasAtlas("options_list_active") then
+		row.selected:SetAtlas("options_list_active")
+	else
+		row.selected:SetColorTexture(1, 0.82, 0, 0.16)
+	end
 	row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
 
 	row.icon = row:CreateTexture(nil, "ARTWORK")
@@ -215,19 +219,20 @@ local function CreateRow(parent, index, y)
 	row.check:SetSize(14, 14)
 	row.check:SetPoint("CENTER", row.icon, "TOPRIGHT", -2, -2)
 
-	row.count = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	row.count = row:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	row.count:SetPoint("RIGHT", -6, 0)
 	row.count:SetWidth(COUNT_WIDTH)
 	row.count:SetJustifyH("RIGHT")
-	row.minutes = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	row.minutes = row:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
+	row.minutes:SetTextColor(0.78, 0.78, 0.78)
 	row.minutes:SetPoint("RIGHT", row.count, "LEFT", -4, 0)
 	row.minutes:SetWidth(MINUTES_WIDTH)
 	row.minutes:SetJustifyH("RIGHT")
-	row.bonus = row:CreateFontString(nil, "OVERLAY", "GameFontGreenSmall")
+	row.bonus = row:CreateFontString(nil, "OVERLAY", "OneCastFontGreenSmall")
 	row.bonus:SetPoint("RIGHT", row.minutes, "LEFT", -4, 0)
 	row.bonus:SetWidth(BONUS_WIDTH)
 	row.bonus:SetJustifyH("RIGHT")
-	row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	row.name = row:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
 	row.name:SetPoint("RIGHT", row.bonus, "LEFT", -4, 0)
 	row.name:SetJustifyH("LEFT")
@@ -247,7 +252,7 @@ local function CreateCheck(parent, index, y, label, tooltip, key)
 	local check = CreateFrame("CheckButton", nil, line, "UICheckButtonTemplate")
 	check:SetSize(ROW_HEIGHT, ROW_HEIGHT)
 	check:SetPoint("LEFT", 2, 0)
-	check.label = line:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall") -- gold, like the stat lines
+	check.label = line:CreateFontString(nil, "OVERLAY", "OneCastFontNormalSmall") -- gold, like the stat lines
 	check.label:SetPoint("LEFT", check, "RIGHT", 4, 0)
 	check.label:SetText(label)
 	check:SetScript("OnClick", function(self)
@@ -268,7 +273,7 @@ end
 local function StatusText()
 	local casting = Lure.IsCasting()
 	if casting then
-		return "|cffffd100正在使用 " .. Lure.Name(casting) .. "…|r"
+		return "|cffffd100正在使用 " .. Lure.Name(casting) .. "...|r"
 	end
 	local left = Lure.Left()
 	if left > 0 then
@@ -282,7 +287,7 @@ local function StatusText()
 	elseif reason == "none" then
 		return "|cff9d9d9d鱼竿上没有诱饵。|r"
 	end
-	return "|cffff4040" .. Lure.ReasonText(reason, about) .. "|r"
+	return "|cffff2020" .. Lure.ReasonText(reason, about) .. " 脱钩|r"
 end
 
 local function RedrawWindow()
@@ -310,7 +315,7 @@ local function RedrawWindow()
 			end
 			row.bonus:SetText("+" .. row.lure.bonus)
 			row.minutes:SetText(row.lure.minutes .. "分钟")
-			row.count:SetText("×" .. count)
+			row.count:SetText("x" .. count)
 		end
 	end
 	window.autoLure:SetChecked(CharDB().autoLure)
@@ -319,6 +324,12 @@ local function RedrawWindow()
 	local rates = ns.Stats and ns.Stats.LureRates and ns.Stats.LureRates() or {}
 	window.rateWith.value:SetText(rates.with and string.format("%.0f", rates.with) or "-")
 	window.rateWithout.value:SetText(rates.without and string.format("%.0f", rates.without) or "-")
+	if rates.with and rates.without and rates.without > 0 then
+		local gain = (rates.with - rates.without) / rates.without * 100
+		window.rateGain.value:SetText(string.format("%s%+.0f%%|r", gain >= 0 and "|cff20ff20" or "|cffff2020", gain))
+	else
+		window.rateGain.value:SetText("-")
+	end
 end
 
 local function CreateWindow()
@@ -336,11 +347,9 @@ local function CreateWindow()
 		local point, _, relPoint, x, y = self:GetPoint()
 		CharDB().tackleWindowPoint = { point, relPoint, x, y }
 	end)
-	tinsert(UISpecialFrames, f:GetName())
-	UI.KeepOpenThroughOptions(f:GetName())
 
 	-- Where the stats window has its tabs: right of the portrait, above the inset.
-	f.status = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.status = f:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	f.status:SetPoint("BOTTOMLEFT", inset, "TOPLEFT", 62, 6)
 	f.status:SetPoint("RIGHT", inset, "RIGHT", -6, 0)
 	f.status:SetJustifyH("LEFT")
@@ -392,19 +401,24 @@ local function CreateWindow()
 	y = y - SECTION_GAP
 	UI.SectionHeader(inset, y).text:SetText("每小时鱼数")
 	y = y - HEADER_HEIGHT
-	f.rateWith = UI.StatRow(inset, 1, y)
-	f.rateWith.label:SetText("有诱饵")
-	y = y - STAT_HEIGHT
-	f.rateWithout = UI.StatRow(inset, 2, y)
-	f.rateWithout.label:SetText("无诱饵")
-	y = y - STAT_HEIGHT
+	-- Headline tiles, as on the stats window: with a lure, without, and what the lure adds.
+	f.rateWith = UI.StatTile(inset, 1, y)
+	f.rateWith.caption:SetText("有诱饵")
+	f.rateWith.tooltip = "本角色有诱饵时的每小时鱼数。持续用饵钓鱼 5 分钟后显示。"
+	f.rateWithout = UI.StatTile(inset, 2, y)
+	f.rateWithout.caption:SetText("without")
+	f.rateWithout.tooltip = "本角色无诱饵时的每小时鱼数。持续无饵钓鱼 5 分钟后显示。"
+	f.rateGain = UI.StatTile(inset, 3, y)
+	f.rateGain.caption:SetText("诱饵可带来")
+	f.rateGain.tooltip = "诱饵相对无饵时每小时多钓多少鱼，按无饵时速的比例显示。"
+	y = y - 44
 
 	-- The bottom bar's Options button, as on the stats window.
-	local options = UI.IconButton(f, "Options", "选项", function()
+	local options = UI.IconButton(f, "选项", "选项", function()
 		ns.Hub.ShowOptions()
 	end)
 	options:SetPoint("BOTTOMRIGHT", -22, 3)
-	local hint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	local hint = f:CreateFontString(nil, "OVERLAY", "OneCastFontDisableSmall")
 	hint:SetPoint("LEFT", f, "BOTTOMLEFT", 12, 15)
 	hint:SetPoint("RIGHT", options, "LEFT", -6, 0)
 	hint:SetJustifyH("LEFT")

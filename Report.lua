@@ -30,7 +30,7 @@ local function ByCount(items)
 	for id, item in pairs(items) do
 		local count = type(item) == "table" and item.count or item
 		local name = type(item) == "table" and item.name or C_Item.GetItemNameByID(id)
-		list[#list + 1] = { id = id, count = count, name = name or ("item " .. id) }
+		list[#list + 1] = { id = id, count = count, name = name or ("物品 " .. id) }
 	end
 	table.sort(list, function(a, b)
 		if a.count ~= b.count then
@@ -48,7 +48,7 @@ local function ItemLine(items)
 		parts[i] = string.format("%s (%d) x%d", list[i].name, list[i].id, list[i].count)
 	end
 	if #list > MAX_FISH then
-		parts[#parts + 1] = string.format("and %d more", #list - MAX_FISH)
+		parts[#parts + 1] = string.format("还有 %d 个", #list - MAX_FISH)
 	end
 	return table.concat(parts, ", ")
 end
@@ -76,11 +76,11 @@ local function SkillLines(z, add)
 end
 
 -- Findings: what this character has seen that OneCast doesn't know ----------------------
--- Worth sharing, so worth saying: once in chat when each is first found, and as a count on
--- the minimap button until the report is copied.
+-- Worth sharing: a badge on the Data report tab until the report is copied.
 
 local MIN_UNKNOWN_LEVEL = 10 -- catches in a zone with no known level
 local MIN_BELOW_LEVEL = 20   -- catches without a getaway below a zone's listed level
+local MIN_EXPECTED = 3       -- getaways those catches should have had, had the level been right
 local MIN_CAMP = 5           -- catches under a camp buff
 
 -- A collection fish the book can't say where to find: no zones at all, from any source. Only
@@ -90,11 +90,43 @@ local function Unplaced(fish)
 end
 
 local function ItemName(id, item)
-	return (type(item) == "table" and item.name) or C_Item.GetItemNameByID(id) or ("item " .. id)
+	return (type(item) == "table" and item.name) or C_Item.GetItemNameByID(id) or ("物品 " .. id)
+end
+
+-- What Classic's fishing gives that the collection leaves out on purpose: junk, potions, herbs
+-- and reagents (checked against CMaNGOS's fishing and pool loot, 13 November 2026), and the
+-- Electropeller, a quest drop. Anything else fished up that the collection lacks is news.
+local NOT_COLLECTED = {
+	[6456] = true, [6297] = true, [6301] = true, [6455] = true, [6457] = true, -- junk
+	[118] = true, [858] = true, [929] = true, [1710] = true, [3928] = true, [13446] = true, -- healing potions
+	[2455] = true, [3385] = true, [3827] = true, [6149] = true, [13443] = true, -- mana potions
+	[3820] = true, [2447] = true, [3857] = true, [7070] = true, [7079] = true, [7080] = true, -- herbs, reagents
+	[6718] = true, -- Electropeller
+}
+
+-- Weapons and armour: a mob's drop looted right after a cast can be logged as a catch (a Flanged
+-- Mace "fished up" in Elwynn Forest), and all the fishable gear known is in the collection already.
+local function IsGear(id)
+	local classID = select(6, C_Item.GetItemInfoInstant(id))
+	return classID == 2 or classID == 4
+end
+
+-- A collection item OneCast only knows from Classic: no Forever zones, only `more` ones marked
+-- "classic". The first Forever catch of one confirms it's still there.
+local function ClassicOnly(fish)
+	if fish.zones and fish.zones[1] then
+		return false
+	end
+	for _, extra in ipairs(fish.more or {}) do
+		if extra[2] ~= "classic" then
+			return false
+		end
+	end
+	return fish.more and fish.more[1] ~= nil
 end
 
 -- Every finding, as { key, text, zone }: the key stays the same while the finding does. The
--- minimap button, stats window, book and this window can all ask in one redraw, so the list is
+-- tab's badge, stats window, book and this window can all ask in one redraw, so the list is
 -- worked out once a frame. Callers may sort it, so each gets its own copy.
 local cached, cachedAt
 local Findings
@@ -118,8 +150,10 @@ end
 
 Findings = function()
 	local found = {}
-	local function add(key, text, zone)
-		found[#found + 1] = { key = key, text = text, zone = zone }
+	-- text: the line in the report. title and detail: the window's, for the player: what was
+	-- found, and why it's worth sending.
+	local function add(key, text, zone, title, detail)
+		found[#found + 1] = { key = key, text = text, zone = zone, title = title, detail = detail }
 	end
 	local step = ns.Stats.SKILL_STEP
 	local zoneNames = {}
@@ -132,7 +166,8 @@ Findings = function()
 		local listed = ns.ZONE_FISHING_SKILL and ns.ZONE_FISHING_SKILL[zone]
 		if not listed then
 			if (z.catches or 0) >= MIN_UNKNOWN_LEVEL then
-				add("level:" .. zone, string.format("%d catches in %s, which has no known fishing level", z.catches, zone), zone)
+				add("level:" .. zone, string.format("%d catches in %s, which has no known fishing level", z.catches, zone), zone,
+					zone, string.format("%d catches here. OneCast doesn't know the skill this zone needs: yours will tell.", z.catches))
 			end
 		else
 			-- A getaway at or above the listed level says the real one is higher.
@@ -144,19 +179,27 @@ Findings = function()
 			end
 			if highestAway and highestAway >= listed then
 				add("above:" .. zone, string.format("A fish got away in %s at skill %d-%d, though OneCast lists %d",
-					zone, highestAway, highestAway + step - 1, listed), zone)
+					zone, highestAway, highestAway + step - 1, listed), zone,
+					zone, string.format("A fish got away at skill %d, where OneCast says %d is plenty. It may need more.",
+						highestAway, listed))
 			end
-			-- Plenty of catches below the listed level, none getting away there, says it's lower.
-			local below, lowest = 0, nil
+			-- Plenty of catches below the listed level, none getting away there, says it's lower: but
+			-- only where getaways were to be expected. Fish get away about (level - skill)% of the
+			-- time below a zone's level, so catches just under it say little. Each step counts at its
+			-- top skill, the least getaways it could expect; it takes MIN_EXPECTED in all.
+			local below, lowest, expected = 0, nil, 0
 			for bucket, n in pairs(z.skillCatches or {}) do
 				if bucket + step <= listed and not (highestAway and bucket <= highestAway) then
 					below = below + n
 					lowest = math.min(lowest or bucket, bucket)
+					expected = expected + n * (listed - (bucket + step - 1)) / 100
 				end
 			end
-			if below >= MIN_BELOW_LEVEL then
+			if below >= MIN_BELOW_LEVEL and expected >= MIN_EXPECTED then
 				add("below:" .. zone, string.format("%d catches in %s from skill %d with no getaways, though OneCast lists %d",
-					below, zone, lowest, listed), zone)
+					below, zone, lowest, listed), zone,
+					zone, string.format("%d catches from skill %d with none getting away, though OneCast says %d. It may need less.",
+						below, lowest, listed))
 			end
 		end
 	end
@@ -169,13 +212,95 @@ Findings = function()
 				where[#where + 1] = string.format("%s x%d", zone, item.count)
 			end
 		end
-		add("fish:" .. entry.id, string.format("%s, which isn't in OneCast's collection%s", entry.name or ("item " .. entry.id),
-			#where > 0 and (" (caught in " .. table.concat(where, ", ") .. ")") or ""))
+		add("fish:" .. entry.id, string.format("%s (%d), which isn't in OneCast's collection%s", entry.name or ("物品 " .. entry.id),
+			entry.id, #where > 0 and (" (caught in " .. table.concat(where, ", ") .. ")") or ""), nil,
+			entry.name or ("Item " .. entry.id), "A fish OneCast's collection doesn't have yet"
+				.. (#where > 0 and (", caught in " .. table.concat(where, ", ")) or "") .. ".")
+	end
+	-- Anything else fished up that the collection lacks (treasure, gear, junk new to Forever), and
+	-- the first Forever catch of anything OneCast only knows from Classic.
+	local other, confirmed = {}, {}
+	for _, zone in ipairs(zoneNames) do
+		for id, item in pairs(OneCastCharDB.zoneStats[zone].items or {}) do
+			if (item.count or 0) > 0 then
+				local fish = ns.FISH_BY_ID and ns.FISH_BY_ID[id]
+				local list
+				if not fish and not NOT_COLLECTED[id] and not (ns.Collection and ns.Collection.IsFish(id)) and not IsGear(id) then
+					list = other
+				elseif fish and ClassicOnly(fish) then
+					list = confirmed
+				end
+				if list then
+					list[id] = list[id] or { name = ItemName(id, item), where = {}, places = {} }
+					table.insert(list[id].where, string.format("%s x%d", zone, item.count))
+					table.insert(list[id].places, item.count > 1 and string.format("%s (%d)", zone, item.count) or zone)
+				end
+			end
+		end
+	end
+	for _, list in ipairs({ other, confirmed }) do
+		local ids = {}
+		for id in pairs(list) do
+			ids[#ids + 1] = id
+		end
+		table.sort(ids)
+		for _, id in ipairs(ids) do
+			local e = list[id]
+			if list == other then
+				add("物品:" .. id, string.format("%s (%d) fished up in %s, which isn't in OneCast's collection",
+					e.name, id, table.concat(e.where, ", ")), nil,
+					e.name, "Fished up in " .. table.concat(e.places, ", ") .. ". It isn't in OneCast's collection yet.")
+			else
+				add("confirm:" .. id, string.format("%s (%d) caught in %s: OneCast only had Classic's data for it",
+					e.name, id, table.concat(e.where, ", ")), nil,
+					e.name, "钓于" .. table.concat(e.places, ", ") .. ". Proof it's in Forever: OneCast only knew it from Classic.")
+			end
+		end
+	end
+	-- For the Fisherman's journey: where ranks and fishing spells are learned, and fishing gear
+	-- it doesn't list.
+	for _, f in ipairs(ns.Journey and ns.Journey.Findings and ns.Journey.Findings() or {}) do
+		add(f.key, f.text, nil, f.title, f.detail)
+	end
+	-- Where a Blueprint or Seasonal Fish Steaks dropped, unless it's the source already confirmed.
+	local drops = OneCastCharDB.campDrops or {}
+	local dropIDs = {}
+	for id in pairs(drops) do
+		dropIDs[#dropIDs + 1] = id
+	end
+	table.sort(dropIDs)
+	for _, id in ipairs(dropIDs) do
+		local known
+		for _, craft in ipairs(ns.Camp and ns.Camp.CRAFTS or {}) do
+			if craft.blueprint == id then
+				known = craft.blueprintKnown
+			end
+		end
+		local keys = {}
+		for key in pairs(drops[id]) do
+			keys[#keys + 1] = key
+		end
+		table.sort(keys)
+		for _, key in ipairs(keys) do
+			local d = drops[id][key]
+			local isKnown = known and ((d.npc and d.npc == known.npc) or (d.name and d.name == known.name))
+			if not isKnown then
+				local from = d.name and (d.npc and string.format("%s [%d]", d.name, d.npc) or d.name)
+					or (d.npc and string.format("creature %d", d.npc)) or (d.object and "a chest or object") or "somewhere"
+				local name = ns.Camp.TRACKED_DROPS[id] or ItemName(id)
+				add("drop:" .. id .. ":" .. key, string.format("%s (%d) dropped from %s in %s%s", name, id, from, d.zone,
+					d.count > 1 and string.format(" (x%d)", d.count) or ""), nil,
+					name, string.format("Dropped from %s in %s%s. OneCast doesn't know this source yet.",
+						d.name or (d.object and "a chest or object") or "something", d.zone,
+						d.count > 1 and string.format(", %d times", d.count) or ""))
+			end
+		end
 	end
 	for _, craft in ipairs(ns.Camp and ns.Camp.CRAFTS or {}) do
 		local r = craft.buff and ns.Camp.Record(craft.key)
 		if r and r.catches >= MIN_CAMP then
-			add("camp:" .. craft.key, string.format("%d catches with %s on", r.catches, craft.buffName))
+			add("camp:" .. craft.key, string.format("%d catches with %s on", r.catches, craft.buffName), nil,
+				craft.buffName, string.format("%d catches with it on: enough to show what the buff really does.", r.catches))
 		end
 	end
 	for _, zone in ipairs(zoneNames) do
@@ -183,7 +308,8 @@ Findings = function()
 			local fish = ns.FISH_BY_ID and ns.FISH_BY_ID[id]
 			if fish and Unplaced(fish) and (item.count or 0) > 0 then
 				add("place:" .. id .. ":" .. zone, string.format("%s caught in %s: OneCast doesn't know where it's found yet",
-					ItemName(id, item), zone), zone)
+					ItemName(id, item), zone), zone,
+					ItemName(id, item), "钓于" .. zone .. ". OneCast doesn't know where it's found yet.")
 			end
 		end
 	end
@@ -192,7 +318,8 @@ end
 
 local function Seen()
 	local charDB = OneCastCharDB
-	charDB.reportFindings = charDB.reportFindings or { said = {}, shared = {} }
+	charDB.reportFindings = charDB.reportFindings or { shared = {} }
+	charDB.reportFindings.said = nil -- the chat hints' record, before 1.0
 	return charDB.reportFindings
 end
 
@@ -211,29 +338,7 @@ function Report.Unshared()
 	return list
 end
 
--- Unshared findings by zone: { [zone] = { finding, ... } }, for the book's Zones tab.
-function Report.UnsharedByZone()
-	local byZone = {}
-	for _, f in ipairs(Report.Unshared()) do
-		if f.zone then
-			byZone[f.zone] = byZone[f.zone] or {}
-			table.insert(byZone[f.zone], f)
-		end
-	end
-	return byZone
-end
-
--- What a window's tooltip says about sharing: a line, or nil with nothing new.
-function Report.TooltipLine()
-	local n = #Report.Unshared()
-	if n == 0 then
-		return nil
-	end
-	return string.format("你有 %d 项 OneCast 尚不知道的发现。分享你的数据报告，有助于补全 Forever 的数据。",
-		n)
-end
-
--- After a catch or getaway: say anything newly found, once each.
+-- After a catch or getaway: what's new shows quietly, as the Data report tab's badge.
 function Report.Check()
 	Report.Forget()
 	if ns.Hub and ns.Hub.UpdateBadges then
@@ -241,23 +346,6 @@ function Report.Check()
 	end
 	if Report.RefreshIfShown then
 		Report.RefreshIfShown()
-	end
-	if not (OneCastCharDB and ns.db and ns.db.reportHint) then
-		return
-	end
-	local said = Seen().said
-	local fresh = {}
-	for _, f in ipairs(Report.Unshared()) do
-		if not said[f.key] then
-			said[f.key] = true
-			fresh[#fresh + 1] = f
-		end
-	end
-	if #fresh == 1 then
-		ns.Print("你发现了 OneCast 尚不知道的内容：" .. fresh[1].text .. " 输入 /onecast report 即可分享。")
-	elseif #fresh > 1 then
-		ns.Print(string.format("你发现了 %d 项 OneCast 尚不知道的内容，例如：%s 输入 /onecast report 即可分享。",
-			#fresh, fresh[1].text))
 	end
 end
 
@@ -270,7 +358,6 @@ function Report.MarkShared()
 	local seen = Seen()
 	for _, f in ipairs(Report.Findings()) do
 		seen.shared[f.key] = true
-		seen.said[f.key] = true
 	end
 	if ns.Hub and ns.Hub.UpdateBadges then
 		ns.Hub.UpdateBadges()
@@ -326,7 +413,7 @@ function Report.Text()
 			add("- " .. f.text)
 		end
 	else
-		add("New to OneCast: nothing yet.")
+		add("「哇，大鱼」新发现：暂无。")
 	end
 
 	local zones = {}
@@ -380,6 +467,21 @@ function Report.Text()
 		end
 	end
 
+	-- What fished-up trunks, crates, clams and bloated fish held when they were opened.
+	local opened = {}
+	for id, record in pairs(charDB.containerLoot or {}) do
+		opened[#opened + 1] = { id = id, record = record }
+	end
+	table.sort(opened, function(a, b) return a.id < b.id end)
+	if #opened > 0 then
+		add("")
+		add("What fished-up containers held:")
+		for _, entry in ipairs(opened) do
+			add(string.format("%s (%d), opened %d: %s", ItemName(entry.id), entry.id, entry.record.opened,
+				ItemLine(entry.record.items)))
+		end
+	end
+
 	-- Fishing messages OneCast didn't recognise: what to match if one is ever being missed.
 	local messages = charDB.messagesWhileFishing
 	if messages and #messages > 0 then
@@ -393,12 +495,16 @@ function Report.Text()
 end
 
 -- The window ------------------------------------------------------------------------------
--- Three parts, top to bottom: what you've found, how to share it (the steps, with the button and
--- links in them, on parchment like the book's pages), and the report text itself.
+-- Two columns. On the left, what you've found, each with what it means in full. On the right,
+-- how to share it (the steps, with the button and links in them, on parchment like the book's
+-- pages), and the report text itself under them.
 
-local WINDOW_WIDTH = 440
+local WINDOW_WIDTH = 820
 local EDGE, GAP, HEADER_HEIGHT, HEADER_GAP = 10, 8, 24, 4
-local NEW_ROWS, NEW_ROW_HEIGHT = 6, 20
+local FOUND_WIDTH = 430 -- the left column
+local SIDE_LEFT = EDGE + FOUND_WIDTH + 2 * GAP -- where the right column starts
+local SIDE_WIDTH = WINDOW_WIDTH - 10 - SIDE_LEFT - EDGE
+local NEW_ROWS, NEW_ROW_HEIGHT = 9, 48
 local SHARE_PAD = 12
 local LINK_HEIGHT, LINK_GAP = 20, 4
 -- Where reports go. The GitHub link opens the repo's Data report issue form.
@@ -407,20 +513,21 @@ Report.WHERE = {
 	{ label = "GitHub", url = "https://github.com/rynmon/OneCast/issues/new?template=data-report.yml" },
 }
 local HINT = "选中报告后，按 Ctrl+C 即可复制。"
-local SELECTED = "|cffffd100已选中！现在按 Ctrl+C 复制。|r"
-local COPIED = "|cff1eff00报告已复制！|r 现在复制一个链接，在浏览器中打开并粘贴。"
-local LINK_COPIED = "|cff1eff00链接已复制！|r 请粘贴到浏览器地址栏。"
+local HINT_NOTHING = "|cffffd100已选中！现在按 Ctrl+C 复制。|r"
+local SELECTED = "|cff1eff00报告已复制！|r 现在复制一个链接，在浏览器中打开并粘贴。"
+local COPIED = "|cff1eff00链接已复制！|r 请粘贴到浏览器地址栏。"
+local LINK_COPIED = "|cff20ff20Link copied!|r Paste it in your browser's address bar."
 
 -- A box holding a web address, read-only, all selected when clicked: WoW can't open links,
 -- so copying is the way out.
 local function LinkBox(parent, url, onCopy)
 	local box = ns.UI.TryCreate("EditBox", nil, parent, "InputBoxTemplate") or CreateFrame("EditBox", nil, parent)
 	box:SetAutoFocus(false)
-	box:SetFontObject(GameFontHighlightSmall)
+	box:SetFontObject(OneCastFontHighlightSmall)
 	box:SetHeight(LINK_HEIGHT)
 	box:SetText(url)
 	box:SetCursorPosition(0)
-	box:SetScript("OnTextChanged", function(self, userInput)
+	box:SetScript("搜索", function(self, userInput)
 		if userInput then
 			self:SetText(url)
 			self:HighlightText()
@@ -443,7 +550,7 @@ local function LinkBox(parent, url, onCopy)
 	return box
 end
 
--- Parchment text in the theme's ink.
+-- Parchment text in its ink.
 local function Ink(fs, size, font)
 	ns.UI.SizedFont(fs, font or QuestFont, size)
 	fs:SetShadowOffset(0, 0)
@@ -462,14 +569,13 @@ local function SharePanel(f, parent)
 		bg:SetTexture("Interface\\QuestFrame\\QuestBG")
 		bg:SetTexCoord(0, 0.586, 0, 0.65)
 	end
-	ns.Theme.Register(bg, "parchment")
 	local edge = panel:CreateTexture(nil, "BORDER")
 	edge:SetColorTexture(0.55, 0.40, 0.15, 0.8)
 	edge:SetPoint("TOPLEFT")
 	edge:SetPoint("BOTTOMLEFT")
 	edge:SetWidth(3)
 
-	local width = WINDOW_WIDTH - 10 - 2 * EDGE - 2 * SHARE_PAD
+	local width = SIDE_WIDTH - 2 * SHARE_PAD
 	panel.texts = {}
 	local function Text(size, font)
 		local fs = Ink(panel:CreateFontString(nil, "OVERLAY"), size, font)
@@ -482,7 +588,6 @@ local function SharePanel(f, parent)
 	panel.step1 = Text(12)
 	panel.step1:SetPoint("TOPLEFT", SHARE_PAD, -SHARE_PAD)
 	local select = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-	ns.Theme.Register(select, "button")
 	select:SetSize(130, 22)
 	select:SetPoint("TOPLEFT", panel.step1, "BOTTOMLEFT", 16, -4)
 	select:SetText("选中报告")
@@ -531,7 +636,7 @@ local STEP1 = "%s1.|r  选中你的报告，然后按 %sCtrl+C|r 复制。"
 local STEP2 = "%s2.|r  点击一个链接，按 %sCtrl+C|r，然后在浏览器中打开。"
 local STEP3 = "%s3.|r  粘贴到新的评论或 issue 中并发布。谢谢！"
 
--- The panel's ink follows the theme, as the book's does, and it's sized to its text.
+-- The panel's in the book's ink, and it's sized to its text.
 local function InkShare(panel)
 	local theme = ns.Theme.Current()
 	for _, fs in ipairs(panel.texts) do
@@ -547,12 +652,151 @@ local function InkShare(panel)
 	panel:SetHeight(height)
 end
 
+-- With nothing found: an emblem, a headline, what's been counted so far, and what OneCast is
+-- looking for on parchment, so the page says what to do instead of standing empty.
+local LOOKING_FOR = {
+	{ icon = "Interface\\Icons\\INV_Misc_Map_01", title = "没有已知钓鱼等级的区域",
+		text = "在没有已知钓鱼等级的地点钓到 10 次。" },
+	{ icon = "Interface\\Icons\\Trade_Fishing", title = "不该脱钩却脱了",
+		text = "高于区域标注等级钓鱼，或从未低于该等级。" },
+	{ icon = "Interface\\Icons\\INV_Box_02", title = "「哇，大鱼」尚未收录的渔获",
+		text = "新鱼或宝藏，或尚无法确定出没地点的鱼。" },
+	{ item = 279965, icon = "Interface\\Icons\\Spell_Fire_Fire", title = "带着营地增益钓鱼",
+		text = "带着优良或稀有钓鱼增益钓到 5 次。" },
+	{ item = 273119, icon = "Interface\\Icons\\INV_Scroll_03", title = "蓝图掉落出处",
+		text = "拾取一件并记录是谁掉落的。" },
+	{ item = 16083, icon = "Interface\\Icons\\INV_Misc_Book_09", title = "钓鱼等级与装备",
+		text = "钓鱼技能训练师位置与新装备。" },
+}
+local LOOK_ROW = 38
+
+local function EmptyState(parent)
+	local panel = CreateFrame("Frame", nil, parent)
+	panel:SetSize(560, 10)
+
+	-- The emblem: the fishing icon in a round frame.
+	local emblem = panel:CreateTexture(nil, "ARTWORK")
+	emblem:SetSize(52, 52)
+	emblem:SetPoint("TOP", 0, -4)
+	emblem:SetTexture("Interface\\Icons\\Trade_Fishing")
+	if panel.CreateMaskTexture then
+		local mask = panel:CreateMaskTexture()
+		mask:SetAllPoints(emblem)
+		mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+		emblem:AddMaskTexture(mask)
+	end
+	-- A gold ring round it: a slightly bigger gold disc behind, cut round the same way.
+	local ring = panel:CreateTexture(nil, "BORDER")
+	ring:SetSize(60, 60)
+	ring:SetPoint("CENTER", emblem, "CENTER")
+	ring:SetColorTexture(0.85, 0.65, 0.25, 0.9)
+	if panel.CreateMaskTexture then
+		local mask = panel:CreateMaskTexture()
+		mask:SetAllPoints(ring)
+		mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+		ring:AddMaskTexture(mask)
+	else
+		ring:Hide()
+	end
+
+	panel.title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+	panel.title:SetPoint("TOP", emblem, "BOTTOM", 0, -12)
+	panel.title:SetText("暂无新内容可分享")
+	panel.sub = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+	panel.sub:SetPoint("TOP", panel.title, "BOTTOM", 0, -6)
+	panel.sub:SetText("你钓到的一切都与「哇，大鱼」已知的一致。")
+	panel.count = panel:CreateFontString(nil, "OVERLAY", "OneCastFontDisableSmall")
+	panel.count:SetPoint("TOP", panel.sub, "BOTTOM", 0, -6)
+
+	-- What to look out for, on parchment like the share steps.
+	local paper = CreateFrame("Frame", nil, panel)
+	paper:SetPoint("TOP", panel.count, "BOTTOM", 0, -16)
+	paper:SetPoint("LEFT", panel, "LEFT")
+	paper:SetPoint("RIGHT", panel, "RIGHT")
+	paper:SetHeight(SHARE_PAD + 20 + #LOOKING_FOR * LOOK_ROW + SHARE_PAD - 6)
+	local bg = paper:CreateTexture(nil, "BACKGROUND")
+	bg:SetAllPoints()
+	if ns.UI.HasAtlas("QuestBG-Parchment") then
+		bg:SetAtlas("QuestBG-Parchment")
+	else
+		bg:SetTexture("Interface\\QuestFrame\\QuestBG")
+		bg:SetTexCoord(0, 0.586, 0, 0.65)
+	end
+	local edge = paper:CreateTexture(nil, "BORDER")
+	edge:SetColorTexture(0.55, 0.40, 0.15, 0.8)
+	edge:SetPoint("TOPLEFT")
+	edge:SetPoint("BOTTOMLEFT")
+	edge:SetWidth(3)
+	panel.texts, panel.softs = {}, {}
+	paper.heading = Ink(paper:CreateFontString(nil, "OVERLAY"), 14)
+	paper.heading:SetPoint("TOPLEFT", SHARE_PAD, -SHARE_PAD)
+	paper.heading:SetText("「哇，大鱼」希望收集这些发现")
+	panel.texts[#panel.texts + 1] = paper.heading
+	for i, look in ipairs(LOOKING_FOR) do
+		local top = -(SHARE_PAD + 24 + (i - 1) * LOOK_ROW)
+		local icon = paper:CreateTexture(nil, "ARTWORK")
+		icon:SetSize(26, 26)
+		icon:SetPoint("TOPLEFT", SHARE_PAD + 2, top)
+		icon:SetTexture(look.item and C_Item.GetItemIconByID(look.item) or look.icon)
+		icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+		local title = Ink(paper:CreateFontString(nil, "OVERLAY"), 12)
+		title:SetPoint("TOPLEFT", icon, "TOPRIGHT", 10, 0)
+		title:SetPoint("RIGHT", paper, "RIGHT", -SHARE_PAD, 0)
+		title:SetWordWrap(false)
+		title:SetText(look.title)
+		local text = Ink(paper:CreateFontString(nil, "OVERLAY"), 11)
+		text:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -2)
+		text:SetPoint("RIGHT", paper, "RIGHT", -SHARE_PAD, 0)
+		text:SetWordWrap(false)
+		text:SetText(look.text)
+		panel.texts[#panel.texts + 1] = title
+		panel.softs[#panel.softs + 1] = text
+	end
+	panel.paper = paper
+	panel:SetHeight(4 + 52 + 12 + 18 + 6 + 14 + 6 + 12 + 16 + paper:GetHeight())
+	return panel
+end
+
+local function InkEmpty(panel)
+	local theme = ns.Theme.Current()
+	for _, fs in ipairs(panel.texts) do
+		fs:SetTextColor(theme.ink[1], theme.ink[2], theme.ink[3])
+	end
+	for _, fs in ipairs(panel.softs) do
+		fs:SetTextColor(theme.inkSoft[1], theme.inkSoft[2], theme.inkSoft[3])
+	end
+end
+
+-- "Keeping count: 1,204 catches and 37 getaways in 12 zones on this character."
+local function CountLine()
+	local catches, escapes, zones = 0, 0, 0
+	for _, z in pairs(OneCastCharDB and OneCastCharDB.zoneStats or {}) do
+		if (z.catches or 0) > 0 or (z.escapes or 0) > 0 then
+			zones = zones + 1
+		end
+		catches = catches + (z.catches or 0)
+		escapes = escapes + (z.escapes or 0)
+	end
+	if catches == 0 and escapes == 0 then
+		return "去钓鱼吧：「哇，大鱼」会为你统计。"
+	end
+	local function n(v, one, many)
+		return (BreakUpLargeNumbers and BreakUpLargeNumbers(v) or tostring(v)) .. " " .. (v == 1 and one or many)
+	end
+	return string.format("Keeping count: %s and %s in %s on this character.",
+		n(catches, "catch", "catches"), n(escapes, "getaway", "getaways"), n(zones, "zone", "zones"))
+end
+
 -- What a finding is about, for its row's icon: the fish's own, the craft's, or a map.
 local MAP_ICON = "Interface\\Icons\\INV_Misc_Map_01"
 local function FindingIcon(key)
 	local kind, a = key:match("^(%a+):([^:]+)")
-	if kind == "place" or kind == "fish" then
+	if kind == "place" or kind == "fish" or kind == "item" or kind == "confirm" or kind == "drop" then
 		return C_Item.GetItemIconByID(tonumber(a)) or MAP_ICON
+	elseif kind == "journey" then
+		-- Gear by its own icon; ranks and spells by the Fisherman's journey's book.
+		local id = a == "gear" and tonumber(key:match("^journey:gear:(%d+)") or "")
+		return C_Item.GetItemIconByID(id or 16083) or MAP_ICON
 	elseif kind == "camp" then
 		for _, craft in ipairs(ns.Camp and ns.Camp.CRAFTS or {}) do
 			if craft.key == a then
@@ -564,31 +808,64 @@ local function FindingIcon(key)
 end
 
 local KIND_LABEL = {
-	level = "该区域无已知等级",
-	above = "等级可能更高",
+	level = "等级可能更低",
+	above = "等级可能更低",
 	below = "等级可能更低",
 	place = "鱼的出没地点",
-	fish = "OneCast 没有的鱼",
-	camp = "营地增益的奖励",
+	item = "OneCast 没有的鱼",
+	confirm = "营地增益的奖励",
+	drop = "掉落地点",
+	journey = "Journey",
+	fish = "新鱼",
+	camp = "营地增益",
 }
+
+-- A finding's name in its item's quality colour, where it's an item.
+local function FindingTitle(finding)
+	local title = finding.title or finding.text
+	local kind, a = finding.key:match("^(%a+):([^:]+)")
+	local id = tonumber(a or "")
+	if kind == "journey" then
+		id = tonumber(finding.key:match("^journey:gear:(%d+)") or "")
+	elseif kind ~= "place" and kind ~= "fish" and kind ~= "item" and kind ~= "confirm" and kind ~= "drop" then
+		id = nil
+	end
+	local quality = id and C_Item.GetItemQualityByID and C_Item.GetItemQualityByID(id)
+	local color = quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
+	return (color and color.hex or "|cffffffff") .. title .. " 脱钩|r"
+end
 
 local function FindingRow(parent, index, y)
 	local row = CreateFrame("Frame", nil, parent)
 	row:SetPoint("TOPLEFT", EDGE, y)
-	row:SetPoint("TOPRIGHT", -EDGE, y)
-	row:SetHeight(NEW_ROW_HEIGHT)
+	row:SetSize(FOUND_WIDTH, NEW_ROW_HEIGHT - 2)
 	ns.UI.RowBackground(row, index)
 	row.icon = row:CreateTexture(nil, "ARTWORK")
-	row.icon:SetSize(NEW_ROW_HEIGHT - 4, NEW_ROW_HEIGHT - 4)
-	row.icon:SetPoint("LEFT", 6, 0)
+	row.icon:SetSize(34, 34)
+	row.icon:SetPoint("TOPLEFT", 6, -6)
 	row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	row.tag = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	row.tag:SetPoint("RIGHT", -6, 0)
-	row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	row.text:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
-	row.text:SetPoint("RIGHT", row.tag, "LEFT", -6, 0)
+	-- Top line: what it is; right of it, the kind of finding and whether it's been shared. Under
+	-- it, what it means, over two lines where it needs them.
+	row.tag = row:CreateFontString(nil, "OVERLAY", "OneCastFontNormalSmall")
+	row.tag:SetPoint("TOPRIGHT", -8, -6)
+	row.kind = row:CreateFontString(nil, "OVERLAY", "OneCastFontNormalSmall")
+	row.kind:SetPoint("RIGHT", row.tag, "LEFT", -8, 0)
+	row.title = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	row.title:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 10, 1)
+	row.title:SetPoint("RIGHT", row.kind, "LEFT", -6, 0)
+	row.title:SetJustifyH("LEFT")
+	row.title:SetWordWrap(false)
+	row.text = row:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
+	row.text:SetPoint("TOPLEFT", row.title, "BOTTOMLEFT", 0, -3)
+	row.text:SetPoint("RIGHT", -8, 0)
 	row.text:SetJustifyH("LEFT")
-	row.text:SetWordWrap(false)
+	row.text:SetJustifyV("TOP")
+	row.text:SetWordWrap(true)
+	if row.text.SetMaxLines then
+		row.text:SetMaxLines(2)
+	end
+	row.text:SetSpacing(1)
+	row.text:SetTextColor(0.82, 0.82, 0.82)
 	row:EnableMouse(true)
 	row:SetScript("OnEnter", function(self)
 		if not self.finding then
@@ -596,8 +873,11 @@ local function FindingRow(parent, index, y)
 		end
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		local kind = self.finding.key:match("^(%a+)")
-		GameTooltip:SetText(KIND_LABEL[kind] or "OneCast 新发现")
-		GameTooltip:AddLine(self.finding.text, 1, 1, 1, true)
+		GameTooltip:SetText(FindingTitle(self.finding))
+		GameTooltip:AddLine(KIND_LABEL[kind] or "OneCast 新发现", 1, 0.82, 0)
+		GameTooltip:AddLine(self.finding.detail or self.finding.text, 1, 1, 1, true)
+		GameTooltip:AddLine(" ")
+		GameTooltip:AddLine("报告中：" .. self.finding.text, 0.6, 0.6, 0.6, true)
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddLine(self.shared and "已包含在你复制过的报告中。" or "尚未分享：复制你的报告即可发送。",
 			0.6, 0.8, 1, true)
@@ -611,8 +891,11 @@ local function FillFindingRow(row, finding, shared)
 	row.finding, row.shared = finding, shared
 	row.icon:SetTexture(FindingIcon(finding.key))
 	row.icon:Show()
-	row.text:SetText(finding.text)
-	row.tag:SetText(shared and "|cff9d9d9d已分享|r" or "|cff1eff00新|r")
+	local kind = finding.key:match("^(%a+)")
+	row.kind:SetText(KIND_LABEL[kind] or "")
+	row.title:SetText(FindingTitle(finding))
+	row.text:SetText(finding.detail or finding.text)
+	row.tag:SetText(shared and "|cff9d9d9dShared|r" or "|cff20ff20New|r")
 	row:Show()
 end
 
@@ -632,41 +915,42 @@ local function CreateWindow()
 	f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving)
 	ns.UI.RememberPosition(f, "report")
-	tinsert(UISpecialFrames, f:GetName())
-	UI.KeepOpenThroughOptions(f:GetName())
 
 	-- Right of the portrait, above the inset: what this window is for.
-	f.status = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.status = f:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
 	f.status:SetPoint("BOTTOMLEFT", inset, "TOPLEFT", 62, 6)
 	f.status:SetPoint("RIGHT", inset, "RIGHT", -6, 0)
 	f.status:SetJustifyH("LEFT")
 	f.status:SetWordWrap(false)
 
-	-- 1. What you've found.
+	-- 1. What you've found: the left column.
 	local y = -GAP
 	f.newHeader = UI.SectionHeader(inset, y)
+	f.newHeader:ClearAllPoints()
+	f.newHeader:SetPoint("TOPLEFT", EDGE, y)
+	f.newHeader:SetWidth(FOUND_WIDTH)
 	y = y - HEADER_HEIGHT - HEADER_GAP
 	f.rows = {}
 	for i = 1, NEW_ROWS do
 		f.rows[i] = FindingRow(inset, i, y - (i - 1) * NEW_ROW_HEIGHT)
 	end
-	f.empty = inset:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	f.empty:SetPoint("TOPLEFT", EDGE + 12, y - 16)
-	f.empty:SetPoint("RIGHT", -(EDGE + 12), 0)
-	f.empty:SetJustifyH("CENTER")
-	f.empty:SetWordWrap(true)
-	f.empty:SetSpacing(3)
-	f.empty:SetText("暂无新发现：你钓到的一切都与 OneCast 已知的一致。\n"
-		.. "|cff9d9d9d没有已知等级的区域、在记录等级之上脱钩的鱼、图鉴里没有或无法确定出没地点的鱼，"
-		.. "以及带营地增益钓到的渔获，都会显示在这里。|r")
-	y = y - NEW_ROWS * NEW_ROW_HEIGHT - GAP
+	f.empty = EmptyState(inset)
+	-- Centred in the room under the header.
+	f.empty:SetPoint("CENTER", inset, "CENTER", 0, y / 2)
+	InkEmpty(f.empty)
+	f.empty:Hide()
+	f.listTop = y
+	-- Between the columns, the window's gold rule.
+	f.divider = inset:CreateTexture(nil, "BORDER")
+	f.divider:SetColorTexture(0.62, 0.48, 0.24, 0.5)
+	f.divider:SetPoint("TOPLEFT", EDGE + FOUND_WIDTH + GAP, -GAP)
+	f.divider:SetPoint("BOTTOMLEFT", EDGE + FOUND_WIDTH + GAP, EDGE)
+	f.divider:SetWidth(1)
 
-	-- 2. Share it.
-	UI.SectionHeader(inset, y).text:SetText("分享")
-	y = y - HEADER_HEIGHT - HEADER_GAP
+	-- 2. Share it: placed under however much the list above shows (PlaceShare).
+	f.shareHeader = UI.SectionHeader(inset, y)
+	f.shareHeader.text:SetText("分享")
 	f.share = SharePanel(f, inset)
-	f.share:SetPoint("TOPLEFT", EDGE, y)
-	f.share:SetPoint("TOPRIGHT", -EDGE, y)
 	InkShare(f.share)
 
 	-- 3. The report text, under the panel, in its own sunken box.
@@ -675,10 +959,11 @@ local function CreateWindow()
 	textHeader:SetPoint("TOPLEFT", f.share, "BOTTOMLEFT", 0, -GAP)
 	textHeader:SetPoint("TOPRIGHT", f.share, "BOTTOMRIGHT", 0, -GAP)
 	textHeader.text:SetText("报告内容")
+	f.textHeader = textHeader
 	local box = UI.TryCreate("Frame", nil, inset, "InsetFrameTemplate") or CreateFrame("Frame", nil, inset)
 	box:SetPoint("TOPLEFT", textHeader, "BOTTOMLEFT", 0, -HEADER_GAP)
 	box:SetPoint("BOTTOMRIGHT", -EDGE, EDGE)
-	ns.Theme.Panel(box)
+	f.textBox = box
 	-- The game's slim modern scroll bar, or the classic one where that template is missing.
 	local scroll = UI.TryCreate("ScrollFrame", "OneCastReportScroll", box, "ScrollFrameTemplate")
 		or UI.TryCreate("ScrollFrame", "OneCastReportScroll", box, "UIPanelScrollFrameTemplate")
@@ -688,12 +973,12 @@ local function CreateWindow()
 	local edit = CreateFrame("EditBox", nil, scroll)
 	edit:SetMultiLine(true)
 	edit:SetAutoFocus(false)
-	edit:SetFontObject(GameFontHighlightSmall)
-	edit:SetWidth(WINDOW_WIDTH - 10 - 2 * EDGE - 30)
+	edit:SetFontObject(OneCastFontHighlightSmall)
+	edit:SetWidth(SIDE_WIDTH - 30)
 	edit:SetMaxLetters(0)
 	edit:SetScript("OnEscapePressed", edit.ClearFocus)
 	-- Read-only, and all of it selected whenever it's clicked, ready to copy.
-	edit:SetScript("OnTextChanged", function(self, userInput)
+	edit:SetScript("搜索", function(self, userInput)
 		if userInput then
 			self:SetText(f.text or "")
 			self:HighlightText()
@@ -730,7 +1015,7 @@ local function CreateWindow()
 	end)
 
 	-- Along the bottom: what to do next, as you go.
-	f.hint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	f.hint = f:CreateFontString(nil, "OVERLAY", "OneCastFontDisableSmall")
 	f.hint:SetPoint("BOTTOMLEFT", 14, 9)
 	f.hint:SetPoint("RIGHT", f, "RIGHT", -22, 0) -- clear of the resize grip
 	f.hint:SetJustifyH("LEFT")
@@ -738,6 +1023,18 @@ local function CreateWindow()
 	f:Hide()
 	ns.Hub.Attach("report", f)
 	return f
+end
+
+-- The share steps at the top of the right column; the report text below gets the rest of it.
+local function PlaceShare(f)
+	local y = -GAP
+	f.shareHeader:ClearAllPoints()
+	f.shareHeader:SetPoint("TOPLEFT", SIDE_LEFT, y)
+	f.shareHeader:SetPoint("TOPRIGHT", -EDGE, y)
+	y = y - HEADER_HEIGHT - HEADER_GAP
+	f.share:ClearAllPoints()
+	f.share:SetPoint("TOPLEFT", SIDE_LEFT, y)
+	f.share:SetPoint("TOPRIGHT", -EDGE, y)
 end
 
 FillFindings = function(f)
@@ -763,7 +1060,7 @@ FillFindings = function(f)
 	end
 	f.newHeader.text:SetText(fresh > 0 and string.format("你的发现  |cff1eff00（%d 项待分享）|r", fresh)
 		or "你的发现")
-	f.status:SetText(fresh > 0 and string.format("你发现了 %d 项 OneCast 尚不知道的内容。", fresh)
+	f.status:SetText(fresh > 0 and string.format("You've found %d thing%s OneCast doesn't know yet.", fresh, fresh == 1 and "" or "s")
 		or "帮助补全 Forever 真实的钓鱼数据。")
 	local shown = math.min(#findings, NEW_ROWS)
 	if #findings > NEW_ROWS then
@@ -775,7 +1072,9 @@ FillFindings = function(f)
 			FillFindingRow(row, finding, shared[finding.key])
 		elseif i == shown + 1 and #findings > shown then
 			row.icon:Hide()
-			row.text:SetText(string.format("|cff9d9d9d另有 %d 项，均在下方报告内容中|r", #findings - shown))
+			row.title:SetText(string.format("|cff9d9d9d另有 %d 项，均在下方报告内容中|r", #findings - shown))
+			row.text:SetText("|cff9d9d9dThey're all in the report text below.|r")
+			row.kind:SetText("")
 			row.tag:SetText("")
 			row.finding = nil
 			row:Show()
@@ -783,7 +1082,27 @@ FillFindings = function(f)
 			row:Hide()
 		end
 	end
-	f.empty:SetShown(#findings == 0)
+	-- Nothing found means nothing worth sending: no share steps and no report text until there is.
+	local nothing = #findings == 0
+	f.nothing = nothing
+	f.empty:SetShown(nothing)
+	if nothing then
+		f.empty.count:SetText(CountLine())
+	end
+	f.shareHeader:SetShown(not nothing)
+	f.share:SetShown(not nothing)
+	f.textHeader:SetShown(not nothing)
+	f.textBox:SetShown(not nothing)
+	-- With nothing to share, one column: the header across the window over what to look for.
+	f.divider:SetShown(not nothing)
+	f.newHeader:ClearAllPoints()
+	f.newHeader:SetPoint("TOPLEFT", EDGE, -GAP)
+	if nothing then
+		f.newHeader:SetPoint("TOPRIGHT", -EDGE, -GAP)
+	else
+		f.newHeader:SetWidth(FOUND_WIDTH)
+	end
+	PlaceShare(f)
 end
 
 local function Fill(f)
@@ -791,15 +1110,10 @@ local function Fill(f)
 	f.text = Report.Text()
 	f.box:SetText(f.text)
 	f.box:SetCursorPosition(0)
-	f.hint:SetText(HINT)
+	f.hint:SetText(f.nothing and HINT_NOTHING or HINT)
 	InkShare(f.share)
 end
 
-ns.Theme.OnChange(function()
-	if frame then
-		InkShare(frame.share)
-	end
-end)
 
 -- After a catch or getaway, an open window keeps up.
 function Report.RefreshIfShown()

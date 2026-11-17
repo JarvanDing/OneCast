@@ -92,8 +92,10 @@ function Collection.OnCatch(loot, zone)
 			SyncItem(l.id, key, OneCastCharDB)
 		end
 	end
-	for _, l in ipairs(newFish) do
-		ns.Print("图鉴新鱼：" .. (l.link or l.name or "?") .. "！")
+	if not (ns.db and ns.db.newCatchMessage == false) then
+		for _, l in ipairs(newFish) do
+			ns.Print("图鉴新鱼：" .. (l.link or l.name or "?") .. "!")
+		end
 	end
 	if ns.Book and ns.Book.RefreshIfShown then
 		ns.Book.RefreshIfShown()
@@ -170,6 +172,81 @@ function Collection.CaughtZones()
 	end
 	return zones
 end
+
+-- Item tooltips anywhere (bags, chat links, the auction house): which of your characters caught
+-- it, for anything in the collection. Account-wide, from the same record as the book.
+local MAX_NAMES = 3
+
+-- A character as Baganator shows one: its class icon, then its name in its class colour, with
+-- its realm only if that's not the realm you're on.
+local function CharLabel(char)
+	local class = char.class
+	local icon = ""
+	local atlas = class and ("classicon-" .. class:lower())
+	if atlas and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas) and CreateAtlasMarkup then
+		icon = CreateAtlasMarkup(atlas, 12, 12) .. " "
+	end
+	local name = char.name or char.key or "?"
+	local realm = char.key and char.key:match("%-(.+)$")
+	local here = (GetNormalizedRealmName and GetNormalizedRealmName()) or GetRealmName()
+	if realm and here and realm ~= here then
+		name = name .. "-" .. realm
+	end
+	local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+	if color then
+		name = string.format("|cff%02x%02x%02x%s|r", math.floor(color.r * 255 + 0.5), math.floor(color.g * 255 + 0.5),
+			math.floor(color.b * 255 + 0.5), name)
+	end
+	return icon .. name
+end
+local function AddCaughtLine(tooltip, data)
+	if not (ns.db and ns.db.catchTooltip) or not data then
+		return
+	end
+	-- The main tooltip and a chat link's, as Blizzard's own hooks do: not the comparison ones.
+	if tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip then
+		return
+	end
+	local itemID = data.id
+	if type(itemID) ~= "number" or (issecretvalue and issecretvalue(itemID)) then
+		return
+	end
+	if not (ns.FISH_BY_ID and ns.FISH_BY_ID[itemID]) and not Store().items[itemID] then
+		return
+	end
+	-- Laid out like other addons' tooltip blocks: a header, then gold labels and white values.
+	local rarity = ns.Rarity and ns.Rarity(itemID)
+	local info = Collection.Get(itemID)
+	if not rarity and info.total == 0 then
+		return
+	end
+	local GOLD_R, GOLD_G, GOLD_B = 1, 0.82, 0
+	tooltip:AddDoubleLine("哇，大鱼", rarity and (ns.RARITY_COLOR[rarity.key] .. rarity.label .. " 脱钩|r") or "",
+		0.44, 0.84, 1, 1, 1, 1)
+	if rarity then
+		-- How rare it is, from Classic's loot tables, and where it's likeliest.
+		tooltip:AddDoubleLine("几率（经典）", ns.OneIn(rarity.pct) .. " catches", GOLD_R, GOLD_G, GOLD_B, 1, 1, 1)
+		local where = rarity.where .. (rarity.others > 0 and string.format(" +%d more", rarity.others) or "")
+		tooltip:AddDoubleLine("最佳于", where, GOLD_R, GOLD_G, GOLD_B, 1, 1, 1)
+	end
+	-- Which of your characters caught it, as Baganator lists where items are: the total, then each
+	-- character with its class icon, in its class colour, and its count.
+	if info.total == 0 then
+		return
+	end
+	tooltip:AddDoubleLine("钓获于", tostring(info.total), GOLD_R, GOLD_G, GOLD_B, 1, 1, 1)
+	for i, char in ipairs(info.chars) do
+		if i > MAX_NAMES then
+			tooltip:AddDoubleLine(string.format("还有 %d 个", #info.chars - MAX_NAMES), " ", 0.7, 0.7, 0.7)
+			break
+		end
+		tooltip:AddDoubleLine(CharLabel(char), tostring(char.count), 1, 1, 1, 1, 1, 1)
+	end
+end
+if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum.TooltipDataType then
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, AddCaughtLine)
+end
+Collection.AddCaughtLine = AddCaughtLine
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_LOGIN")

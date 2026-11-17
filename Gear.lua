@@ -53,6 +53,7 @@ end
 local function FindPoleInBags()
 	local best, bestScore, fallback
 	local lastID = charDB.lastPole and C_Item.GetItemInfoInstant(charDB.lastPole)
+	local chosenID = charDB.outfitPole -- picked in the wardrobe
 	for bag = 0, NUM_BAG_SLOTS or 4 do
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
 			local link = C_Container.GetContainerItemLink(bag, slot)
@@ -62,6 +63,7 @@ local function FindPoleInBags()
 					fallback = fallback or link
 				else
 					local score = ItemLevel(link) + (lastID and id == lastID and 10000 or 0)
+					+ (chosenID and id == chosenID and 100000 or 0)
 					if not bestScore or score > bestScore then
 						best, bestScore = link, score
 					end
@@ -108,6 +110,197 @@ local function UnequipToBags(slot)
 	return false
 end
 
+-- The fishing outfit: armour with a Fishing bonus (a fishing hat, Nat Pagle's boots, gloves
+-- with the Fishing enchant) goes on with the pole and comes off with it. One piece per slot,
+-- the biggest bonus, only where it beats what's worn, or the piece you picked in the wardrobe
+-- (a shirt, say: no shirt has a bonus, so it only changes when you pick one). Rings and
+-- trinkets are left alone: they have two slots each. The bonus is read from the item's tooltip,
+-- in the client's own language.
+local OUTFIT_SLOTS = {
+	INVTYPE_HEAD = 1, INVTYPE_NECK = 2, INVTYPE_SHOULDER = 3, INVTYPE_BODY = 4, INVTYPE_CHEST = 5,
+	INVTYPE_ROBE = 5, INVTYPE_WAIST = 6, INVTYPE_LEGS = 7, INVTYPE_FEET = 8, INVTYPE_WRIST = 9,
+	INVTYPE_HAND = 10, INVTYPE_CLOAK = 15,
+}
+
+-- A tooltip line naming Fishing in the client's own language ("Angeln", "Pêche"...) with a
+-- "+N" on it: "Equip: Increased Fishing +5", "Fishing +2", "+5 Angeln". The "+" keeps out
+-- "Requires Fishing (225)".
+local function FishingBonus(data)
+	local fishing = (ns.GetFishingName and ns.GetFishingName() or "Fishing"):lower()
+	for _, line in ipairs(data and data.lines or {}) do
+		local text = line.leftText
+		if type(text) == "string" and not (issecretvalue and issecretvalue(text)) then
+			local lower = text:lower()
+			if lower:find(fishing, 1, true) or lower:find("fishing", 1, true) then
+				local n = text:match("%+%s*(%d+)")
+				if n then
+					return tonumber(n)
+				end
+			end
+		end
+	end
+	return 0
+end
+
+-- The wardrobe's slots, in the character sheet's order: left column, then right.
+Gear.WARDROBE_SLOTS = {
+	{ slot = 1, name = "头部" }, { slot = 2, name = "颈部" }, { slot = 3, name = "肩部" },
+	{ slot = 15, name = "背部" }, { slot = 5, name = "胸部" }, { slot = 9, name = "手腕" },
+	{ slot = 10, name = "手部" }, { slot = 6, name = "腰部" }, { slot = 7, name = "腿部" },
+	{ slot = 8, name = "脚部" }, { slot = 4, name = "衬衣" },
+}
+
+-- Your choice for a slot, per character: an item ID, "keep" (what you're wearing stays) or
+-- nil (automatic: the bag's biggest Fishing bonus, if it beats what you wear).
+function Gear.Choice(invSlot)
+	return charDB and charDB.outfit and charDB.outfit[invSlot]
+end
+
+function Gear.SetChoice(invSlot, choice)
+	if not charDB then
+		return
+	end
+	charDB.outfit = charDB.outfit or {}
+	charDB.outfit[invSlot] = choice
+end
+
+-- Every item that could go in a slot: what you wear there and what's in your bags, with its
+-- Fishing bonus. { link, id, bonus, worn }, the biggest bonus first.
+function Gear.Candidates(invSlot)
+	local list, seen = {}, {}
+	local wornLink = GetInventoryItemLink("player", invSlot)
+	if wornLink then
+		local id = C_Item.GetItemInfoInstant(wornLink)
+		local data = C_TooltipInfo and C_TooltipInfo.GetInventoryItem and C_TooltipInfo.GetInventoryItem("player", invSlot)
+		list[#list + 1] = { link = wornLink, id = id, bonus = FishingBonus(data), worn = true }
+		seen[id] = true
+	end
+	for bag = 0, NUM_BAG_SLOTS or 4 do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) do
+			local link = C_Container.GetContainerItemLink(bag, slot)
+			local id, _, _, equipLoc = nil, nil, nil, nil
+			if link then
+				id, _, _, equipLoc = C_Item.GetItemInfoInstant(link)
+			end
+			if id and not seen[id] and OUTFIT_SLOTS[equipLoc] == invSlot then
+				seen[id] = true
+				local data = C_TooltipInfo and C_TooltipInfo.GetBagItem and C_TooltipInfo.GetBagItem(bag, slot)
+				list[#list + 1] = { link = link, id = id, bonus = FishingBonus(data) }
+			end
+		end
+	end
+	table.sort(list, function(a, b)
+		if a.bonus ~= b.bonus then
+			return a.bonus > b.bonus
+		end
+		return (a.worn and 1 or 0) > (b.worn and 1 or 0)
+	end)
+	return list
+end
+
+-- Every fishing pole you could use: in your hand and in your bags, with its Fishing bonus.
+function Gear.Poles()
+	local list, seen = {}, {}
+	local tips = C_TooltipInfo or {}
+	local held = GetInventoryItemLink("player", MAIN)
+	if held and Gear.IsPole(held) then
+		local id = C_Item.GetItemInfoInstant(held)
+		local data = tips.GetInventoryItem and tips.GetInventoryItem("player", MAIN)
+		list[#list + 1] = { link = held, id = id, worn = true, bonus = FishingBonus(data) }
+		seen[id] = true
+	end
+	for bag = 0, NUM_BAG_SLOTS or 4 do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) do
+			local link = C_Container.GetContainerItemLink(bag, slot)
+			local id = link and Gear.IsPole(link) and C_Item.GetItemInfoInstant(link)
+			if id and not seen[id] then
+				seen[id] = true
+				local data = tips.GetBagItem and tips.GetBagItem(bag, slot)
+				list[#list + 1] = { link = link, id = id, bonus = FishingBonus(data) }
+			end
+		end
+	end
+	return list
+end
+
+-- Whether combat stops gear changing now.
+function Gear.Locked()
+	return InCombatLockdown() and true or false
+end
+
+-- What goes on with the pole: slot -> { link, bonus }, for every slot that changes.
+-- Any item's Fishing bonus, from the game's own tooltip for it: 0 if it has none, nil while
+-- the game is still loading the item.
+function Gear.ItemBonus(itemID)
+	if not (C_TooltipInfo and C_TooltipInfo.GetItemByID) then
+		return nil
+	end
+	if C_Item.IsItemDataCachedByID and not C_Item.IsItemDataCachedByID(itemID) then
+		if C_Item.RequestLoadItemDataByID then
+			C_Item.RequestLoadItemDataByID(itemID)
+		end
+		return nil
+	end
+	return FishingBonus(C_TooltipInfo.GetItemByID(itemID))
+end
+
+function Gear.FindOutfit()
+	local picks = {} -- slot -> { link, bonus }
+	if not (C_TooltipInfo and C_TooltipInfo.GetBagItem) then
+		return picks
+	end
+	for _, info in ipairs(Gear.WARDROBE_SLOTS) do
+		local invSlot = info.slot
+		local choice = Gear.Choice(invSlot)
+		if choice ~= "keep" then
+			local candidates = Gear.Candidates(invSlot)
+			local wornID = GetInventoryItemID("player", invSlot)
+			local wornBonus = 0
+			for _, c in ipairs(candidates) do
+				if c.worn then
+					wornBonus = c.bonus
+				end
+			end
+			if type(choice) == "number" then
+				-- Your pick, if it's in your bags and not already on.
+				if wornID ~= choice then
+					for _, c in ipairs(candidates) do
+						if c.id == choice and not c.worn then
+							picks[invSlot] = { link = c.link, bonus = c.bonus }
+						end
+					end
+				end
+			else
+				local best = candidates[1]
+				if best and not best.worn and best.bonus > 0 and best.bonus > wornBonus then
+					picks[invSlot] = { link = best.link, bonus = best.bonus }
+				end
+			end
+		end
+	end
+	return picks
+end
+
+-- Put the outfit on, remembering what each slot had (false for nothing) to put back later.
+local function WearOutfit(saved)
+	if not ns.db.fishingOutfit then
+		return
+	end
+	local picks = Gear.FindOutfit()
+	local names = {}
+	for invSlot, pick in pairs(picks) do
+		saved.outfit = saved.outfit or {}
+		if saved.outfit[invSlot] == nil then
+			saved.outfit[invSlot] = GetInventoryItemLink("player", invSlot) or false
+		end
+		Equip(pick.link, invSlot)
+		names[#names + 1] = pick.link
+	end
+	if #names > 0 then
+		ns.Print("putting on your fishing gear: " .. table.concat(names, ", ") .. ".")
+	end
+end
+
 local function CancelRestoreTimer()
 	if restoreTimer then
 		restoreTimer:Cancel()
@@ -149,9 +342,41 @@ function Gear.PreClick()
 	end
 	charDB.lastPole = pole
 	Equip(pole, MAIN)
+	WearOutfit(charDB.savedWeapons)
 	pendingUntil = GetTime() + EQUIP_PENDING
 	pendingPole = C_Item.GetItemInfoInstant(pole)
 	ns.Print("已装备 " .. pole .. "。再按一次即可施放。")
+	return true
+end
+
+-- The wardrobe's "Wear it now": the pole (yours, or the best in your bags) and the outfit, out
+-- of combat, without casting. Your weapons are saved and come back as after fishing.
+function Gear.WearNow()
+	if not charDB or InCombatLockdown() then
+		ns.Print("you can't change gear in combat.")
+		return false
+	end
+	restoring = false
+	CancelRestoreTimer()
+	if not charDB.savedWeapons then
+		charDB.savedWeapons = {
+			main = GetInventoryItemLink("player", MAIN),
+			off = GetInventoryItemLink("player", OFF),
+		}
+	end
+	local chosen = charDB.outfitPole
+	local held = GetInventoryItemID("player", MAIN)
+	if not ns.HasFishingPole() or (chosen and held ~= chosen) then
+		local pole = FindPoleInBags()
+		if pole then
+			charDB.lastPole = pole
+			Equip(pole, MAIN)
+		end
+	end
+	local forced = ns.db.fishingOutfit
+	ns.db.fishingOutfit = true -- the button wears the outfit even with the option off
+	WearOutfit(charDB.savedWeapons)
+	ns.db.fishingOutfit = forced
 	return true
 end
 
@@ -229,6 +454,21 @@ RestoreStep = function()
 		Swap(saved.off, OFF)
 		return
 	end
+	-- Then the fishing outfit, a slot at a time: what was worn goes back on, or the slot is
+	-- emptied if it was empty.
+	for invSlot, link in pairs(saved.outfit or {}) do
+		if link and not Wearing(invSlot, link) and Owned(link) then
+			Swap(link, invSlot)
+			return
+		elseif link == false and GetInventoryItemID("player", invSlot) then
+			saved.outfit[invSlot] = nil
+			if not UnequipToBags(invSlot) then
+				ns.Print("no bag space to take off your fishing gear.")
+			end
+			return
+		end
+		saved.outfit[invSlot] = nil
+	end
 	charDB.savedWeapons = nil
 	restoring = false
 	ns.Print("已换回武器。")
@@ -293,6 +533,27 @@ function Gear.OnCombatStart()
 end
 
 -- Global for the "Re-equip weapons" key binding.
+-- Done fishing: weapons and your own gear back on, and the session so far summed up. The stats
+-- window and mini bar stay open unless "Done fishing closes the stats window" is on. The session
+-- itself carries on until it's reset. The stats' sword button, the mini bar's, a key binding, and
+-- /onecast done.
+function OneCast_DoneFishing()
+	if Gear.HasSaved() then
+		OneCast_RestoreWeapons()
+	end
+	local close = ns.db and ns.db.doneCloses or false
+	if ns.Stats and ns.Stats.EndSession then
+		ns.Stats.EndSession(close)
+	end
+	if ns.Mini then
+		if close then
+			ns.Mini.Hide()
+		else
+			ns.Mini.KeepOpen()
+		end
+	end
+end
+
 function OneCast_RestoreWeapons()
 	if InCombatLockdown() and Gear.HasSaved() then
 		ns.Print("战斗结束后会换回武器。")

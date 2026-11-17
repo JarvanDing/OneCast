@@ -19,6 +19,7 @@ ns.ZONE_AREA_IDS = {
 	["Blackfathom Deeps"] = 719,
 	["Blasted Lands"] = 4,
 	["Burning Steppes"] = 46,
+	["City of Dalaran"] = 16544, -- Forever's own; the zone that holds its Dalaran and Fel Grove
 	["Darkshore"] = 148,
 	["Darnassus"] = 1657,
 	["Deadwind Pass"] = 41,
@@ -115,6 +116,12 @@ for _, fish in ipairs(ns.FISH) do
 	end
 	for _, extra in ipairs(fish.more or {}) do
 		extra[1] = Translate(extra[1])
+	end
+end
+-- Each catch's odds by zone, so they match the zone lists above.
+for _, odds in pairs(ns.ODDS or {}) do
+	if odds.water then
+		odds.water = TranslateKeys(odds.water)
 	end
 end
 ns.Extravaganza.ZONE = Translate(ns.Extravaganza.ZONE)

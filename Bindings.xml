@@ -1,26 +1,35 @@
 <Bindings>
-	<Binding name="CLICK OneCastButton:LeftButton" header="ONECAST" category="ADDONS">
+	<Binding name="CLICK OneCastButton:LeftButton" header="ONECAST" category="OneCast">
 		-- Handled by OneCastButton (SecureActionButtonTemplate). Cast only when a
 		-- dedicated ONECAST_REEL key is also bound; otherwise one-key mode overrides
 		-- this key to INTERACTTARGET while the line is out.
 	</Binding>
-	<Binding name="ONECAST_REEL" category="ADDONS">
+	<Binding name="ONECAST_REEL" category="OneCast">
 		-- Mapped to INTERACTTARGET out of combat. Soft-interact CVars during a cast
 		-- make the bobber the soft target, so this key reels without casting.
 	</Binding>
-	<Binding name="CLICK OneCastApplyLureButton:LeftButton" category="ADDONS">
+	<Binding name="CLICK OneCastApplyLureButton:LeftButton" category="OneCast">
 		-- Handled by OneCastApplyLureButton (SecureActionButtonTemplate).
 	</Binding>
-	<Binding name="ONECAST_TACKLE" category="ADDONS">
+	<Binding name="ONECAST_TACKLE" category="OneCast">
 		OneCast_ToggleTackle()
 	</Binding>
-	<Binding name="ONECAST_RESTORE" category="ADDONS">
+	<Binding name="ONECAST_RESTORE" category="OneCast">
 		OneCast_RestoreWeapons()
 	</Binding>
-	<Binding name="ONECAST_BOOK" category="ADDONS">
+	<Binding name="ONECAST_DONE" category="OneCast">
+		OneCast_DoneFishing()
+	</Binding>
+	<Binding name="ONECAST_BOOK" category="OneCast">
 		OneCast_ToggleBook()
 	</Binding>
-	<Binding name="ONECAST_WINDOW" category="ADDONS">
+	<Binding name="ONECAST_WARDROBE" category="OneCast">
+		OneCast_ToggleWardrobe()
+	</Binding>
+	<Binding name="ONECAST_JOURNEY" category="OneCast">
+		OneCast_ToggleJourney()
+	</Binding>
+	<Binding name="ONECAST_WINDOW" category="OneCast">
 		OneCast_ToggleWindow()
 	</Binding>
 </Bindings>

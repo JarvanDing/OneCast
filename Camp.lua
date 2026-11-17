@@ -12,8 +12,8 @@
 -- requirement), the 15-minute features, the hour-long buffs and the shared hour cooldown.
 -- Where the Blueprints, the Fish Bowl recipe and Seasonal Fish Steaks come from isn't in it:
 -- `blueprintFrom` is from player reports (10 November 2026). The Rack's Blueprint dropping from
--- Gelihast is reported by several guides, which disagree only on the drop rate; no source for
--- the Hut's had been found.
+-- Gelihast is reported by several guides, which disagree only on the drop rate. The Hut's
+-- dropping from Jammal'an the Prophet is one player's report, via a Wowhead comment (13 November 2026).
 
 local _, ns = ...
 
@@ -23,24 +23,35 @@ ns.Camp = Camp
 Camp.CRAFTS = {
 	{ key = "bowl", name = "鱼缸", recipe = 1229745, item = 279967, skill = 20,
 		reagents = { { 6291, 1, "Raw Brilliant Smallfish" }, { 3371, 1, "Empty Vial" } },
+		effect = "放在营火旁，你和坐在附近的所有人 1 小时内全属性 +8%。与王者祝福不叠加。",
 		does = "放在营火旁，你和坐在附近的所有人 1 小时内全属性 +8%。与王者祝福不叠加。" },
-	{ key = "rack", name = "钓鱼架", recipe = 1262990, item = 279965, skill = 140,
+	{ key = "蓝图：钓鱼架", name = "优良钓鱼", recipe = 1262990, item = 279965, skill = 140,
 		blueprint = 273141, blueprintName = "蓝图：钓鱼架", buff = 1280341, buffName = "优良钓鱼",
 		blueprintFrom = "由黑暗深渊的格里哈斯特掉落，并非每次击杀必掉。其他玩家可以交易给你。",
+		blueprintKnown = { name = "Gelihast", npc = 6243 }, -- confirmed: a drop from it isn't news
+		blueprintShort = "Gelihast, Blackfathom Deeps",
+		blueprintWhere = { zone = "Ashenvale", x = 0.145, y = 0.142, label = "黑暗深渊（格里哈斯特的蓝图）" },
+		effect = "1 小时优良钓鱼：钓鱼有额外奖励，并享鱼缸属性加成。",
 		reagents = { { 4470, 2, "Simple Wood" }, { 8925, 1, "Crystal Vial" }, { 8365, 2, "Raw Mithril Head Trout" } },
 		does = "放在营火旁，可获得 1 小时「优良钓鱼」：钓鱼时有额外奖励。同时提供诱饵和鱼缸的 +8% 属性，并可替代鱼缸。" },
 	{ key = "hut", name = "钓鱼小屋", recipe = 1262998, item = 279966, skill = 300,
 		blueprint = 273119, blueprintName = "蓝图：钓鱼小屋", buff = 1280342, buffName = "稀有钓鱼",
 		blueprintFrom = "来源尚不明确，目前还没有人报告找到过。",
+		blueprintShort = "Jammal'an the Prophet, Sunken Temple (unconfirmed)",
+		blueprintWhere = { zone = "Swamp of Sorrows", x = 0.695, y = 0.536, label = "沉没的神庙（贾马尔坎的蓝图）" },
+		effect = "1 小时稀有钓鱼：钓鱼有更高额外奖励，并享鱼缸属性加成。",
 		reagents = { { 4470, 5, "Simple Wood" }, { 14048, 2, "Bolt of Runecloth" }, { 273295, 1, "Seasonal Fish Steaks" } },
 		does = "放在营火旁，可获得 1 小时「稀有钓鱼」：钓鱼时有更丰厚的额外奖励。同时提供诱饵和鱼缸的 +8% 属性，并可替代鱼缸。" },
 }
 
--- Cooking recipes: a campfire holds this many features.
+-- Cooking recipes: a campfire holds this many features. Basic comes with Cooking; the others are
+-- learned from blueprints that drop (Forever's client data and Wowhead, 16 November 2026).
 Camp.CAMPFIRES = {
-	{ name = "基础营火", recipe = 1229737, holds = 3 },
-	{ name = "熟练营火", recipe = 1283400, holds = 5 },
-	{ name = "专家营火", recipe = 1291341, holds = 10 },
+	{ name = "基础营火", recipe = 1229737, holds = 3, from = "烹饪学习。" },
+	{ name = "熟练营火", recipe = 1283400, holds = 5, blueprint = 273087,
+		from = "专家营火" },
+	{ name = "专家营火", recipe = 1291341, holds = 10, blueprint = 273101,
+		from = "Learned from Blueprint: Expert Campfire (Cooking 200), dropped by Slavecrusher Grox, about 1 kill in 23. Made with Thick Logs." },
 }
 Camp.FEATURE_MINUTES = 15  -- a placed feature stands this long
 Camp.SIT_SECONDS = 60      -- time by the fire before its benefits arrive
@@ -61,9 +72,7 @@ end
 
 -- True if the recipe is learned, false if not, nil if the game can't say.
 function Camp.Known(craft)
-	if IsPlayerSpell then
-		return IsPlayerSpell(craft.recipe) and true or false
-	end
+	return ns.KnowsSpell(craft.recipe)
 end
 
 -- The camp fishing buff on you now, if any: the craft that gives it and seconds left. The
@@ -119,6 +128,61 @@ function Camp.OnCatch(zone, loot)
 	end
 end
 
+-- Where the camp items whose source is unconfirmed drop: any loot window holding a Blueprint or
+-- Seasonal Fish Steaks is recorded, with the creature it came from, for the data report.
+-- OneCastCharDB.campDrops[itemID][sourceKey] = { zone, name, npc, count }.
+Camp.TRACKED_DROPS = { [273295] = "Seasonal Fish Steaks" }
+for _, craft in ipairs(Camp.CRAFTS) do
+	if craft.blueprint then
+		Camp.TRACKED_DROPS[craft.blueprint] = craft.blueprintName
+	end
+end
+
+local function Secret(v)
+	return issecretvalue and issecretvalue(v)
+end
+
+function Camp.OnLootReady()
+	if not OneCastCharDB or not GetNumLootItems then
+		return
+	end
+	for slot = 1, GetNumLootItems() do
+		local link = GetLootSlotLink(slot)
+		local id = link and not Secret(link) and tonumber(link:match("item:(%d+)"))
+		if id and Camp.TRACKED_DROPS[id] then
+			local guid = GetLootSourceInfo and GetLootSourceInfo(slot)
+			if Secret(guid) then
+				guid = nil
+			end
+			local kind, npc = nil, nil
+			if guid then
+				kind = guid:match("^(%a+)")
+				-- Creature-0-[server]-[instance]-[zone]-[npc ID]-[spawn]
+				npc = tonumber(guid:match("^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)") or "")
+			end
+			local name
+			local targetGUID = UnitGUID("target")
+			if guid and targetGUID and not Secret(targetGUID) and targetGUID == guid then
+				name = UnitName("target")
+			end
+			local zone = GetRealZoneText() or "?"
+			local key = (kind == "Creature" and npc) and ("npc" .. npc) or ((kind or "unknown") .. ":" .. zone)
+			local drops = OneCastCharDB.campDrops or {}
+			OneCastCharDB.campDrops = drops
+			drops[id] = drops[id] or {}
+			local d = drops[id][key] or { zone = zone, count = 0 }
+			drops[id][key] = d
+			d.count = d.count + 1
+			d.name = d.name or (not Secret(name) and name) or nil
+			d.npc = d.npc or (kind == "Creature" and npc) or nil
+			d.object = kind == "GameObject" or nil
+			if ns.Report and ns.Report.Check then
+				ns.Report.Check()
+			end
+		end
+	end
+end
+
 -- "Rare Fishing  ·  42m", for the stats window and minimap tooltip, or nil with no buff on.
 function Camp.StatusText()
 	local craft, left = Camp.ActiveBuff()
@@ -166,6 +230,7 @@ local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_LOGIN")
 events:RegisterUnitEvent("UNIT_AURA", "player")
 events:RegisterEvent("BAG_UPDATE_DELAYED")
+events:RegisterEvent("LOOT_READY")
 -- A recipe learned: Forever calls it LEARNED_SPELL_IN_SKILL_LINE, older clients LEARNED_SPELL_IN_TAB.
 ns.RegisterAnyEvent(events, { "LEARNED_SPELL_IN_SKILL_LINE", "LEARNED_SPELL_IN_TAB" })
 events:SetScript("OnEvent", function(_, event)
@@ -176,6 +241,8 @@ events:SetScript("OnEvent", function(_, event)
 		if had ~= nil then
 			CheckBuff()
 		end
+	elseif event == "LOOT_READY" then
+		Camp.OnLootReady()
 	elseif ns.Book and ns.Book.RefreshCampIfShown then
 		-- Reagents or a recipe changed: only the Camp tab shows those.
 		ns.Book.RefreshCampIfShown()

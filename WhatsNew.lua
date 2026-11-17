@@ -1,7 +1,11 @@
 -- OneCast "What's new" window: versions listed on the left, the selected version's notes
--- on a parchment page on the right, Newer / Older / Close below. Built from Blizzard's own
--- templates so it wears Forever's skin. Also the login chat line announcing the version,
--- with a clickable [What's new] link.
+-- on a parchment page on the right, Newer / Older below. Built from Blizzard's own templates
+-- so it wears Forever's skin. Also the login chat line announcing the version, with a
+-- clickable [What's new] link.
+--
+-- Laid out to be read at a glance: each section heading in its own colour (New, Changed,
+-- Fixed, Reported by), each change's lead phrase on its own line in a heading style with the
+-- explanation under it in softer ink.
 
 local ADDON, ns = ...
 
@@ -13,12 +17,23 @@ local LINK = "addon:" .. ADDON .. ":whatsnew"
 
 local WIDTH, HEIGHT = 840, 580 -- as wide as the collection book, as tall as every page
 local LIST_WIDTH = 330
-local ROW_HEIGHT = 34
+local ROW_HEIGHT = 42
+
+-- Each section's colour, for its heading and its bullets. Anything else is the ink.
+local SECTION_COLOR = {
+	New = { 0.10, 0.45, 0.10 },
+	Changed = { 0.12, 0.30, 0.62 },
+	Fixed = { 0.70, 0.36, 0.05 },
+}
+local REPORTED_COLOR = { 0.42, 0.20, 0.55 }
+
+local function SectionColor(name)
+	return name:find("^Reported by") and REPORTED_COLOR or SECTION_COLOR[name]
+end
 
 -- Parchment ink, like quest text.
 local INK = { 0.18, 0.10, 0.02 }
 local INK_SOFT = { 0.32, 0.22, 0.12 }
-local LEAD = "|cff7a2a00" -- the bold-ish opening phrase of each bullet
 
 local frame
 local selected = 1
@@ -44,7 +59,6 @@ end
 local function Inset(parent)
 	local f = TryCreate("Frame", nil, parent, "InsetFrameTemplate")
 	if f then
-		ns.Theme.Panel(f)
 	else
 		f = CreateFrame("Frame", nil, parent, "BackdropTemplate")
 		f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -71,6 +85,7 @@ local function PageString(content, fontObject, size, color)
 	fs:SetShadowOffset(0, 0)
 	fs:SetJustifyH("LEFT")
 	fs:SetWordWrap(true)
+	fs:SetSpacing(0)
 	fs:ClearAllPoints()
 	fs:Show()
 	return fs
@@ -107,40 +122,57 @@ local function RenderPage()
 		y = y + (region.GetStringHeight and region:GetStringHeight() or region:GetHeight()) + (gap or 0)
 	end
 
-	local title = PageString(content, QuestTitleFont, 28, INK)
+	local title = PageString(content, QuestTitleFont, 30, INK)
 	title:SetWidth(width)
-	title:SetText("v" .. release.version)
-	Place(title, 0, 6)
+	title:SetText("版本 " .. release.version)
+	Place(title, 0, 4)
 
-	local date = PageString(content, QuestFont, 14, INK_SOFT)
-	date:SetWidth(width)
-	date:SetText("发布于 " .. release.date .. "。")
-	Place(date, 0, 18)
+	-- When, how much, and whether it's the one you have.
+	local meta = PageString(content, QuestFont, 14, INK_SOFT)
+	meta:SetWidth(width)
+	local count = CountChanges(release)
+	meta:SetText(string.format("发布 %s  ·  %d 项改动%s%s", release.date, count, count == 1 and "" or "s",
+		release.version == ns.VERSION and "  ·  the version you have" or ""))
+	Place(meta, 0, 14)
+	local divider = PageTexture(content)
+	divider:SetColorTexture(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3], 0.5)
+	divider:SetHeight(1)
+	divider:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+	divider:SetPoint("RIGHT", content, "RIGHT", 0, 0)
+	y = y + 16
 
 	for _, section in ipairs(release.sections) do
-		local heading = PageString(content, QuestTitleFont, 18, INK)
+		local color = SectionColor(section[1]) or INK
+		-- The heading in its colour, with a short bar of it beside: easy to spot scrolling past.
+		local bar = PageTexture(content)
+		bar:SetColorTexture(color[1], color[2], color[3], 0.9)
+		bar:SetSize(4, 18)
+		bar:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y - 1)
+		local heading = PageString(content, QuestTitleFont, 19, color)
 		heading:SetText(section[1])
-		heading:SetWidth(0)
-		heading:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
-		local rule = PageTexture(content)
-		rule:SetColorTexture(INK_SOFT[1], INK_SOFT[2], INK_SOFT[3], 0.45)
-		rule:SetHeight(1)
-		rule:SetPoint("LEFT", heading, "RIGHT", 10, 0)
-		rule:SetPoint("RIGHT", content, "RIGHT", 0, 0)
-		y = y + heading:GetStringHeight() + 12
+		heading:SetWidth(width - 12)
+		heading:SetPoint("TOPLEFT", content, "TOPLEFT", 12, -y)
+		y = y + heading:GetStringHeight() + 10
 
 		for _, bullet in ipairs(section[2]) do
+			-- The lead phrase as the change's own heading, the explanation under it.
 			local dot = PageTexture(content)
 			dot:SetTexture("Interface\\QuestFrame\\UI-Quest-BulletPoint")
 			dot:SetTexCoord(0, 1, 0, 1)
-			dot:SetSize(14, 14)
-			dot:SetPoint("TOPLEFT", content, "TOPLEFT", 2, -y - 2)
-			local text = PageString(content, QuestFont, 15, INK)
-			text:SetWidth(width - 24)
-			text:SetText(LEAD .. bullet[1] .. "|r " .. bullet[2])
-			Place(text, 22, 12)
+			dot:SetVertexColor(color[1] * 1.4, color[2] * 1.4, color[3] * 1.4)
+			dot:SetSize(12, 12)
+			dot:SetPoint("TOPLEFT", content, "TOPLEFT", 12, -y - 2)
+			local lead = PageString(content, QuestTitleFont, 15, INK)
+			lead:SetWidth(width - 32)
+			lead:SetText((bullet[1]:gsub("%.$", "")))
+			Place(lead, 30, 3)
+			local text = PageString(content, QuestFont, 14, INK_SOFT)
+			text:SetWidth(width - 32)
+			text:SetSpacing(2)
+			text:SetText(bullet[2])
+			Place(text, 30, 14)
 		end
-		y = y + 8
+		y = y + 10
 	end
 
 	content:SetHeight(math.max(y, 1))
@@ -169,9 +201,9 @@ local function UpdateList()
 		row:SetPoint("TOPRIGHT", -8, -46 - slot * ROW_HEIGHT)
 		local isSelected = i == selected
 		row.selectedBg:SetShown(isSelected)
+		row.selectedEdge:SetShown(isSelected)
 		local c = isSelected and HIGHLIGHT_FONT_COLOR or NORMAL_FONT_COLOR
 		row.label:SetTextColor(c.r, c.g, c.b)
-		row.count:SetTextColor(c.r, c.g, c.b)
 	end
 	frame.newer:SetEnabled(selected > 1)
 	frame.older:SetEnabled(selected < #ns.CHANGELOG)
@@ -187,7 +219,7 @@ end
 
 local function CreateWindow()
 	local f = TryCreate("Frame", "OneCastWhatsNewFrame", UIParent, "ButtonFrameTemplate")
-	local title = (ns.DISPLAY_NAME or "哇，大鱼") .. " 更新内容  |cff9d9d9dv" .. (ns.VERSION or "?") .. "|r"
+	local title = "「哇，大鱼」更新内容  |cff9d9d9dv" .. (ns.VERSION or "?") .. "|r"
 	if f then
 		if ButtonFrameTemplate_HidePortrait then
 			ButtonFrameTemplate_HidePortrait(f)
@@ -217,23 +249,12 @@ local function CreateWindow()
 	f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving)
 	ns.UI.RememberPosition(f, "whatsNew")
-	tinsert(UISpecialFrames, f:GetName())
-	ns.Theme.Frame(f, f.Inset)
-	ns.UI.KeepOpenThroughOptions(f:GetName())
 
-	-- Top line: "Versions: N" box and the change count.
-	local versions = CreateFrame("Frame", nil, f, "BackdropTemplate")
-	versions:SetSize(130, 26)
-	versions:SetPoint("TOPLEFT", 12, -30)
-	versions:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-		edgeSize = 10, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
-	versions:SetBackdropColor(0, 0, 0, 0.6)
-	local versionsText = versions:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	versionsText:SetPoint("CENTER")
-	versionsText:SetText("版本：|cffffffff" .. #ns.CHANGELOG .. "|r")
+	-- Top line: how much there is, newest first.
 	local summary = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-	summary:SetPoint("LEFT", versions, "RIGHT", 12, 0)
-	summary:SetText(TotalChanges() .. " 项改动，最新在前。")
+	summary:SetPoint("TOPLEFT", 16, -36)
+	summary:SetText(string.format(" 项改动，最新在前。", #ns.CHANGELOG,
+		TotalChanges()))
 
 	-- Left: the version list.
 	local list = Inset(f)
@@ -244,10 +265,10 @@ local function CreateWindow()
 	SizedFont(listTitle, QuestTitleFont, 20)
 	listTitle:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 	listTitle:SetPoint("TOPLEFT", 16, -14)
-	listTitle:SetText(ns.DISPLAY_NAME or "哇，大鱼")
-	local listCount = list:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	listTitle:SetText("哇，大鱼")
+	local listCount = list:CreateFontString(nil, "OVERLAY", "OneCastFontDisableSmall")
 	listCount:SetPoint("TOPRIGHT", -16, -20)
-	listCount:SetText(#ns.CHANGELOG == 1 and "1 个版本" or (#ns.CHANGELOG .. " 个版本"))
+	listCount:SetText("鼠标滚轮移动")
 	list:EnableMouseWheel(true)
 	list:SetScript("OnMouseWheel", function(_, delta)
 		Select(selected - delta)
@@ -259,16 +280,33 @@ local function CreateWindow()
 		row:SetHeight(ROW_HEIGHT)
 		row:SetPoint("TOPLEFT", 8, -46 - (i - 1) * ROW_HEIGHT)
 		row:SetPoint("TOPRIGHT", -8, -46 - (i - 1) * ROW_HEIGHT)
+		-- Chosen: the game's options list art, or a soft wash with a gold edge without it.
 		row.selectedBg = row:CreateTexture(nil, "BACKGROUND")
 		row.selectedBg:SetAllPoints()
-		row.selectedBg:SetColorTexture(0.72, 0.55, 0.12, 0.85)
+		row.selectedEdge = row:CreateTexture(nil, "BORDER")
+		row.selectedEdge:SetPoint("TOPLEFT")
+		row.selectedEdge:SetPoint("BOTTOMLEFT")
+		row.selectedEdge:SetWidth(3)
+		if ns.UI.HasAtlas("options_list_active") then
+			row.selectedBg:SetAtlas("options_list_active")
+			row.selectedEdge:SetAlpha(0)
+		else
+			row.selectedBg:SetColorTexture(1, 0.82, 0.3, 0.14)
+			row.selectedEdge:SetColorTexture(1, 0.82, 0.3, 0.95)
+		end
 		row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
 		row.label = row:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-		row.label:SetPoint("LEFT", 8, 0)
-		row.label:SetText(string.format("[%s]  %s", release.version, release.date))
-		row.count = row:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-		row.count:SetPoint("RIGHT", -8, 0)
-		row.count:SetText("(" .. CountChanges(release) .. ")")
+		row.label:SetPoint("TOPLEFT", 12, -6)
+		row.label:SetText("版本 " .. release.version)
+		row.date = row:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
+		row.date:SetTextColor(0.78, 0.78, 0.78)
+		row.date:SetPoint("TOPLEFT", row.label, "BOTTOMLEFT", 0, -3)
+		local n = CountChanges(release)
+		row.date:SetText(release.date .. "  ·  " .. n .. (n == 1 and " change" or " changes"))
+		-- The one you're running.
+		row.count = row:CreateFontString(nil, "OVERLAY", "OneCastFontGreenSmall")
+		row.count:SetPoint("RIGHT", -10, 0)
+		row.count:SetText(release.version == ns.VERSION and "Installed" or "")
 		row:SetScript("OnClick", function()
 			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
 			Select(i)
@@ -282,7 +320,6 @@ local function CreateWindow()
 	page:SetPoint("BOTTOMRIGHT", -12, 64)
 	local parchment = page:CreateTexture(nil, "BACKGROUND")
 	parchment:SetAllPoints()
-	ns.Theme.Register(parchment, "parchment")
 	if HasAtlas("QuestBG-Parchment") then
 		parchment:SetAtlas("QuestBG-Parchment")
 	else
@@ -306,25 +343,37 @@ local function CreateWindow()
 	end
 	f.scroll, f.content = scroll, content
 
+	-- With a controller: the notes as one stop (the game's navigation can't reach a scroll bar
+	-- beside its text). There, the right stick and the D-pad's up and down scroll them.
+	local function ScrollBy(pixels)
+		local max = math.max(0, content:GetHeight() - scroll:GetHeight())
+		scroll:SetVerticalScroll(math.max(0, math.min(max, scroll:GetVerticalScroll() + pixels)))
+	end
+	local notes = CreateFrame("Button", nil, page)
+	notes:SetPoint("TOPLEFT", scroll, "TOPLEFT", 0, 0)
+	notes:SetPoint("BOTTOMRIGHT", scroll, "BOTTOMRIGHT", 0, 0)
+	notes:SetFrameLevel(scroll:GetFrameLevel() + 2)
+	notes:EnableMouse(false) -- the mouse reads and wheels the page as ever
+	notes.padScrollStop = true
+	f.notes = notes
+	f.padScrollOwns = function(button)
+		return button == notes
+	end
+	if ns.Controller then
+		ns.Controller.AdjustVertical(notes, function() ScrollBy(-60) end, function() ScrollBy(60) end)
+	end
+
 	-- Bottom: Newer / Older on the left, Close on the right.
 	f.newer = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-	ns.Theme.Register(f.newer, "button")
 	f.newer:SetSize(110, 22)
 	f.newer:SetPoint("BOTTOMLEFT", 12, 36)
 	f.newer:SetText("更新版本")
 	f.newer:SetScript("OnClick", function() Select(selected - 1) end)
 	f.older = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-	ns.Theme.Register(f.older, "button")
 	f.older:SetSize(110, 22)
 	f.older:SetPoint("LEFT", f.newer, "RIGHT", 12, 0)
 	f.older:SetText("更旧版本")
 	f.older:SetScript("OnClick", function() Select(selected + 1) end)
-	local close = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-	ns.Theme.Register(close, "button")
-	close:SetSize(110, 22)
-	close:SetPoint("BOTTOMRIGHT", -12, 36)
-	close:SetText(CLOSE or "关闭")
-	close:SetScript("OnClick", function() f:Hide() end)
 
 	-- Footer: where to send requests, and the project page, selectable to copy.
 	local footer = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -337,14 +386,14 @@ local function CreateWindow()
 	url:SetText(PROJECT_URL)
 	url:SetCursorPosition(0)
 	url:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
-	url:SetScript("OnTextChanged", function(self)
+	url:SetScript("搜索", function(self)
 		if self:GetText() ~= PROJECT_URL then
 			self:SetText(PROJECT_URL)
 			self:HighlightText()
 		end
 	end)
 	url:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-	local hint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	local hint = f:CreateFontString(nil, "OVERLAY", "OneCastFontDisableSmall")
 	hint:SetPoint("LEFT", url, "RIGHT", 8, 0)
 	hint:SetText("点击后按 Ctrl+C")
 
@@ -379,7 +428,7 @@ local function ChatLink()
 	return "|cff71d5ff|H" .. LINK .. "|h[更新内容]|h|r"
 end
 
--- Clicking [更新内容] in chat.
+-- Clicking [What's new] in chat.
 hooksecurefunc("SetItemRef", function(link)
 	if link == LINK then
 		WhatsNew.Show()
@@ -408,15 +457,3 @@ events:SetScript("OnEvent", function()
 	end)
 end)
 
--- This window's soft ink is a touch darker than the book's on the game's own parchment.
-local FOREVER_SOFT = { INK_SOFT[1], INK_SOFT[2], INK_SOFT[3] }
-
-ns.Theme.OnChange(function(theme)
-	local soft = theme.id == ns.Theme.DEFAULT and FOREVER_SOFT or theme.inkSoft
-	INK[1], INK[2], INK[3] = theme.ink[1], theme.ink[2], theme.ink[3]
-	INK_SOFT[1], INK_SOFT[2], INK_SOFT[3] = soft[1], soft[2], soft[3]
-	LEAD = theme.lead
-	if frame and frame:IsShown() then
-		RenderPage()
-	end
-end)

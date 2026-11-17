@@ -3,7 +3,7 @@
 -- How it works, without secure snippets (loadstring_untainted is missing on Forever,
 -- so SecureHandler templates are out):
 --   * OneCastButton is a plain SecureActionButton that casts Fishing. Bind a key to it
---     in Options > Keybindings > AddOns > OneCast, or double right-click with a pole.
+--     in Options > Keybindings > OneCast, or double right-click with a pole.
 --   * Optional ONECAST_REEL: a second key always mapped to INTERACTTARGET. When bound,
 --     the cast key stays cast for the whole cast — pressing it never reels. Soft-interact
 --     CVars still turn on while the line is out so the reel key hits the bobber.
@@ -23,8 +23,13 @@ local DOUBLE_CLICK_WINDOW = 0.4
 local BUTTON_NAME = "OneCastButton"
 local BINDING_COMMAND = "CLICK " .. BUTTON_NAME .. ":LeftButton"
 local REEL_BINDING = "ONECAST_REEL"
+ns.BINDING_COMMAND = BINDING_COMMAND
 
 local defaults = {
+	largerText = false,      -- accessibility: OneCast's small print at the normal size
+	glyphSize = "normal",    -- accessibility: controller button icons, normal, large or largest
+	collectionTicks = true,  -- accessibility: a tick on what you've caught
+	reduceMotion = false,    -- accessibility: OneCast's animations stopped
 	doubleClick = true,
 	softInteract = true,
 	soundBoost = true,
@@ -33,6 +38,9 @@ local defaults = {
 	minimapButton = true,
 	minimapAngle = 225,
 	closeOnDone = true,
+	doneCloses = false,
+	escapeCloses = false,
+	catchTooltip = true,
 	fadeStats = false,
 	lockWindow = false,
 	tabSide = "right", -- the OneCast window's side tabs: "right" or "left"
@@ -42,19 +50,36 @@ local defaults = {
 	loginMessage = true,
 	statsScale = 100, -- percent
 	autoEquip = true,
+	fishingOutfit = true,
+	statsMini = false,
+	junkMode = "button",
+	poolTooltip = true,
+	mapStrip = true,
+	newCatchMessage = true,
+	goalAlerts = true,
+	alertSound = true,
+	tabBadges = true,
+	skillToast = true,
 	restoreOnCombat = true,
 	restoreDelay = 60, -- seconds without casting before weapons go back on; 0 = never
 	sessionSummary = true,
 	autoLootHint = true,
+	autoLootFishing = false,
+	fastLoot = false,
+	padFishing = true,   -- a controller button casts and reels while the pole is on
+	padButton = "PAD1",  -- A / Cross
+	padStart = "both",   -- LT + RT + the button works with no pole on
+	padWindow = "PAD4",  -- Y / Triangle opens the OneCast window
+	padHints = true,
+	padRumble = true,
 	extravaganza = true,
 	bagWarning = true,
 	tackleBox = true,
 	lureVendorHint = true,
 	rememberPools = true,
 	bobberMarker = false,
-	theme = "forever",
+	beamColor = "arcane",
 	campReminder = true,
-	reportHint = true,
 }
 -- Per character: skill and bags differ, and lures get used up.
 local charDefaults = {
@@ -64,12 +89,18 @@ local charDefaults = {
 
 -- Checkboxes in the settings panel, each also toggled by /onecast <cmd>.
 local OPTIONS = {
+	{ cmd = "largetext", key = "largerText", label = "放大文字",
+		tooltip = "把「哇，大鱼」各窗口里的小号字（说明、提示、标签和计数）改成游戏正常字号。长行可能被截短，悬停可看全文。图鉴页面会在下次重绘时更新。" },
+	{ cmd = "ticks", key = "collectionTicks", label = "已钓到标记勾",
+		tooltip = "在图鉴里你已钓到的鱼和已拥有的钓鱼装备上显示绿色勾。关闭时，已有的为正常彩色、没有的变灰，图标上无覆盖标记。" },
+	{ cmd = "motion", key = "reduceMotion", label = "减少动态效果",
+		tooltip = "停止「哇，大鱼」的动画：钓鱼条流水、光泽与闪光、侧栏滑动、浮漂光晕呼吸等。提醒仍会显示并淡出。" },
 	{ cmd = "doubleclick", key = "doubleClick", label = "双击右键施放钓鱼",
 		tooltip = "装备鱼竿时，双击右键世界即可施放；右键浮漂收杆。" },
 	{ cmd = "softinteract", key = "softInteract", label = "钓鱼时启用软交互",
 		tooltip = "鱼线抛出后，将浮漂设为软交互目标，以便施法键直接收杆。" },
 	{ cmd = "bobbermarker", key = "bobberMarker", label = "标记自己的浮漂",
-		tooltip = "鱼线抛出后，在自己的浮漂上显示游戏的装备图标，方便区分别人的水花。鱼咬钩时无法显示：游戏不会把咬钩告诉插件。" },
+		tooltip = "鱼线抛出后，你的浮漂会发光并升起光柱，方便在人多水域区分别人的浮漂（颜色见下方「光束颜色」）。鱼咬钩时无法提示：游戏不会把咬钩告诉插件。" },
 	{ cmd = "bagwarning", key = "bagWarning", label = "背包满时警告",
 		tooltip = "背包没有空位时抛竿会警告一次，以免渔获装不下。" },
 	{ cmd = "sound", key = "soundBoost", label = "钓鱼时放大水花音效",
@@ -78,6 +109,8 @@ local OPTIONS = {
 		tooltip = "装备鱼竿时，降低（或关闭）音乐、环境音和对白，突出水花声。换回武器后，或你手动改音量后，会恢复为你自己的音量。" },
 	{ cmd = "autoequip", key = "autoEquip", label = "自动装备鱼竿",
 		tooltip = "未装备鱼竿时，施法键先从背包装备最好的鱼竿（再按一次才施放）。原武器会记住，之后自动换回。" },
+	{ cmd = "outfit", key = "fishingOutfit", label = "拿鱼竿时穿上钓鱼装备",
+		tooltip = "装上鱼竿时，自动穿上背包里钓鱼加成更高、且优于当前穿着的装备（钓鱼帽、靴、附魔钓鱼的手套等）。脱竿换回武器时，原装备一并换回。" },
 	{ cmd = "combatgear", key = "restoreOnCombat", label = "进入战斗时换回武器",
 		tooltip = "一进入战斗就尝试换回武器。战斗中被游戏拦住的换装，会在脱战后补完。" },
 	{ cmd = "tacklebox", key = "tackleBox", label = "显示工具箱按钮",
@@ -88,76 +121,190 @@ local OPTIONS = {
 		tooltip = "在售卖你选定诱饵的商人处，若持有少于 5 个会在聊天提示。买不买由你决定。" },
 	{ cmd = "autoclose", key = "closeOnDone", label = "停止钓鱼时关闭统计窗口",
 		tooltip = "换回武器后，如果统计窗口是你施放时自动打开的，就把它关掉。你自己打开的窗口会保持打开。" },
+	{ cmd = "doneclose", key = "doneCloses", label = "「结束钓鱼」时关闭统计窗口",
+		tooltip = "按下「结束钓鱼」时，除了换回武器和装备，还关闭统计窗口（或迷你条）。关闭此选项时，统计窗口保持打开，即使是施放时自动打开的。" },
+	{ cmd = "escclose", key = "escapeCloses", label = "Escape 关闭「哇，大鱼」窗口",
+		tooltip = "在游戏窗口（背包、地图等）都关闭后，按 Escape 会关闭「哇，大鱼」窗口（先关最上层），然后照常打开游戏菜单。关闭此选项时，Escape 不关插件窗口，用 X 关闭。" },
 	{ cmd = "fade", key = "fadeStats", label = "钓鱼时淡化统计窗口",
 		tooltip = "钓鱼期间，鼠标不在统计窗口上时，窗口会淡成半透明，少遮挡一点水面。" },
 	{ cmd = "lock", key = "lockWindow", label = "锁定窗口",
 		tooltip = "防止「哇，大鱼」窗口被误移动或误调整大小。关闭后即可再次移动。" },
 	{ cmd = "autoopen", key = "openOnCast", label = "施放时打开统计窗口",
 		tooltip = "开始钓鱼时打开统计窗口。若用关闭按钮或小地图按钮关掉，会保持关闭，直到你暂停钓鱼约 2 分钟。" },
+	{ cmd = "mini", key = "statsMini", label = "用迷你条代替统计窗口",
+		tooltip = "施放时打开细长条代替统计窗口：技能与区域、渔获与每小时鱼数、诱饵与想要列表。点击打开完整统计。/onecast mini 可开关。" },
 	{ cmd = "summary", key = "sessionSummary", label = "聊天中显示会话摘要",
 		tooltip = "暂停钓鱼约 2 分钟后，在聊天汇总本次：渔获、每小时鱼数、商人售价、技能提升和图鉴新鱼。" },
+	{ cmd = "controller", key = "padFishing", label = "用手柄按钮钓鱼",
+		tooltip = "使用手柄时，某一按钮在装备鱼竿期间施放和收杆，代替原本功能（如 A 跳跃）。摘竿或进战斗即恢复。未插手柄时无变化。" },
+	{ cmd = "padhints", key = "padHints", label = "显示手柄按钮提示",
+		tooltip = "使用手柄时，「哇，大鱼」按游戏样式显示按钮：浮漂上的钓鱼键（代替游戏的互动键，对插件收杆无效）、迷你条上的施放键，以及标签旁的扳机与肩键。" },
+	{ cmd = "rumble", key = "padRumble", label = "提醒时手柄震动",
+		tooltip = "屏幕提醒时手柄短暂震动：稀有渔获、达成目标、荆棘谷大赛凑满 40 条美味鱼。" },
+	{ cmd = "fishloot", key = "autoLootFishing", label = "钓鱼时自动拾取",
+		tooltip = "装备鱼竿期间开启游戏自动拾取，渔获直接进包；换回武器后恢复你原来的设置。若本来就开着会自动拾取则保持开启。" },
+	{ cmd = "fastloot", key = "fastLoot", label = "快速拾取",
+		tooltip = "自动拾取开启时，战利品窗口一出现就一次性拿走，比游戏逐件拾取更快。仅钓鱼战利品及钓上的箱子、匣子；其他交给游戏。" },
 	{ cmd = "autoloot", key = "autoLootHint", label = "提示开启自动拾取",
 		tooltip = "钓到东西时若未开启自动拾取，每次登录最多提示一次，方便渔获直接进包。" },
+	{ cmd = "alertsound", key = "alertSound", label = "播放提醒音效",
+		tooltip = "每次稀有渔获提醒时播放团队警告音。关闭则只显示画面提醒。" },
+	{ cmd = "skillup", key = "skillToast", label = "技能提升提示",
+		tooltip = "钓鱼技能提升时，屏幕上浮现并淡出「+1 钓鱼」；迷你条打开时叠在条上。" },
+	{ cmd = "wanted", key = "goalAlerts", label = "想要渔获提醒",
+		tooltip = "钓到想要列表里的鱼时提醒（在统计窗口右键渔获可添加）。设了数量时，一半会在聊天提示，集齐再提醒，两种方式都算。" },
+	{ cmd = "newcatch", key = "newCatchMessage", label = "新鱼入图鉴时在聊天提示",
+		tooltip = "钓到你所有角色都从未钓到过的鱼时，在聊天发一行提示。" },
 	{ cmd = "alert", key = "alert", label = "稀有渔获提醒",
-		tooltip = "钓到达到提醒品质或以上的物品，或你标记为想要的物品时，播放音效并闪现团队警告（在统计窗口右键可标记想要）。" },
+		tooltip = "钓到达到提醒品质或以上的物品时，播放音效并闪现团队警告。想要的鱼有单独提醒。" },
 	{ cmd = "pools", key = "rememberPools", label = "记住钓鱼鱼群点",
 		tooltip = "装备鱼竿时将鼠标悬停在鱼群上并抛竿，会把钓点标在图鉴的区域地图上。鱼群会移动，标记表示曾经出现过的位置。目前仅识别英文鱼群名。/onecast forgetpools 可清除。" },
 	{ cmd = "campreminder", key = "campReminder", label = "营地增益提醒",
 		tooltip = "钓鱼架或钓鱼小屋提供的优良或稀有钓鱼增益消失时，在聊天提示。图鉴的「营地」标签页有更多营地信息。" },
-	{ cmd = "reporthint", key = "reportHint", label = "提示可分享的数据",
-		tooltip = "当你的钓鱼出现「哇，大鱼」还不了解的情况（例如未知等级的区域，或图鉴里没有的鱼）时，在聊天提示，方便你用 /onecast report 分享。" },
 	{ cmd = "extravaganza", key = "extravaganza", label = "荆棘谷钓鱼大赛提醒",
 		tooltip = "荆棘谷钓鱼大赛即将开始及开始时在聊天提示（经典日程：服务器时间周日 14:00–16:00）。" },
 	{ cmd = "loginmessage", key = "loginMessage", label = "登录时在聊天显示版本",
 		tooltip = "登录时在聊天显示插件版本，并附带「更新内容」链接。" },
+	{ cmd = "caughtby", key = "catchTooltip", label = "物品提示显示稀有度与谁钓到",
+		tooltip = "在图鉴物品的任何提示上（背包、聊天链接、拍卖行等），显示经典版每次钓到的几率，以及你哪个角色钓到过。" },
+	{ cmd = "pooltips", key = "poolTooltip", label = "鱼群提示显示产出",
+		tooltip = "鼠标悬停鱼群时，显示产出（含经典几率）以及你尚未钓到的。" },
+	{ cmd = "map", key = "mapStrip", label = "世界地图显示钓鱼等级",
+		tooltip = "世界地图上显示条带：区域钓鱼等级、你的技能对比、该区渔获数。在大陆地图上跟随鼠标所在区域。" },
+	{ cmd = "badges", key = "tabBadges", label = "侧边标签绿点",
+		tooltip = "有可分享发现时，在「数据报告」标签显示绿点；有未读版本时，在「更新内容」标签显示绿点。" },
 	{ cmd = "minimap", key = "minimapButton", label = "显示小地图按钮",
 		tooltip = "在小地图上显示「哇，大鱼」按钮。可拖动调整位置。" },
 }
 
 -- The sub-pages under OneCast in the options, each a list of { heading, keys... }. A key is an
 -- OPTIONS entry, or one of the sliders and dropdowns built in SetupSettings.
+-- Fishing: how you cast and reel, your pole and gear, and what you catch. While fishing: what
+-- you see and hear with the line out.
 local OPTION_PAGES = {
 	{ name = "钓鱼",
-		{ "施放", "doubleClick", "softInteract", "bobberMarker" },
-		{ "鱼竿与武器", "autoEquip", "restoreDelay", "restoreOnCombat" },
-		{ "提醒", "bagWarning", "autoLootHint" },
+		{ "施放", "castKey", "doubleClick", "softInteract" },
+		{ "鱼竿与装备", "autoEquip", "fishingOutfit", "restoreDelay", "restoreOnCombat" },
+		{ "拾取与背包", "autoLootFishing", "fastLoot", "autoLootHint", "bagWarning", "junkMode" },
 	},
 	{ name = "诱饵",
 		{ "你的诱饵", "lureChoice", "autoLure" },
 		{ "工具箱", "tackleBox", "lureVendorHint" },
 	},
-	{ name = "声音",
-		{ "钓鱼时", "soundBoost", "quietOthers", "quietLevel" },
+	{ name = "钓鱼时",
+		{ "你的浮漂", "bobberMarker", "beamColor" },
+		{ "声音", "soundBoost", "quietOthers", "quietLevel" },
+	},
+	{ name = "手柄",
+		{ "钓鱼按钮", "padFishing", "padButton", "padStart", "padWindow" },
+		{ "反馈", "padHints", "padRumble" },
+	},
+	{ name = "无障碍",
+		{ "文字与按钮", "largerText", "glyphSize" },
+		{ "图鉴与装备", "collectionTicks" },
+		{ "动态效果", "reduceMotion" },
 	},
 	{ name = "统计与提醒",
-		{ "统计窗口", "openOnCast", "closeOnDone", "fadeStats", "sessionSummary" },
-		{ "提醒", "alert", "alertQuality", "extravaganza", "campReminder", "reportHint" },
-		{ "图鉴", "rememberPools" },
+		{ "窗口", "openOnCast", "statsMini", "closeOnDone", "doneCloses", "escapeCloses", "fadeStats", "sessionSummary" },
+		{ "提醒", "alert", "alertSound", "alertQuality", "skillToast", "goalAlerts", "newCatchMessage", "extravaganza", "campReminder" },
 	},
 }
 -- Greyed out and indented while the option they belong to is off.
 local OPTION_PARENT = {
+	beamColor = "bobberMarker",
 	quietLevel = "quietOthers",
+	padButton = "padFishing",
+	padStart = "padFishing",
+	padWindow = "padFishing",
 	alertQuality = "alert",
+	alertSound = "alert",
 }
 
 local UpdateQuiet -- below: quiet other sounds while fishing
+local UpdateLoot -- below: auto loot while fishing
 
 -- Every setting that isn't a checkbox, described once: the options panel and the window's Options
 -- page are both built from this. A `list` setting is a dropdown of { value, text } pairs; the others
 -- are sliders from `min` to `max` in `step`s, shown with `format`. `char` keeps it per character.
 local CHOICES = {
-	theme = { label = "主题", kind = "string",
-		tooltip = "「哇，大鱼」各窗口的配色。选定后立即生效。",
+	beamColor = { label = "光束颜色", kind = "string",
+		tooltip = "浮漂发光与光柱的颜色。",
+		list = function()
+			local swatch = function(key, text)
+				local c = ns.Bobber and ns.Bobber.COLORS[key]
+				return c and string.format("|cff%02x%02x%02x%s|r", c[1] * 255, c[2] * 255, c[3] * 255, text) or text
+			end
+			return { { "arcane", swatch("arcane", "奥术") }, { "gold", swatch("gold", "金色") }, { "white", swatch("white", "白色") },
+				{ "blue", swatch("blue", "冰蓝") }, { "teal", swatch("teal", "青绿") }, { "green", swatch("green", "绿色") },
+				{ "red", swatch("red", "红色") }, { "purple", swatch("purple", "紫色") }, { "pink", swatch("pink", "粉色") },
+				{ "class", "职业颜色" } }
+		end,
+		onChange = function()
+			if ns.Bobber then
+				ns.Bobber.Retint()
+			end
+		end },
+	junkMode = { label = "向商人出售钓鱼灰装", kind = "string",
+		tooltip = "在商人处处理你钓上来的灰色垃圾，且不影响其他物品：商人窗口下显示出售按钮、打开商人即自动出售，或不作处理。",
+		list = function()
+			return { { "button", "出售按钮" }, { "auto", "自动出售" }, { "off", "不处理" } }
+		end,
+		onChange = function()
+			if ns.Junk then
+				ns.Junk.UpdateButton()
+			end
+		end },
+	padButton = { label = "钓鱼按钮", kind = "string",
+		tooltip = "装备鱼竿时用于施放和收杆的手柄按钮。A / 十字键在拇指下，摘竿后恢复为跳跃等原功能。",
 		list = function()
 			local list = {}
-			for _, id in ipairs(ns.Theme.ORDER) do
-				list[#list + 1] = { id, ns.Theme.LIST[id].label }
+			for _, b in ipairs(ns.Controller and ns.Controller.BUTTONS or {}) do
+				list[#list + 1] = { b[1], b[2] }
 			end
 			return list
 		end,
 		onChange = function()
-			ns.Theme.Apply()
+			if ns.Controller then
+				ns.Controller.Update()
+			end
+		end },
+	padStart = { label = "这样拿上鱼竿", kind = "string",
+		tooltip = "未装备鱼竿时，钓鱼键仍是跳跃。按住所示扳机再按该键，「哇，大鱼」会帮你拿竿；之后单按即可施放与收杆，直到摘竿。选「关闭」则需自己换竿或用施法键。",
+		list = function()
+			local list = {}
+			for _, s in ipairs(ns.Controller and ns.Controller.STARTS or {}) do
+				list[#list + 1] = { s[1], ns.Controller.StartLabel(s[1]) }
+			end
+			return list
+		end,
+		onChange = function()
+			if ns.Controller then
+				ns.Controller.Update()
+			end
+		end },
+	padWindow = { label = "「哇，大鱼」窗口按钮", kind = "string",
+		tooltip = "装备鱼竿时，用手柄第二个按钮打开和关闭「哇，大鱼」窗口。选「关闭」则不影响该键。",
+		list = function()
+			local list = { { "off", "关闭" } }
+			for _, b in ipairs(ns.Controller and ns.Controller.BUTTONS or {}) do
+				list[#list + 1] = { b[1], b[2] }
+			end
+			return list
+		end,
+		onChange = function()
+			if ns.Controller then
+				ns.Controller.Update()
+			end
+		end },
+	glyphSize = { label = "手柄按钮图示大小", kind = "string",
+		tooltip = "「哇，大鱼」绘制手柄按钮图示的大小：各窗口下的按键指南、浮漂上、欢迎界面和提示中。",
+		list = function()
+			return { { "normal", "正常" }, { "large", "大" }, { "largest", "最大" } }
+		end,
+		onChange = function()
+			if ns.Controller then
+				ns.Controller.Update()
+			end
 		end },
 	tabSide = { label = "侧边标签", kind = "string",
 		tooltip = "「哇，大鱼」窗口的标签页位于哪一侧。",
@@ -168,7 +315,7 @@ local CHOICES = {
 			ns.Hub.UpdateSide()
 		end },
 	statsScale = { label = "窗口缩放", kind = "number", min = 50, max = 200, step = 5,
-		tooltip = "「哇，大鱼」窗口的大小，所有页面通用。也可拖动任意页面的右下角，或在统计页上按 Ctrl + 鼠标滚轮。",
+		tooltip = "「哇，大鱼」窗口的大小，所有页面通用。也可拖动任意页面右下角，或在统计页上按 Ctrl + 鼠标滚轮。",
 		format = function(value)
 			return value .. "%"
 		end,
@@ -180,7 +327,7 @@ local CHOICES = {
 		list = function()
 			local list = { { ns.Lure.NONE, "不使用诱饵" }, { ns.Lure.BEST, "能用的最好诱饵" } }
 			for _, lure in ipairs(ns.Lure.LIST) do
-				list[#list + 1] = { lure.id, string.format("%s（+%d）", ns.Lure.Name(lure), lure.bonus) }
+				list[#list + 1] = { lure.id, string.format("%s (+%d)", ns.Lure.Name(lure), lure.bonus) }
 			end
 			return list
 		end,
@@ -215,8 +362,9 @@ local CHOICES = {
 
 -- The options on the main page, before OPTION_PAGES, for the window's Options page.
 local OPTION_MAIN = {
-	{ "外观", "theme", "tabSide", "statsScale" },
-	{ "常规", "lockWindow", "minimapButton", "loginMessage" },
+	{ "外观", "tabSide", "statsScale" },
+	{ "常规", "lockWindow", "minimapButton", "tabBadges", "loginMessage" },
+	{ "提示与地图", "catchTooltip", "poolTooltip", "mapStrip", "rememberPools" },
 }
 
 -- CVars changed only for the length of a cast, and restored afterwards only if
@@ -242,7 +390,10 @@ _G.BINDING_HEADER_ONECAST = "哇，大鱼"
 _G["BINDING_NAME_" .. BINDING_COMMAND] = "施放（抛竿）"
 _G["BINDING_NAME_" .. REEL_BINDING] = "收杆（与浮漂互动）"
 _G.BINDING_NAME_ONECAST_RESTORE = "换回武器"
+_G.BINDING_NAME_ONECAST_DONE = "结束钓鱼（换回武器与装备）"
 _G.BINDING_NAME_ONECAST_BOOK = "钓鱼图鉴"
+_G.BINDING_NAME_ONECAST_WARDROBE = "钓鱼装扮"
+_G.BINDING_NAME_ONECAST_JOURNEY = "渔夫之路"
 _G.BINDING_NAME_ONECAST_WINDOW = "「哇，大鱼」窗口（上次使用的页面）"
 
 local db
@@ -251,7 +402,7 @@ local fishing = false
 local lastRightClick = 0
 -- Borrowed CVars by group, each cvar -> { original = value, ours = value }: "cast" for the
 -- length of one cast, "quiet" for as long as the pole is equipped. No CVar is in both.
-local leases = { cast = {}, quiet = {} }
+local leases = { cast = {}, quiet = {}, loot = {} }
 -- Turned down while the pole is on, to quietLevel percent of the player's own volume.
 local QUIET_CVARS = { "Sound_MusicVolume", "Sound_AmbienceVolume", "Sound_DialogVolume" }
 
@@ -263,8 +414,54 @@ local reelOwner = CreateFrame("Frame")
 local reelKeyOwner = CreateFrame("Frame")
 local clickOwner = CreateFrame("Frame")
 
+-- OneCast's small print -------------------------------------------------------------------------
+-- Its own font objects, which every OneCast window uses in place of the game's small fonts. A
+-- font object's changes reach every text that uses it, so the text size changes everywhere at
+-- once. By default a point bigger than the game's small fonts (10 is hard to read), and its grey
+-- a little lighter for contrast; with "Larger text" on, the game's normal sizes.
+local SMALL_FONTS = {
+	{ "OneCastFontHighlightSmall", "GameFontHighlightSmall", "GameFontHighlight" },
+	{ "OneCastFontNormalSmall", "GameFontNormalSmall", "GameFontNormal" },
+	{ "OneCastFontDisableSmall", "GameFontDisableSmall", "GameFontDisable", { 0.66, 0.66, 0.66 } },
+	{ "OneCastFontGreenSmall", "GameFontGreenSmall", "GameFontGreen" },
+	{ "OneCastFontHighlightSmallOutline", "GameFontHighlightSmallOutline", "GameFontHighlightOutline" },
+}
+for _, spec in ipairs(SMALL_FONTS) do
+	if CreateFont and not _G[spec[1]] then
+		CreateFont(spec[1])
+	end
+end
+
+function ns.LargerText()
+	return ns.db and ns.db.largerText and true or false
+end
+
+function ns.ApplyTextSize()
+	local large = ns.LargerText()
+	for _, spec in ipairs(SMALL_FONTS) do
+		local font, from = _G[spec[1]], _G[large and spec[3] or spec[2]]
+		if font and from and font.CopyFontObject then
+			font:CopyFontObject(from)
+			local path, size, flags = font:GetFont()
+			if path and size and not large then
+				font:SetFont(path, size + 1, flags)
+			end
+			if spec[4] then
+				font:SetTextColor(spec[4][1], spec[4][2], spec[4][3])
+			end
+		end
+	end
+end
+ns.ApplyTextSize()
+
+-- "Reduce motion": OneCast's animations stopped (the water flowing, shines and glints, the
+-- bobber's light breathing).
+function ns.ReduceMotion()
+	return ns.db and ns.db.reduceMotion and true or false
+end
+
 local function Print(msg)
-	DEFAULT_CHAT_FRAME:AddMessage("|cff33bbff哇，大鱼|r: " .. msg)
+	DEFAULT_CHAT_FRAME:AddMessage("|cff33bbff" .. ns.DISPLAY_NAME .. "|r: " .. msg)
 end
 ns.Print = Print
 
@@ -297,6 +494,69 @@ end
 -- An item as a chat link, to hover or Shift-click, or `fallback` until the game has its data.
 function ns.ItemLink(itemID, fallback)
 	return select(2, C_Item.GetItemInfo(itemID)) or fallback
+end
+
+-- The game's current APIs first, then the old names: those live in Blizzard's deprecated files,
+-- which only load while the loadDeprecationFallbacks setting is on, and go at the next expansion.
+
+-- Milliseconds of temporary enchant (a lure) on the main hand, or nil if none.
+function ns.MainHandEnchantMs()
+	local paperDoll = C_PaperDollInfo
+	if paperDoll and paperDoll.GetTemporaryEnchantmentInfo then
+		local info = paperDoll.GetTemporaryEnchantmentInfo(INVSLOT_MAINHAND or 16)
+		local ms = info and info.remainingTimeMs
+		if ms and not (issecretvalue and issecretvalue(ms)) then
+			return ms
+		end
+		return nil
+	end
+	if GetWeaponEnchantInfo then
+		local has, ms = GetWeaponEnchantInfo()
+		return has and ms or nil
+	end
+end
+
+-- True if this character knows the spell (a recipe), nil if the game can't say.
+function ns.KnowsSpell(spellID)
+	local spellBook = C_SpellBook
+	if spellBook and spellBook.IsSpellKnown and Enum.SpellBookSpellBank then
+		return spellBook.IsSpellKnown(spellID, Enum.SpellBookSpellBank.Player) and true or false
+	end
+	if IsPlayerSpell then
+		return IsPlayerSpell(spellID) and true or false
+	end
+end
+
+-- A raid-warning flash in the middle of the screen.
+function ns.RaidWarning(text)
+	if ns.Controller then
+		ns.Controller.Rumble()
+	end
+	local color = ChatTypeInfo and ChatTypeInfo.RAID_WARNING
+	if RaidWarningUtil and RaidWarningUtil.AddMessage then
+		RaidWarningUtil.AddMessage(text, color)
+	elseif RaidNotice_AddMessage and RaidWarningFrame then
+		RaidNotice_AddMessage(RaidWarningFrame, text, color)
+	end
+end
+
+-- Put a link into chat: into the chat box if it's open, else opening it with the link in. The
+-- game's current ChatFrameUtil, or the old names it keeps (deprecated) for older clients.
+function ns.InsertChatLink(link)
+	if not link then
+		return false
+	end
+	local util = ChatFrameUtil
+	local insert = (util and util.InsertLink) or ChatEdit_InsertLink
+	if insert and insert(link) then
+		return true
+	end
+	local open = (util and util.OpenChat) or ChatFrame_OpenChat
+	if open then
+		open(link)
+		return true
+	end
+	return false
 end
 ns.GetFishingName = function()
 	return fishingName
@@ -344,12 +604,28 @@ local function LeaseCVars(group, cvars)
 	end
 end
 
--- Give the group's CVars back, each only if it still holds OneCast's value.
+-- The same value, however the game writes it: "0.3" and "0.300000" are one volume.
+local function SameValue(a, b)
+	if a == b then
+		return true
+	end
+	local x, y = tonumber(a), tonumber(b)
+	return x ~= nil and y ~= nil and math.abs(x - y) < 0.001
+end
+
+local CVAR_NAMES = { Sound_MusicVolume = "音乐音量", Sound_AmbienceVolume = "环境音量",
+	Sound_DialogVolume = "对白音量", Sound_SFXVolume = "音效音量", Sound_EnableSFX = "音效开关",
+	autoLootDefault = "自动拾取" }
+
+-- Give the group's CVars back, each only if it still holds OneCast's value: one you changed
+-- yourself meanwhile stays as you set it, and chat says so.
 local function ReleaseCVars(group)
 	local leased = leases[group]
 	for name, lease in pairs(leased) do
-		if C_CVar.GetCVar(name) == lease.ours then
+		if SameValue(C_CVar.GetCVar(name), lease.ours) then
 			C_CVar.SetCVar(name, lease.original)
+		elseif CVAR_NAMES[name] then
+			Print("钓鱼期间你自行修改了" .. CVAR_NAMES[name] .. "，已保持你的设置。")
 		end
 		leased[name] = nil
 	end
@@ -375,6 +651,18 @@ function UpdateQuiet(reapply)
 		LeaseCVars("quiet", cvars)
 	end
 end
+
+-- Auto loot on while a pole is equipped, if the option is on; back as it was after.
+function UpdateLoot()
+	local want = db and db.autoLootFishing and HasFishingPole()
+	local active = next(leases.loot) ~= nil
+	if active and not want then
+		ReleaseCVars("loot")
+	elseif want and not active then
+		LeaseCVars("loot", { autoLootDefault = "1" })
+	end
+end
+ns.UpdateLoot = UpdateLoot
 
 -- Warn once each time the bags fill up, when a line goes out.
 local bagsFullWarned = false
@@ -431,10 +719,18 @@ local function StartReelMode()
 	-- One-key mode: temporarily turn the cast key into interact for this cast only.
 	ClearOverrideBindings(reelOwner)
 	if not HasDedicatedReelKey() then
-		local keys = { GetBindingKey(BINDING_COMMAND) }
-		for i = 1, #keys do
-			SetOverrideBinding(reelOwner, true, keys[i], "INTERACTTARGET")
+		for _, key in ipairs({ GetBindingKey(BINDING_COMMAND) }) do
+			SetOverrideBinding(reelOwner, true, key, "INTERACTTARGET")
 		end
+		-- A controller's fishing button reels too: its cast binding steps aside first.
+		if ns.Controller then
+			ns.Controller.Update()
+			for _, key in ipairs(ns.Controller.ReelKeys()) do
+				SetOverrideBinding(reelOwner, true, key, "INTERACTTARGET")
+			end
+		end
+	elseif ns.Controller then
+		ns.Controller.Update()
 	end
 end
 
@@ -443,6 +739,9 @@ local function StopReelMode()
 		ClearOverrideBindings(reelOwner)
 	end
 	ReleaseCVars("cast")
+	if ns.Controller then
+		ns.Controller.Update() -- the fishing button casts again
+	end
 end
 
 local equippingPress = false -- the key went down and equipped a pole, and hasn't come up yet
@@ -580,11 +879,17 @@ local function OpenSettings()
 		return
 	end
 	settingsRequestedAt = GetTime()
-	-- The panel opening would close OneCast's own windows, the one this came from included.
-	if ns.UI and ns.UI.HoldOpenForOptions then
-		ns.UI.HoldOpenForOptions()
+	if Settings.KEYBINDINGS_CATEGORY_ID then
+		-- OneCast's keys have a section of their own (Bindings.xml's category), and the list
+		-- scrolls to it. It opens with a click on its +: opening it from here would mean writing
+		-- into the game's own settings, which is what got an action blocked on the Social page.
+		Settings.OpenToCategory(Settings.KEYBINDINGS_CATEGORY_ID, "OneCast")
+		local castName = _G["BINDING_NAME_" .. BINDING_COMMAND] or "施放（抛竿）"
+		local reelName = _G["BINDING_NAME_" .. REEL_BINDING] or "收杆（与浮漂互动）"
+		Print(string.format("施放键：展开「%s」，绑定「%s」；可选再绑「%s」分键收杆。", ns.DISPLAY_NAME, castName, reelName))
+	elseif settingsCategory then
+		Settings.OpenToCategory(settingsCategory:GetID())
 	end
-	Settings.OpenToCategory(settingsCategory:GetID())
 	if SettingsPanel and SettingsPanel:IsShown() then
 		settingsOpenedByUs = true
 	end
@@ -618,71 +923,123 @@ ns.OPTION_MAIN = OPTION_MAIN
 ns.OPTION_PAGES = OPTION_PAGES
 ns.OPTION_PARENT = OPTION_PARENT
 
+-- Every setting, as one object each: its value from the saved variables, set, and what happens
+-- when it changes. The window's Options page and the slash commands use these.
+--
+-- The game's own options get a page of OneCast's own frames (a word on where everything is, and
+-- buttons to open it), not the game's checkboxes, sliders and dropdowns. Those come from a pool
+-- the game shares between every page of its options, and a control an addon has set up can be
+-- handed to one of the game's own pages afterwards: there, an action only the game may take (the
+-- Social page's) is blocked and blamed on the addon.
+local function NewSetting(key, store, default, onChange)
+	local setting = { key = key, callbacks = {} }
+	function setting:GetValue()
+		local value = store[key]
+		if value == nil then
+			return default
+		end
+		return value
+	end
+	function setting:SetValue(value)
+		store[key] = value
+		for _, callback in ipairs(self.callbacks) do
+			callback(self, value)
+		end
+	end
+	function setting:SetValueChangedCallback(callback)
+		self.callbacks[#self.callbacks + 1] = callback
+	end
+	if onChange then
+		setting:SetValueChangedCallback(onChange)
+	end
+	ns.optionSettings[key] = setting
+	return setting
+end
+
+local function SettingsPage()
+	local f = CreateFrame("Frame")
+	f:Hide()
+	local title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightHuge")
+	title:SetPoint("TOPLEFT", 16, -16)
+	title:SetText(ns.DISPLAY_NAME)
+	local version = f:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+	version:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 8, 2)
+	version:SetText("v" .. (ns.VERSION or "?"))
+	local text = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+	text:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
+	text:SetPoint("RIGHT", -24, 0)
+	text:SetJustifyH("LEFT")
+	text:SetSpacing(3)
+	text:SetText(string.format(
+		"多数设置在插件窗口的「选项」页。施放与收杆按键：选项 > 按键设置 > 插件 > %s（「施放」必填；「收杆」可选，分键后施放键在线出去时不会变成收杆）。当前：%s。",
+		ns.DISPLAY_NAME, BoundKeysText()))
+	local y = -96
+	local function Button(label, onClick, x)
+		local b = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+		b:SetSize(200, 26)
+		b:SetPoint("TOPLEFT", x or 16, y)
+		b:SetText(label)
+		b:SetScript("OnClick", onClick)
+		return b
+	end
+	Button("打开「哇，大鱼」选项", function()
+		ns.Hub.ShowOptions()
+	end)
+	Button("按键绑定", function()
+		ns.OpenSettings()
+	end, 232)
+	y = y - 46
+	local open = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	open:SetPoint("TOPLEFT", 16, y)
+	open:SetText("打开")
+	y = y - 22
+	for i, entry in ipairs({
+		{ "统计窗口", function() ns.Stats.Toggle() end },
+		{ "工具箱", function() ns.TackleBox.ToggleWindow() end },
+		{ "钓鱼装扮", function() ns.Wardrobe.Show() end },
+		{ "钓鱼图鉴", function() ns.Book.Show() end },
+		{ "渔夫之路", function() ns.Journey.Show() end },
+		{ "数据报告", function() ns.Report.Show() end },
+		{ "更新内容", function() ns.WhatsNew.Show() end },
+	}) do
+		Button(entry[1], entry[2], i % 2 == 1 and 16 or 232)
+		if i % 2 == 0 then
+			y = y - 32
+		end
+	end
+	return f
+end
+
 local function SetupSettings()
-	local category, layout = Settings.RegisterVerticalLayoutCategory(ns.DISPLAY_NAME)
-	local optionByKey = {}
-	for _, opt in ipairs(OPTIONS) do
-		optionByKey[opt.key] = opt
-	end
 	ns.optionSettings = {}
-
-	local function Header(pageLayout, text)
-		pageLayout:AddInitializer(CreateSettingsListSectionHeaderInitializer(text))
-	end
-
-	local function Register(page, key, kind, label, store, default)
-		local setting = Settings.RegisterAddOnSetting(page, "OneCast_" .. key, key, store, kind, label, default)
-		ns.optionSettings[key] = setting
-		return setting
-	end
-
-	local function Choices(fill)
-		return function()
-			local container = Settings.CreateControlTextContainer()
-			fill(container)
-			return container:GetData()
-		end
-	end
-
-	local function Slider(page, setting, low, high, step, format, tooltip)
-		local options = Settings.CreateSliderOptions(low, high, step)
-		if MinimalSliderWithSteppersMixin then
-			options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, format)
-		end
-		return Settings.CreateSlider(page, setting, options, tooltip)
-	end
-
-	-- Everything that isn't a plain checkbox, from CHOICES.
-	local function ChoiceControl(page, key)
-		local spec = CHOICES[key]
-		local setting = Register(page, key, spec.kind, spec.label, spec.char and OneCastCharDB or db,
-			spec.char and charDefaults[key] or defaults[key])
-		if spec.onChange then
-			setting:SetValueChangedCallback(spec.onChange)
-		end
-		if key == "statsScale" then
-			ns.scaleSetting = setting
-		end
-		if spec.list then
-			return Settings.CreateDropdown(page, setting, Choices(function(container)
-				for _, choice in ipairs(spec.list()) do
-					container:Add(choice[1], choice[2])
-				end
-			end), spec.tooltip)
-		end
-		return Slider(page, setting, spec.min, spec.max, spec.step, spec.format, spec.tooltip)
-	end
-	local CONTROLS = {}
-	for key in pairs(CHOICES) do
-		CONTROLS[key] = function(page)
-			return ChoiceControl(page, key)
-		end
-	end
 
 	local ON_CHANGE = {
 		minimapButton = UpdateMinimapVisibility,
+		escapeCloses = function()
+			if ns.UI and ns.UI.UpdateEscape then
+				ns.UI.UpdateEscape()
+			end
+		end,
 		quietOthers = function()
 			UpdateQuiet()
+		end,
+		autoLootFishing = function()
+			UpdateLoot()
+		end,
+		padFishing = function()
+			if ns.Controller then
+				ns.Controller.Update()
+			end
+		end,
+		padHints = function()
+			if ns.Mini then
+				ns.Mini.Refresh()
+			end
+		end,
+		statsMini = function()
+			if not db.statsMini and ns.Mini then
+				ns.Mini.Hide()
+			end
 		end,
 		tackleBox = function()
 			ns.Lure.OnSettingChanged()
@@ -693,89 +1050,50 @@ local function SetupSettings()
 		lockWindow = function()
 			ns.Hub.UpdateLock()
 		end,
+		tabBadges = function()
+			ns.Hub.UpdateBadges()
+		end,
+		largerText = function()
+			ns.ApplyTextSize()
+			if ns.Book and ns.Book.RefreshIfShown then
+				ns.Book.RefreshIfShown()
+			end
+		end,
+		collectionTicks = function()
+			if ns.Book and ns.Book.RefreshIfShown then
+				ns.Book.RefreshIfShown()
+			end
+			if ns.Journey and ns.Journey.Refresh then
+				ns.Journey.Refresh()
+			end
+		end,
+
+		mapStrip = function()
+			if ns.WorldMap then
+				ns.WorldMap.Update()
+			end
+		end,
 	}
 
-	local initializers = {}
-	local function AddControl(page, key)
-		local initializer
-		if CONTROLS[key] then
-			initializer = CONTROLS[key](page)
-		else
-			local opt = optionByKey[key]
-			local setting = Register(page, key, "boolean", opt.label, opt.char and OneCastCharDB or db,
-				opt.char and charDefaults[key] or defaults[key])
-			if ON_CHANGE[key] then
-				setting:SetValueChangedCallback(ON_CHANGE[key])
-			end
-			opt.setting = setting
-			initializer = Settings.CreateCheckbox(page, setting, opt.tooltip)
-		end
-		initializers[key] = initializer
-		local parent = OPTION_PARENT[key]
-		if parent then
-			initializer:SetParentInitializer(initializers[parent], function()
-				return ns.optionSettings[parent]:GetValue()
-			end)
+	for _, opt in ipairs(OPTIONS) do
+		opt.setting = NewSetting(opt.key, opt.char and OneCastCharDB or db,
+			opt.char and charDefaults[opt.key] or defaults[opt.key], ON_CHANGE[opt.key])
+	end
+	for key, spec in pairs(CHOICES) do
+		local setting = NewSetting(key, spec.char and OneCastCharDB or db,
+			spec.char and charDefaults[key] or defaults[key], spec.onChange)
+		if key == "statsScale" then
+			ns.scaleSetting = setting
 		end
 	end
 
-	-- The main page: how it looks, the one key you need, and a way into every window.
-	Header(layout, "外观")
-	AddControl(category, "theme")
-	AddControl(category, "tabSide")
-	AddControl(category, "statsScale")
-
-	-- Cast and optional reel keys (same bindings as Keybindings > AddOns).
-	if CreateKeybindingEntryInitializer then
-		local want = { [BINDING_COMMAND] = true, [REEL_BINDING] = true }
-		local keyed = false
-		for i = 1, GetNumBindings() do
-			local cmd = GetBinding(i)
-			if want[cmd] then
-				if not keyed then
-					Header(layout, "按键")
-					keyed = true
-				end
-				local keyEntry = CreateKeybindingEntryInitializer(i, true)
-				-- Kept out of the settings search, as are the buttons below: Blizzard does the
-				-- same for its own buttons that open something, and addon entries in the search
-				-- results were reported to raise ADDON_ACTION_FORBIDDEN.
-				if keyEntry.SetSearchIgnoredInLayout then
-					keyEntry:SetSearchIgnoredInLayout(layout)
-				end
-				layout:AddInitializer(keyEntry)
-			end
+	if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
+		local category = Settings.RegisterCanvasLayoutCategory(SettingsPage(), ns.DISPLAY_NAME)
+		if category then
+			Settings.RegisterAddOnCategory(category)
+			settingsCategory = category
 		end
 	end
-
-	Header(layout, "打开")
-	for _, entry in ipairs({
-		{ "统计窗口", "打开统计", function() ns.Stats.Toggle() end, "本次会话、你的技能、鱼最爱咬钩的地点，以及你的纪录。" },
-		{ "工具箱", "打开工具箱", function() ns.TackleBox.ToggleWindow() end, "选择诱饵，并对比有饵与无饵时的每小时鱼数。" },
-		{ "钓鱼图鉴", "打开图鉴", function() ns.Book.Show() end, "全部鱼类、你已钓到的，以及其余鱼的出没地点。" },
-		{ "数据报告", "打开报告", function() ns.Report.Show() end, "把你的渔获和脱钩整理成文本，分享出来，帮「哇，大鱼」摸清 Forever 的真实钓鱼等级。" },
-		{ "更新内容", "版本 " .. ns.VERSION, function() ns.WhatsNew.Show() end, "查看「哇，大鱼」各版本的改动。" },
-	}) do
-		layout:AddInitializer(CreateSettingsButtonInitializer(entry[1], entry[2], entry[3], entry[4], false))
-	end
-
-	Header(layout, "常规")
-	AddControl(category, "lockWindow")
-	AddControl(category, "minimapButton")
-	AddControl(category, "loginMessage")
-
-	for _, pageInfo in ipairs(OPTION_PAGES) do
-		local page, pageLayout = Settings.RegisterVerticalLayoutSubcategory(category, pageInfo.name)
-		for _, section in ipairs(pageInfo) do
-			Header(pageLayout, section[1])
-			for i = 2, #section do
-				AddControl(page, section[i])
-			end
-		end
-	end
-
-	Settings.RegisterAddOnCategory(category)
-	settingsCategory = category
 end
 
 -- The tooltip for the minimap button and the addon compartment, laid out like the game's own:
@@ -819,10 +1137,6 @@ function ns.FillTooltip(tip, isMinimap)
 	if contest then
 		Row("钓鱼大赛", contest)
 	end
-	local unshared = ns.Report and #ns.Report.Unshared() or 0
-	if unshared > 0 then
-		Row("可分享的数据", unshared .. "  ·  /onecast report", GREEN)
-	end
 
 	tip:AddLine(" ")
 	if isMinimap then
@@ -842,7 +1156,9 @@ end
 local MENU = {
 	{ "统计窗口", function() ns.Stats.Toggle() end },
 	{ "工具箱", function() ns.TackleBox.ToggleWindow() end },
+	{ "钓鱼装扮", function() ns.Wardrobe.Show() end },
 	{ "钓鱼图鉴", function() ns.Book.Toggle() end },
+	{ "渔夫之路", function() ns.Journey.Show() end },
 	{ "营地", function() ns.Book.ShowCamp() end },
 	{ "数据报告", function() ns.Report.Toggle() end },
 	{ "更新内容", function() ns.WhatsNew.Toggle() end },
@@ -865,7 +1181,7 @@ local function CreateMenu()
 	f:SetClampedToScreen(true)
 	f:EnableMouse(true)
 	f:Hide()
-	tinsert(UISpecialFrames, "OneCastMenu") -- Escape closes it
+	ns.UI.EscapeCloses(f)
 
 	local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	title:SetPoint("TOPLEFT", MENU_PAD + 2, -MENU_PAD)
@@ -922,13 +1238,6 @@ local function OpenMenu(owner)
 		menuFrame:Hide()
 		return
 	end
-	-- The count of data to share, on its row.
-	local unshared = ns.Report and #ns.Report.Unshared() or 0
-	for _, b in ipairs(menuFrame.buttons) do
-		if b.label == "数据报告" then
-			b.text:SetText(unshared > 0 and string.format("数据报告 |cff1eff00(%d)|r", unshared) or "数据报告")
-		end
-	end
 	-- Open away from the screen edge the button is nearest.
 	menuFrame.owner = owner
 	menuFrame:ClearAllPoints()
@@ -937,6 +1246,9 @@ local function OpenMenu(owner)
 	local top = y and y > UIParent:GetHeight() / 2
 	menuFrame:SetPoint((top and "TOP" or "BOTTOM") .. (right and "RIGHT" or "LEFT"), owner,
 		(top and "BOTTOM" or "TOP") .. (right and "LEFT" or "RIGHT"))
+	if ns.Controller then
+		ns.Controller.Navigate(menuFrame, true)
+	end
 	menuFrame:Show()
 end
 ns.OpenMenu = OpenMenu
@@ -1093,15 +1405,26 @@ events:SetScript("OnEvent", function(_, event, ...)
 				end
 			end
 			db = OneCastDB
-			db.wanted = db.wanted or {}
 			ns.db = db
+			-- Settings of features 1.0 removed (themes, milestones, the clean view, the bobber's
+			-- styles and height, the auction source, the report's chat hints): gone from the saves.
+			for _, key in ipairs({ "theme", "themeEffects", "bobberStyle", "bobberHeight", "beamCustom",
+				"auctionSource", "cleanView", "reportHint", "milestones", "milestonesSeeded", "milestonesOn",
+				"milestoneAlerts", "sellJunk" }) do
+				db[key] = nil
+			end
+			-- A beam colour that followed the theme, or a custom one: the default now.
+			if db.beamColor == "theme" or db.beamColor == "custom" then
+				db.beamColor = defaults.beamColor
+			end
 			OneCastCharDB = OneCastCharDB or {}
+			OneCastCharDB.milestones, OneCastCharDB.milestonesSeeded = nil, nil
 			for k, v in pairs(charDefaults) do
 				if OneCastCharDB[k] == nil then
 					OneCastCharDB[k] = v
 				end
 			end
-			ns.Theme.Init()
+			ns.ApplyTextSize()
 			SetupSettings()
 			SetupMinimapButton()
 		end
@@ -1113,10 +1436,16 @@ events:SetScript("OnEvent", function(_, event, ...)
 		ApplyFishingSpell()
 		if event == "PLAYER_LOGIN" then
 			UpdateQuiet() -- logged in with the pole on
+			UpdateLoot()
 			SyncDedicatedReelKeys()
 		end
+		if event == "PLAYER_LOGIN" and ns.Onboarding then
+			ns.Onboarding.OnLogin() -- no cast key yet: the welcome, to choose one
+		end
 		if event == "PLAYER_LOGIN" and not GetBindingKey(BINDING_COMMAND) then
-			Print("请在 选项 > 按键设置 > 插件 > 哇，大鱼 绑定「施放」；可选再绑「收杆」分键（绑了收杆后，施放键不会再变成收杆）。也可装备鱼竿后双击右键。输入 /onecast 打开选项。")
+			Print(string.format(
+				"请在 选项 > 按键设置 > 插件 > %s 绑定「施放」；可选再绑「收杆」分键（绑了收杆后，施放键不会再变成收杆）。也可装备鱼竿后双击右键。输入 /onecast 打开选项。",
+				ns.DISPLAY_NAME))
 		end
 	elseif event == "UPDATE_BINDINGS" then
 		SyncDedicatedReelKeys()
@@ -1166,10 +1495,12 @@ events:SetScript("OnEvent", function(_, event, ...)
 		end
 	elseif event == "PLAYER_EQUIPMENT_CHANGED" then
 		UpdateQuiet()
+		UpdateLoot()
 	elseif event == "PLAYER_LOGOUT" then
 		-- CVars are saved on logout; never save ours.
 		ReleaseCVars("cast")
 		ReleaseCVars("quiet")
+		ReleaseCVars("loot")
 	end
 end)
 
@@ -1179,14 +1510,44 @@ SlashCmdList.ONECAST = function(msg)
 	if cmd == "" then
 		ns.Hub.ShowOptions()
 		return
+	elseif cmd == "setup" or cmd == "welcome" or cmd == "key" then
+		ns.Onboarding.Show() -- choose the cast key
+		return
 	elseif cmd == "keys" or cmd == "settings" then
 		OpenSettings() -- the game's options: the cast key is set there
+		return
+	elseif cmd == "riggle" then
+		-- A waypoint to Riggle Bassbait, for the Fishing Extravaganza.
+		if not ns.Extravaganza.Waypoint() then
+			ns.Print("暂时无法设置路径点（战斗中，或地图尚未就绪）。")
+		end
+		return
+	elseif cmd == "journey" or cmd == "ranks" then
+		ns.Journey.Show()
+		return
+	elseif cmd == "wardrobe" then
+		ns.Wardrobe.Show()
+		return
+	elseif cmd == "pad" then
+		if ns.Controller then
+			ns.Controller.Status()
+		end
+		return
+	elseif cmd:match("^search%s") or cmd == "search" then
+		local text = msg:match("^%s*%S+%s+(.-)%s*$") or ""
+		if ns.Book and ns.Book.Search then
+			ns.Book.Search(text)
+		end
+		return
+	elseif cmd == "pad watch" then
+		if ns.Controller then
+			ns.Controller.Watch()
+		end
 		return
 	elseif cmd == "stats" then
 		ns.Stats.Toggle()
 		return
-	elseif cmd == "spots" or cmd == "alltime" or cmd == "now" or cmd == "farm" or cmd == "records"
-		or cmd == "session" or cmd == "zone" or cmd == "lifetime" or cmd == "log" then
+	elseif cmd == "session" or cmd == "spots" or cmd == "alltime" or cmd == "farm" or cmd == "records" then
 		ns.Stats.Toggle(cmd)
 		return
 	elseif cmd == "reset" then
@@ -1195,6 +1556,9 @@ SlashCmdList.ONECAST = function(msg)
 		return
 	elseif cmd == "gear" then
 		OneCast_RestoreWeapons()
+		return
+	elseif cmd == "done" then
+		OneCast_DoneFishing()
 		return
 	elseif cmd == "scan" then
 		ns.Prices.Scan()
@@ -1223,16 +1587,11 @@ SlashCmdList.ONECAST = function(msg)
 		ns.Book.RefreshIfShown()
 		Print("已清除记住的鱼群点。")
 		return
-	elseif cmd == "theme" or cmd:match("^theme%s") then
-		local name = cmd:match("^theme%s+(%a+)")
-		local label = ns.Theme.Choose(name)
-		Print(label and ("主题：" .. label) or ("没有名为 " .. tostring(name) .. " 的主题。可试：" .. table.concat(ns.Theme.ORDER, ", ") .. "。"))
-		return
 	elseif cmd == "scale" or cmd:match("^scale%s") then
 		local percent = tonumber(cmd:match("^scale%s+(%d+)"))
 		if percent then
 			ns.Stats.SetScale(percent)
-			Print("统计窗口缩放：" .. db.statsScale .. "%")
+			Print("窗口缩放：" .. db.statsScale .. "%")
 		else
 			Print("用法：/onecast scale 50-200")
 		end
@@ -1248,15 +1607,22 @@ SlashCmdList.ONECAST = function(msg)
 		end
 	end
 	Print("v" .. ns.VERSION .. " | 按键：" .. BoundKeysText() .. " | 法术：" .. tostring(fishingName))
-	Print("/onecast - 打开选项（/onecast keys 查看施法键）")
+	Print("/onecast - 打开选项")
+	Print("/onecast setup - 选择施放键")
+	Print("/onecast keys - 打开游戏按键设置")
 	Print("/onecast new - 各版本更新内容")
-	Print("/onecast book - 钓鱼图鉴（/onecast camp 打开其中的「营地」标签页）")
-	Print("/onecast report - 把你的钓鱼数据整理成文本，分享出来，帮助补全 Forever 的数据")
-	Print("/onecast theme [" .. table.concat(ns.Theme.ORDER, "|") .. "] - 窗口主题（不带名称则切换到下一个）")
-	Print("/onecast tackle - 工具箱（/onecast tackle reset 可把按钮移回原位）")
-	Print("/onecast stats - 统计窗口（或 /onecast session|spots|alltime 打开对应标签）")
+	Print("/onecast pad - 手柄状态（手柄行为异常时用）")
+	Print("/onecast search <关键词> - 搜索渔获、区域、配方、装备、等级与设置")
+	Print("/onecast wardrobe - 选择钓鱼穿着")
+	Print("/onecast journey - 钓鱼等级与下一级学习地点")
+	Print("/onecast riggle - 荆棘谷钓鱼大赛：里格尔·巴斯贝特路径点")
+	Print("/onecast book - 钓鱼图鉴（/onecast camp 打开「营地」标签页）")
+	Print("/onecast report - 把钓鱼数据整理成文本分享，帮助补全 Forever 数据")
+	Print("/onecast tackle - 工具箱（/onecast tackle reset 把按钮移回原位）")
+	Print("/onecast stats - 统计窗口（或 /onecast session|spots|alltime|farm|records 打开对应标签）")
 	Print("/onecast reset - 开始新会话")
 	Print("/onecast gear - 换回武器")
+	Print("/onecast done - 结束钓鱼：换回武器与装备")
 	Print("/onecast scan - 用 Auctionator 估价渔获（需打开拍卖行）")
 	Print("/onecast scale 50-200 - 窗口缩放百分比")
 	for _, opt in ipairs(OPTIONS) do

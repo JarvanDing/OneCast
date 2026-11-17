@@ -53,7 +53,7 @@ local armed, armedAt          -- the lure a press has set up, not started yet
 local casting, castingAt      -- the lure being applied right now
 local appliedAt = 0
 local believedUntil = 0       -- when the last lure should end, if the pole can't tell us
-local enchantSeen = false     -- GetWeaponEnchantInfo has reported a lure this session
+local enchantSeen = false     -- the game has reported a lure on the pole this session
 local failures = 0
 local lastFailureAt = -100
 local holdUntil = 0           -- the cast key leaves lures alone until then
@@ -163,8 +163,8 @@ function Lure.Left()
 	if not Lure.MainHandPole() then
 		return 0
 	end
-	local has, ms = GetWeaponEnchantInfo()
-	if has and ms and ms > 0 then
+	local ms = ns.MainHandEnchantMs()
+	if ms and ms > 0 then
 		enchantSeen = true
 		return ms / 1000
 	end
