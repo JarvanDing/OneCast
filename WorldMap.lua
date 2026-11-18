@@ -66,6 +66,9 @@ end
 local cache, cachedAt = {}, 0
 local CACHE_FOR = 2
 local function CachedParts(zone)
+	if not zone then
+		return nil -- a continent or the world with no zone under the mouse: nothing to say
+	end
 	local now = GetTime()
 	if now - cachedAt > CACHE_FOR then
 		cache, cachedAt = {}, now

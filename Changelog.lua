@@ -6,6 +6,15 @@ local _, ns = ...
 
 ns.CHANGELOG = {
 	{
+		version = "1.0.4",
+		date = "18 November 2026",
+		sections = {
+			{ "Fixed", {
+				{ "The world map card.", "On a continent or the whole world, with no zone under the mouse, the card from 1.0.2 could raise a Lua error over and over. It now just stays hidden until there's a zone to show." },
+			} },
+		},
+	},
+	{
 		version = "1.0.3",
 		date = "18 November 2026",
 		sections = {
