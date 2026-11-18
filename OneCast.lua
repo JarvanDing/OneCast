@@ -624,15 +624,18 @@ local CVAR_NAMES = { Sound_MusicVolume = "music volume", Sound_AmbienceVolume = 
 	Sound_DialogVolume = "dialog volume", Sound_SFXVolume = "sound effects volume", Sound_EnableSFX = "sound effects",
 	autoLootDefault = "auto loot" }
 
--- Give the group's CVars back, each only if it still holds OneCast's value: one you changed
--- yourself meanwhile stays as you set it, and chat says so.
+-- Give the group's CVars back, each only if it still holds OneCast's value: one changed
+-- meanwhile (by you, or by another addon that also turns up the splash) stays as it is. Chat
+-- says so once a login for each, not on every cast when another addon does it each time.
+local leftAlone = {}
 local function ReleaseCVars(group)
 	local leased = leases[group]
 	for name, lease in pairs(leased) do
 		if SameValue(C_CVar.GetCVar(name), lease.ours) then
 			C_CVar.SetCVar(name, lease.original)
-		elseif CVAR_NAMES[name] then
-			Print("left your " .. CVAR_NAMES[name] .. " as you set it while fishing.")
+		elseif CVAR_NAMES[name] and not leftAlone[name] then
+			leftAlone[name] = true
+			Print("left your " .. CVAR_NAMES[name] .. " as it was changed while fishing (by you or another addon), and won't say so again this session.")
 		end
 		leased[name] = nil
 	end

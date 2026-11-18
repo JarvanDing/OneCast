@@ -6,6 +6,15 @@ local _, ns = ...
 
 ns.CHANGELOG = {
 	{
+		version = "1.0.3",
+		date = "18 November 2026",
+		sections = {
+			{ "Fixed", {
+				{ "No more chat on every cast.", "When something else changes a volume while you fish (often another addon that also turns up the splash), OneCast leaves it as it is and now says so once a login, not on every cast. Thanks to duerrewildstar for reporting it!" },
+			} },
+		},
+	},
+	{
 		version = "1.0.2",
 		date = "17 November 2026",
 		sections = {
