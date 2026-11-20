@@ -549,21 +549,54 @@ local function NoteOpened(bag, slot)
 end
 
 -- Open one fished-up container from the bags when the option is on. One per call; bag updates and
--- loot closing chain the rest so the loot window isn't overrun.
-function Stats.TryAutoOpen()
-	if not (ns.db and ns.db.autoOpenContainers) then
+-- loot closing chain the rest so the loot window isn't overrun. When a cast or combat blocks the
+-- open, remember to try again on the next free moment (line in, loot closed, unlock, leave combat).
+local autoOpenPending = false
+local autoOpenBusyUntil = 0
+local autoOpenRetry
+
+local function HasOpenableInBags()
+	if not (C_Container and C_Container.GetContainerItemInfo) then
+		return false
+	end
+	for bag = 0, NUM_BAG_SLOTS or 4 do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) do
+			local info = C_Container.GetContainerItemInfo(bag, slot)
+			if info and Openable(info.itemID) and info.hasLoot ~= false then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function ScheduleAutoOpenRetry()
+	if autoOpenRetry then
 		return
 	end
-	if InCombatLockdown and InCombatLockdown() then
+	autoOpenRetry = C_Timer.NewTimer(1, function()
+		autoOpenRetry = nil
+		Stats.TryAutoOpen()
+	end)
+end
+
+function Stats.TryAutoOpen()
+	if not (ns.db and ns.db.autoOpenContainers) then
+		autoOpenPending = false
 		return
 	end
 	if not (ns.HasFishingPole and ns.HasFishingPole()) then
 		return
 	end
-	if ns.IsFishing and ns.IsFishing() then
-		return
-	end
-	if LootFrame and LootFrame:IsShown() then
+	local busy = (InCombatLockdown and InCombatLockdown())
+		or (ns.IsFishing and ns.IsFishing())
+		or (LootFrame and LootFrame:IsShown())
+		or GetTime() < autoOpenBusyUntil
+	if busy then
+		if HasOpenableInBags() then
+			autoOpenPending = true
+			ScheduleAutoOpenRetry()
+		end
 		return
 	end
 	if not (C_Container and C_Container.UseContainerItem and C_Container.GetContainerItemInfo) then
@@ -573,10 +606,26 @@ function Stats.TryAutoOpen()
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
 			local info = C_Container.GetContainerItemInfo(bag, slot)
 			if info and Openable(info.itemID) and info.hasLoot ~= false and not info.isLocked then
+				autoOpenBusyUntil = GetTime() + 0.5
+				autoOpenPending = true
 				C_Container.UseContainerItem(bag, slot)
 				return
 			end
 		end
+	end
+	-- Still have locked openables: wait for unlock. Else nothing left.
+	if HasOpenableInBags() then
+		autoOpenPending = true
+		ScheduleAutoOpenRetry()
+	else
+		autoOpenPending = false
+	end
+end
+
+-- Called when the line comes in or combat ends: a cast that blocked opening is over.
+function Stats.FlushAutoOpen()
+	if autoOpenPending or (ns.db and ns.db.autoOpenContainers) then
+		Stats.TryAutoOpen()
 	end
 end
 
@@ -3878,6 +3927,7 @@ events:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 events:RegisterEvent("ZONE_CHANGED") -- a new sub-zone: a lake can have its own level
 events:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 events:RegisterEvent("PLAYER_ENTERING_WORLD") -- what's equipped, for "Open stats when your pole goes on"
+events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:SetScript("OnEvent", function(_, event, ...)
 	if event == "ADDON_LOADED" then
 		if ... == ADDON then
@@ -3993,7 +4043,9 @@ events:SetScript("OnEvent", function(_, event, ...)
 		if slot and Stats.NoteOpened then
 			Stats.NoteOpened(bag, slot)
 		end
-	elseif event == "BAG_UPDATE_DELAYED" or event == "LOOT_CLOSED" then
+		-- A container that was locked on loot-in may be openable now.
+		Stats.TryAutoOpen()
+	elseif event == "BAG_UPDATE_DELAYED" or event == "LOOT_CLOSED" or event == "PLAYER_REGEN_ENABLED" then
 		Stats.TryAutoOpen()
 	elseif event == "ITEM_DATA_LOAD_RESULT" then
 		-- Every addon's items report here: only ours matter, and a failed one isn't retried.
