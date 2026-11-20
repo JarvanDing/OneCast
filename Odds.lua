@@ -193,21 +193,27 @@ function ns.OneIn(pct)
 	return "1 in " .. s
 end
 
--- What each fishing pool gives from the collection, best first: { itemID, percent per catch },
--- from CMaNGOS Classic's pool loot (13 November 2026). Floating Wreckage gives one of its
--- trunks, which one depending on the waters. For the pool tooltips (Pools.lua).
+-- What each fishing pool gives, per catch, by Classic's odds (CMaNGOS Classic's pool loot, 17
+-- November 2026): { itemID, percent } for one item, or { ids = { ... }, pct, what = "trunk" or
+-- "rum" } for a slot whose item depends on the waters: Classic has several kinds of most pools,
+-- each with its own trunk and rum. Every item a pool gives is listed, so a pool's add up to 100.
+-- For the pool tooltips (Pools.lua).
+-- Names for what pools give that isn't in the collection, until the game has the item.
+ns.POOL_ITEM_NAMES = { [3820] = "Stranglekelp", [7070] = "Elemental Water", [7079] = "Globe of Water",
+	[7080] = "Essence of Water" }
 ns.POOL_LOOT = {
-	["Firefin Snapper School"] = { { 6359, 85 }, { 21150, 5 }, { 21151, 5 }, { 21228, 5 }, { 21113, 5 }, { 21114, 5 } },
-	["Floating Debris"] = { { 20708, 60 }, { 20709, 20 } },
-	["Floating Wreckage"] = { { 21113, 60 }, { 21228, 60 }, { 21150, 60 }, { 21114, 20 }, { 21151, 20 } },
-	["Greater Sagefish School"] = { { 21153, 85 }, { 21150, 5 }, { 21151, 5 } },
+	["Firefin Snapper School"] = { { 6359, 85 }, { 3820, 5 }, { ids = { 21113, 21150, 21228 }, pct = 5, what = "trunk" }, { ids = { 21114, 21151 }, pct = 5, what = "rum" } },
+	["Floating Debris"] = { { 20708, 60 }, { 3820, 20 }, { 20709, 20 } },
+	["Floating Wreckage"] = { { ids = { 21113, 21150, 21228 }, pct = 60, what = "trunk" }, { 3820, 20 }, { ids = { 21114, 21151 }, pct = 20, what = "rum" } },
+	["Greater Sagefish School"] = { { 21153, 85 }, { 3820, 5 }, { 21150, 5 }, { 21151, 5 } },
 	["Muddy Churning Waters"] = { { 19975, 100 } },
-	["Oil Spill"] = { { 6359, 85 }, { 21113, 5 }, { 21114, 5 } },
-	["Oily Blackmouth School"] = { { 6358, 85 }, { 20708, 5 }, { 20709, 5 }, { 21113, 5 }, { 21114, 5 }, { 21151, 5 }, { 21228, 5 }, { 21150, 5 } },
-	["Sagefish School"] = { { 21071, 85 }, { 21113, 5 }, { 21114, 5 }, { 20708, 5 }, { 20709, 5 } },
-	["School of Deviate Fish"] = { { 6522, 85 }, { 20708, 5 }, { 21114, 5 } },
+	["Oil Spill"] = { { 6359, 85 }, { 3820, 5 }, { 21113, 5 }, { 21114, 5 } },
+	["Oily Blackmouth School"] = { { 6358, 85 }, { 3820, 5 }, { ids = { 20708, 21113, 21150, 21228 }, pct = 5, what = "trunk" }, { ids = { 20709, 21114, 21151 }, pct = 5, what = "rum" } },
+	["Patch of Elemental Water"] = { { 7070, 40 }, { 7079, 30 }, { 7080, 30 } },
+	["Sagefish School"] = { { 21071, 85 }, { 3820, 5 }, { ids = { 20708, 21113 }, pct = 5, what = "trunk" }, { ids = { 20709, 21114 }, pct = 5, what = "rum" } },
+	["School of Deviate Fish"] = { { 6522, 85 }, { 3820, 5 }, { 20708, 5 }, { 21114, 5 } },
 	["School of Tastyfish"] = { { 19807, 84.6 }, { 6358, 5 }, { 6359, 5 }, { 13422, 5 }, { 19803, 0.1 }, { 19805, 0.1 }, { 19806, 0.1 }, { 19808, 0.1 } },
-	["Stonescale Eel Swarm"] = { { 13422, 85 }, { 21151, 5 }, { 21228, 5 } },
+	["Stonescale Eel Swarm"] = { { 13422, 85 }, { 3820, 5 }, { 21151, 5 }, { 21228, 5 } },
 }
 
 -- Fishing pools' names in each client language, back to English: the patterns and POOL_LOOT

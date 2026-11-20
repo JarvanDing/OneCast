@@ -198,8 +198,19 @@ ns.FISH = {
 		more = { { "Wailing Caverns", "classic" } },
 		recipes = { { 8238, "美味风蛇", "烹饪", 85 }, { 8240, "增长药剂", "炼金", 90 } },
 	},
+	{ id = 6470, name = "Deviate Scale", cat = "special",
+		-- Not fished up in Classic: two players' /onecast reports (15 November 2026), in The
+		-- Barrens and Wailing Caverns, Deviate Fish waters. Recipes from Forever's game data.
+		more = { { "The Barrens", "reported" }, { "Wailing Caverns", "reported" } },
+		recipes = { { 7953, "Deviate Scale Cloak", "Leatherworking" }, { 7954, "Deviate Scale Gloves", "Leatherworking" },
+			{ 7955, "Deviate Scale Belt", "Leatherworking" }, { 1255101, "Trapper's Leather Tunic", "Leatherworking" },
+			{ 1255086, "Trapper's Leather Legguards", "Leatherworking" }, { 1255108, "Trapper's Leather Hood", "Leatherworking" },
+			{ 1255092, "Trapper's Leather Helm", "Leatherworking" }, { 1255120, "Trapper's Leather Boots", "Leatherworking" },
+			{ 1255114, "Trapper's Leather Pants", "Leatherworking" }, { 1255129, "Trapper's Leather Gloves", "Leatherworking" },
+			{ 1255141, "Trapper's Leather Belt", "Leatherworking" }, { 1255135, "Trapper's Leather Armor", "Leatherworking" } },
+	},
 	{ id = 19806, name = "Dezian Queenfish", cat = "special", event = "extravaganza",
-		more = { { "Stranglethorn Vale", "classic" } },
+		more = { { "Stranglethorn Vale", "reported" } }, -- caught in Forever's Extravaganza (17 November 2026)
 	},
 	{ id = 16967, name = "Feralas Ahi", cat = "special",
 		zones = { "Feralas" },
@@ -218,7 +229,7 @@ ns.FISH = {
 		zones = { "Feralas", "Stranglethorn Vale", "The Hinterlands", "Azshara", "Tanaris" },
 	},
 	{ id = 19805, name = "Keefer's Angelfish", cat = "special", event = "extravaganza",
-		more = { { "Stranglethorn Vale", "classic" } },
+		more = { { "Stranglethorn Vale", "reported" } }, -- caught in Forever's Extravaganza (17 November 2026)
 	},
 	{ id = 13893, name = "Large Raw Mightfish", cat = "fish",
 		zones = { "Eastern Plaguelands" },
@@ -365,7 +376,7 @@ ns.FISH = {
 		zones = { "Wetlands", "Hillsbrad Foothills", "Ashenvale" },
 	},
 	{ id = 19807, name = "Speckled Tastyfish", cat = "special", event = "extravaganza",
-		more = { { "Stranglethorn Vale", "classic" } },
+		more = { { "Stranglethorn Vale", "reported" } }, -- caught in Forever's Extravaganza (17 November 2026)
 	},
 	{ id = 1467, name = "Spotted Sunfish", cat = "special",
 		zones = { "Redridge Mountains" },

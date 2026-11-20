@@ -106,9 +106,11 @@ local NOT_COLLECTED = {
 
 -- Weapons and armour: a mob's drop looted right after a cast can be logged as a catch (a Flanged
 -- Mace "fished up" in Elwynn Forest), and all the fishable gear known is in the collection already.
+-- Quest items are left out too: they're fished up for a quest, not collected.
 local function IsGear(id)
 	local classID = select(6, C_Item.GetItemInfoInstant(id))
 	return classID == 2 or classID == 4
+		or classID == 12 -- and quest items, fished up for a quest (Darkshore's Gaffer Jacks)
 end
 
 -- A collection item OneCast only knows from Classic: no Forever zones, only `more` ones marked

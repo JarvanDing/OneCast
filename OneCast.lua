@@ -47,6 +47,8 @@ local defaults = {
 	alert = true,
 	alertQuality = 2, -- Uncommon
 	openOnCast = true,
+	openOnPole = false,
+	auctionSource = "auto",
 	loginMessage = true,
 	statsScale = 100, -- percent
 	autoEquip = true,
@@ -131,6 +133,8 @@ local OPTIONS = {
 		tooltip = "防止「哇，大鱼」窗口被误移动或误调整大小。关闭后即可再次移动。" },
 	{ cmd = "autoopen", key = "openOnCast", label = "施放时打开统计窗口",
 		tooltip = "开始钓鱼时打开统计窗口。若用关闭按钮或小地图按钮关掉，会保持关闭，直到你暂停钓鱼约 2 分钟。" },
+	{ cmd = "openpole", key = "openOnPole", label = "装上鱼竿时打开统计窗口",
+		tooltip = "每次装备鱼竿时都打开统计窗口（或迷你条），即使你之前钓鱼时关掉过。其他页面已打开时不会抢占「哇，大鱼」窗口。" },
 	{ cmd = "mini", key = "statsMini", label = "用迷你条代替统计窗口",
 		tooltip = "施放时打开细长条代替统计窗口：技能与区域、渔获与每小时鱼数、诱饵与想要列表。点击打开完整统计。/onecast mini 可开关。" },
 	{ cmd = "summary", key = "sessionSummary", label = "聊天中显示会话摘要",
@@ -170,7 +174,7 @@ local OPTIONS = {
 	{ cmd = "pooltips", key = "poolTooltip", label = "鱼群提示显示产出",
 		tooltip = "鼠标悬停鱼群时，显示产出（含经典几率）以及你尚未钓到的。" },
 	{ cmd = "map", key = "mapStrip", label = "世界地图显示钓鱼等级",
-		tooltip = "世界地图上显示条带：区域钓鱼等级、你的技能对比、该区渔获数。在大陆地图上跟随鼠标所在区域。" },
+		tooltip = "世界地图上显示小卡片：区域钓鱼等级、你的技能对比、该区渔获数。在大陆地图上跟随鼠标所在区域。可拖动到任意位置，在卡片上 Ctrl+滚轮缩放，右键复位。" },
 	{ cmd = "badges", key = "tabBadges", label = "侧边标签绿点",
 		tooltip = "有可分享发现时，在「数据报告」标签显示绿点；有未读版本时，在「更新内容」标签显示绿点。" },
 	{ cmd = "minimap", key = "minimapButton", label = "显示小地图按钮",
@@ -185,7 +189,7 @@ local OPTION_PAGES = {
 	{ name = "钓鱼",
 		{ "施放", "castKey", "doubleClick", "softInteract" },
 		{ "鱼竿与装备", "autoEquip", "fishingOutfit", "restoreDelay", "restoreOnCombat" },
-		{ "拾取与背包", "autoLootFishing", "fastLoot", "autoLootHint", "bagWarning", "junkMode" },
+		{ "拾取与背包", "autoLootFishing", "fastLoot", "autoLootHint", "bagWarning", "junkMode", "auctionSource" },
 	},
 	{ name = "诱饵",
 		{ "你的诱饵", "lureChoice", "autoLure" },
@@ -205,7 +209,7 @@ local OPTION_PAGES = {
 		{ "动态效果", "reduceMotion" },
 	},
 	{ name = "统计与提醒",
-		{ "窗口", "openOnCast", "statsMini", "closeOnDone", "doneCloses", "escapeCloses", "fadeStats", "sessionSummary" },
+		{ "窗口", "openOnCast", "openOnPole", "statsMini", "closeOnDone", "doneCloses", "escapeCloses", "fadeStats", "sessionSummary" },
 		{ "提醒", "alert", "alertSound", "alertQuality", "skillToast", "goalAlerts", "newCatchMessage", "extravaganza", "campReminder" },
 	},
 }
@@ -242,6 +246,20 @@ local CHOICES = {
 		onChange = function()
 			if ns.Bobber then
 				ns.Bobber.Retint()
+			end
+		end },
+	auctionSource = { label = "拍卖价格来源", kind = "string",
+		tooltip = "安装了多个价格插件时，统计使用哪一个的拍卖价：「自动」按 Auctionator → TSM → Naowh Forever 依次取有价的。列表只显示你已安装的。",
+		list = function()
+			local list = { { "auto", "自动" } }
+			for _, source in ipairs(ns.Stats and ns.Stats.PriceSources and ns.Stats.PriceSources() or {}) do
+				list[#list + 1] = { source.key, source.name }
+			end
+			return list
+		end,
+		onChange = function()
+			if ns.Stats then
+				ns.Stats.RefreshIfShown()
 			end
 		end },
 	junkMode = { label = "向商人出售钓鱼灰装", kind = "string",
@@ -617,15 +635,18 @@ local CVAR_NAMES = { Sound_MusicVolume = "音乐音量", Sound_AmbienceVolume = 
 	Sound_DialogVolume = "对白音量", Sound_SFXVolume = "音效音量", Sound_EnableSFX = "音效开关",
 	autoLootDefault = "自动拾取" }
 
--- Give the group's CVars back, each only if it still holds OneCast's value: one you changed
--- yourself meanwhile stays as you set it, and chat says so.
+-- Give the group's CVars back, each only if it still holds OneCast's value: one changed
+-- meanwhile (by you, or by another addon that also turns up the splash) stays as it is. Chat
+-- says so once a login for each, not on every cast when another addon does it each time.
+local leftAlone = {}
 local function ReleaseCVars(group)
 	local leased = leases[group]
 	for name, lease in pairs(leased) do
 		if SameValue(C_CVar.GetCVar(name), lease.ours) then
 			C_CVar.SetCVar(name, lease.original)
-		elseif CVAR_NAMES[name] then
-			Print("钓鱼期间你自行修改了" .. CVAR_NAMES[name] .. "，已保持你的设置。")
+		elseif CVAR_NAMES[name] and not leftAlone[name] then
+			leftAlone[name] = true
+			Print("钓鱼期间" .. CVAR_NAMES[name] .. "已被改动（你或其他插件），已保持该设置，本次登录不再重复提示。")
 		end
 		leased[name] = nil
 	end
@@ -1409,7 +1430,7 @@ events:SetScript("OnEvent", function(_, event, ...)
 			-- Settings of features 1.0 removed (themes, milestones, the clean view, the bobber's
 			-- styles and height, the auction source, the report's chat hints): gone from the saves.
 			for _, key in ipairs({ "theme", "themeEffects", "bobberStyle", "bobberHeight", "beamCustom",
-				"auctionSource", "cleanView", "reportHint", "milestones", "milestonesSeeded", "milestonesOn",
+				"cleanView", "reportHint", "milestones", "milestonesSeeded", "milestonesOn",
 				"milestoneAlerts", "sellJunk" }) do
 				db[key] = nil
 			end

@@ -713,7 +713,7 @@ function Journey.Refresh()
 			frame.togo:SetText(string.format("%s距上限还差 %d 点%s|r", GREY, maxRank - rank,
 				catches and string.format("，约需钓 %d 次", catches) or ""))
 		else
-			frame.togo:SetText(GOOD .. "各级均已学完。|r")
+			frame.togo:SetText(GOOD .. "各级均已学完：" .. maxRank .. " 已是钓鱼最高等级。|r")
 		end
 	end
 	for i, c in ipairs(frame.cards) do

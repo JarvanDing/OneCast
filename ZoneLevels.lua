@@ -50,6 +50,9 @@ local LEVELS = {
 		-- same catches as Classic's 225 zones (Rockscale Cod, Spotted Yellowtail, Sturdy Locked
 		-- Chest). Not a Classic number: a getaway above 225 would overrule it, as for any zone.
 		"Riverglades",
+		-- Forever's own, from a player's /onecast report (17 November 2026): 3 of 19 got away at
+		-- skill 200-224, and none in 42 catches from 225 up. Not a Classic number.
+		"City of Dalaran",
 	},
 	[300] = {
 		"Azshara", "Felwood", "Feralas", "Moonglade", "Tanaris", "The Hinterlands",
@@ -98,12 +101,19 @@ for skill, zones in pairs(LEVELS) do
 	end
 end
 
--- Zones new in Forever with no level yet (Shen'dralas, Mount Hyjal, Gilneas, City of Dalaran):
--- the stats window judges them from your own catches and getaways. The book's Zones view lists
--- them all the same. Riverglades and Zephras Isle were here until players' reports measured them
--- (see 225 and 25 above). City of Dalaran is fished in Forever (a report, 13 November 2026: 54
--- catches, none got away, but only one below skill 225), so its level is still open.
-ns.ZONE_FISHING_UNKNOWN = { "Shen'dralas", "Mount Hyjal", "Gilneas", "City of Dalaran" }
+-- Zones new in Forever with no level yet (Shen'dralas, Mount Hyjal, Gilneas): the stats window
+-- judges them from your own catches and getaways. The book's Zones view lists them all the same.
+-- Riverglades, Zephras Isle and City of Dalaran were here until players' reports measured them
+-- (see 225 and 25 above).
+-- Excavation Site: Wetlands is Forever's own, fished in a player's report (17 November 2026):
+-- 3 catches, none got away, too few for a level.
+ns.ZONE_FISHING_UNKNOWN = { "Shen'dralas", "Mount Hyjal", "Gilneas", "Excavation Site: Wetlands" }
+
+-- Other names the game gives a zone, for part of it: stats are kept under the tables' name.
+-- Dalaran is the city inside Forever's City of Dalaran (a player's report, 17 November 2026).
+ns.ZONE_ALIASES = {
+	["Dalaran"] = "City of Dalaran",
+}
 
 -- Notes shown instead of a level, until a getaway in that zone proves them wrong:
 -- { [zone] = "text" }. Riverglades' "no minimum skill" (forever-bugs#189) was dropped when a

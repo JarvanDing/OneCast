@@ -20,6 +20,8 @@ ns.ZONE_AREA_IDS = {
 	["Blasted Lands"] = 4,
 	["Burning Steppes"] = 46,
 	["City of Dalaran"] = 16544, -- Forever's own; the zone that holds its Dalaran and Fel Grove
+	["Dalaran"] = 16558, -- the city in it, which the game can give as the zone (ZONE_ALIASES)
+	["Excavation Site: Wetlands"] = 16732, -- Forever's own
 	["Darkshore"] = 148,
 	["Darnassus"] = 1657,
 	["Deadwind Pass"] = 41,
@@ -109,6 +111,13 @@ for mapID, zone in pairs(ns.INSTANCE_ZONES) do
 end
 for i, zone in ipairs(ns.ZONE_FISHING_UNKNOWN) do
 	ns.ZONE_FISHING_UNKNOWN[i] = Translate(zone)
+end
+do
+	local aliases = {}
+	for from, to in pairs(ns.ZONE_ALIASES or {}) do
+		aliases[Translate(from)] = Translate(to)
+	end
+	ns.ZONE_ALIASES = aliases
 end
 for _, fish in ipairs(ns.FISH) do
 	for i, zone in ipairs(fish.zones or {}) do
