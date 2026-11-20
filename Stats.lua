@@ -551,18 +551,24 @@ end
 -- Open one fished-up container from the bags when the option is on. One per call; bag updates and
 -- loot closing chain the rest so the loot window isn't overrun. When a cast or combat blocks the
 -- open, remember to try again on the next free moment (line in, loot closed, unlock, leave combat).
+-- Locked chests (hasLoot == false until picked) are never auto-opened or retried.
 local autoOpenPending = false
 local autoOpenBusyUntil = 0
 local autoOpenRetry
 
-local function HasOpenableInBags()
+-- Ready to open: must already hold loot. Locked chests stay hasLoot false until lockpicked.
+local function ReadyToOpen(info)
+	return info and Openable(info.itemID) and info.hasLoot == true and not info.isLocked
+end
+
+local function HasReadyOpenableInBags()
 	if not (C_Container and C_Container.GetContainerItemInfo) then
 		return false
 	end
 	for bag = 0, NUM_BAG_SLOTS or 4 do
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
 			local info = C_Container.GetContainerItemInfo(bag, slot)
-			if info and Openable(info.itemID) and info.hasLoot ~= false then
+			if info and Openable(info.itemID) and info.hasLoot == true then
 				return true
 			end
 		end
@@ -593,9 +599,11 @@ function Stats.TryAutoOpen()
 		or (LootFrame and LootFrame:IsShown())
 		or GetTime() < autoOpenBusyUntil
 	if busy then
-		if HasOpenableInBags() then
+		if HasReadyOpenableInBags() then
 			autoOpenPending = true
 			ScheduleAutoOpenRetry()
+		else
+			autoOpenPending = false
 		end
 		return
 	end
@@ -605,7 +613,7 @@ function Stats.TryAutoOpen()
 	for bag = 0, NUM_BAG_SLOTS or 4 do
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
 			local info = C_Container.GetContainerItemInfo(bag, slot)
-			if info and Openable(info.itemID) and info.hasLoot ~= false and not info.isLocked then
+			if ReadyToOpen(info) then
 				autoOpenBusyUntil = GetTime() + 0.5
 				autoOpenPending = true
 				C_Container.UseContainerItem(bag, slot)
@@ -613,13 +621,9 @@ function Stats.TryAutoOpen()
 			end
 		end
 	end
-	-- Still have locked openables: wait for unlock. Else nothing left.
-	if HasOpenableInBags() then
-		autoOpenPending = true
-		ScheduleAutoOpenRetry()
-	else
-		autoOpenPending = false
-	end
+	-- Nothing ready: locked chests and empty hasLoot stay ignored. Temporarily locked
+	-- (isLocked) items wait for ITEM_LOCK_CHANGED — no 1s poll that keeps poking them.
+	autoOpenPending = HasReadyOpenableInBags()
 end
 
 -- Called when the line comes in or combat ends: a cast that blocked opening is over.
