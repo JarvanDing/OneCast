@@ -530,6 +530,7 @@ local function Openable(itemID)
 	end
 	return itemID and openable[itemID] or false
 end
+Stats.Openable = Openable
 
 Containers.WINDOW = 3 -- seconds from using it to its loot
 
@@ -545,6 +546,38 @@ local function NoteOpened(bag, slot)
 		return
 	end
 	Containers.pending = { id = id, at = GetTime() }
+end
+
+-- Open one fished-up container from the bags when the option is on. One per call; bag updates and
+-- loot closing chain the rest so the loot window isn't overrun.
+function Stats.TryAutoOpen()
+	if not (ns.db and ns.db.autoOpenContainers) then
+		return
+	end
+	if InCombatLockdown and InCombatLockdown() then
+		return
+	end
+	if not (ns.HasFishingPole and ns.HasFishingPole()) then
+		return
+	end
+	if ns.IsFishing and ns.IsFishing() then
+		return
+	end
+	if LootFrame and LootFrame:IsShown() then
+		return
+	end
+	if not (C_Container and C_Container.UseContainerItem and C_Container.GetContainerItemInfo) then
+		return
+	end
+	for bag = 0, NUM_BAG_SLOTS or 4 do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) do
+			local info = C_Container.GetContainerItemInfo(bag, slot)
+			if info and Openable(info.itemID) and info.hasLoot ~= false and not info.isLocked then
+				C_Container.UseContainerItem(bag, slot)
+				return
+			end
+		end
+	end
 end
 
 -- Before 1.0.1, drinking a rum could file the next loot under it, as if it had been opened:
@@ -3831,6 +3864,8 @@ end
 local events = CreateFrame("Frame")
 events:RegisterEvent("ADDON_LOADED")
 events:RegisterEvent("LOOT_READY")
+events:RegisterEvent("LOOT_CLOSED")
+events:RegisterEvent("BAG_UPDATE_DELAYED")
 -- Using an item from the bags locks it for a moment, whatever opened it (the game's bags, a bag
 -- addon's secure button, a macro): the one way to see which fished-up container was opened.
 events:RegisterEvent("ITEM_LOCK_CHANGED")
@@ -3958,6 +3993,8 @@ events:SetScript("OnEvent", function(_, event, ...)
 		if slot and Stats.NoteOpened then
 			Stats.NoteOpened(bag, slot)
 		end
+	elseif event == "BAG_UPDATE_DELAYED" or event == "LOOT_CLOSED" then
+		Stats.TryAutoOpen()
 	elseif event == "ITEM_DATA_LOAD_RESULT" then
 		-- Every addon's items report here: only ours matter, and a failed one isn't retried.
 		local itemID, success = ...

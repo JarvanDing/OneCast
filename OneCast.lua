@@ -68,6 +68,7 @@ local defaults = {
 	autoLootHint = true,
 	autoLootFishing = false,
 	fastLoot = false,
+	autoOpenContainers = false,
 	padFishing = true,   -- a controller button casts and reels while the pole is on
 	padButton = "PAD1",  -- A / Cross
 	padStart = "both",   -- LT + RT + the button works with no pole on
@@ -149,6 +150,8 @@ local OPTIONS = {
 		tooltip = "装备鱼竿期间开启游戏自动拾取，渔获直接进包；换回武器后恢复你原来的设置。若本来就开着会自动拾取则保持开启。" },
 	{ cmd = "fastloot", key = "fastLoot", label = "快速拾取",
 		tooltip = "自动拾取开启时，战利品窗口一出现就一次性拿走，比游戏逐件拾取更快。仅钓鱼战利品及钓上的箱子、匣子；其他交给游戏。" },
+	{ cmd = "opencontainers", key = "autoOpenContainers", label = "自动打开可开渔获",
+		tooltip = "装备鱼竿时，自动打开背包里钓上来的箱子、匣子、蛤蜊与浮肿鱼。未开锁的箱子不碰。抛竿收杆中或战斗中不会打开。默认关闭。" },
 	{ cmd = "autoloot", key = "autoLootHint", label = "提示开启自动拾取",
 		tooltip = "钓到东西时若未开启自动拾取，每次登录最多提示一次，方便渔获直接进包。" },
 	{ cmd = "alertsound", key = "alertSound", label = "播放提醒音效",
@@ -189,7 +192,7 @@ local OPTION_PAGES = {
 	{ name = "钓鱼",
 		{ "施放", "castKey", "doubleClick", "softInteract" },
 		{ "鱼竿与装备", "autoEquip", "fishingOutfit", "restoreDelay", "restoreOnCombat" },
-		{ "拾取与背包", "autoLootFishing", "fastLoot", "autoLootHint", "bagWarning", "junkMode", "auctionSource" },
+		{ "拾取与背包", "autoLootFishing", "fastLoot", "autoOpenContainers", "autoLootHint", "bagWarning", "junkMode", "auctionSource" },
 	},
 	{ name = "诱饵",
 		{ "你的诱饵", "lureChoice", "autoLure" },
