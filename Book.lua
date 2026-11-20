@@ -428,7 +428,7 @@ local function PoolHotspot(box, n, mapID, group)
 			for _, name in ipairs(order) do
 				local k = kinds[name]
 				GameTooltip:AddDoubleLine(name .. (k.n > 1 and (" x" .. k.n) or ""),
-					k.seen > 0 and date("暂无记录。稀有渔获、想要的鱼和图鉴新鱼会显示在这里。", k.seen) or "", 1, 1, 1, 0.6, 0.6, 0.6)
+					k.seen > 0 and date("%m-%d", k.seen) or "", 1, 1, 1, 0.6, 0.6, 0.6)
 			end
 		end
 		GameTooltip:AddLine("鱼群会移动，现在可能已不在该处。", 0.6, 0.6, 0.6, true)
@@ -1084,8 +1084,8 @@ local function RenderLeft(fish, info)
 	local kind = PoolString(pool, QuestFont, 13, INK_SOFT)
 	local skill = EasiestSkill(fish)
 	local rarity = ns.Rarity and ns.Rarity(fish.id)
-	kind:SetText((CAT_NAME[fish.cat] or "Catch") .. (skill and ("  ·  " .. skill .. " 钓鱼") or "")
-		.. (rarity and ("  ·  " .. ns.RARITY_INK[rarity.key] .. rarity.label .. " 脱钩|r") or ""))
+	kind:SetText((CAT_NAME[fish.cat] or "渔获") .. (skill and ("  ·  " .. skill .. " 钓鱼") or "")
+		.. (rarity and ("  ·  " .. ns.RARITY_INK[rarity.key] .. rarity.label .. "|r") or ""))
 	kind:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -4)
 	Hover(pool, x, 30, width, 56, function(tip)
 		tip:SetItemByID(fish.id)
@@ -1135,12 +1135,12 @@ local function RenderLeft(fish, info)
 		end
 		y = y + 6
 		if info.first then
-			Paragraph(string.format("%s首次由 %s 于 %s%s钓到。|r", SOFT, date("%d %B %Y", info.first.time),
+			Paragraph(string.format("%s首次于 %s 由 %s 钓到%s。|r", SOFT, date("%Y-%m-%d", info.first.time),
 				info.first.char or "?", info.first.zone and ("，地点：" .. info.first.zone) or ""), INK, 4)
 		end
 		local when = TimeOfDay(info)
 		if when then
-			Paragraph(SOFT .. when .. " 脱钩|r", INK)
+			Paragraph(SOFT .. when .. "|r", INK)
 		end
 	else
 		local tip = (fish.zones and fish.zones[1]) or (fish.more and fish.more[1] and fish.more[1][1])
@@ -1220,7 +1220,7 @@ local function MoreCell(pool, text, x, y, width)
 	b:SetPoint("TOPLEFT", pool.page, "TOPLEFT", x, -y)
 	b:SetWidth(width)
 	b.bg:Hide()
-	b.left:SetText(LEAD .. text .. " 脱钩|r")
+	b.left:SetText(LEAD .. text .. "|r")
 	b.right:SetText("")
 	b:SetScript("OnClick", function()
 		state.zonesExpanded = not state.zonesExpanded
@@ -1420,8 +1420,8 @@ local function ZoneStatusText(status)
 	elseif status.kind == "getaways" then
 		return BAD .. "会脱钩|r"
 	elseif status.kind == "outgrown" then
-		return SOFT .. "曾于 " .. status.escapeSkill .. " 脱钩|r"
-	elseif status.kind == " 种鱼|r" then
+		return SOFT .. "曾在技能 " .. status.escapeSkill .. " 时脱钩|r"
+	elseif status.kind == "clear" then
 		return GOOD .. "无脱钩|r"
 	elseif status.kind == "note" then
 		return GOOD .. "无最低要求|r"
@@ -1476,10 +1476,10 @@ local function RenderZoneRow(pool, zone, count, here, x, y, width, tierKind)
 	local status = ns.Stats.ZoneStatus(zone)
 	local extra
 	if status.kind == "getaways" or status.kind == "outgrown" or status.kind == "note"
-		or (tierKind == "unknown" and status.kind == " 种鱼|r") then
+		or (tierKind == "unknown" and status.kind == "clear") then
 		extra = ZoneStatusText(status)
 	end
-	b.left:SetText(zone .. (zone == here and (" " .. SOFT .. "(you're here)|r") or "")
+	b.left:SetText(zone .. (zone == here and (" " .. SOFT .. "(你在这里)|r") or "")
 		.. (extra and ("  " .. extra) or ""))
 	b.left:SetTextColor(INK[1], INK[2], INK[3])
 	b.right:SetText(count.total > 0 and (count.caught .. "/" .. count.total) or (SOFT .. "-|r"))
@@ -1601,7 +1601,7 @@ local function RenderZones()
 		b:SetHeight(rungRow - 4)
 		b.bg:SetShown(i == state.spread)
 		b.left:SetText((group.level and (group.level .. " 钓鱼") or "等级未知") .. "  " .. SOFT
-			.. #group.zones .. (#group.zones == 1 and " zone" or " zones") .. " 脱钩|r")
+			.. #group.zones .. " 个区域|r")
 		b.left:SetTextColor(INK[1], INK[2], INK[3])
 		b.right:SetText((RungStatus(group.level, effective)))
 		-- With the room: the name on top, and under it the fish you've caught at this level.
@@ -1868,7 +1868,7 @@ local function RenderCraft(pool, craft, x, y, width)
 		name:SetText(Camp.ItemName(r[1], r[3]))
 		name:SetPoint("LEFT", icon, "RIGHT", 8, 0)
 		local need = PoolString(pool, QuestFont, 13, INK)
-		need:SetText((have >= r[2] and GOOD or BAD) .. math.min(have, r[2]) .. "/" .. r[2] .. " 脱钩|r")
+		need:SetText((have >= r[2] and GOOD or BAD) .. math.min(have, r[2]) .. "/" .. r[2] .. "|r")
 		need:SetPoint("RIGHT", pool.page, "TOPLEFT", x + width, -y - 10)
 		need:SetJustifyH("RIGHT")
 		ItemHover(pool, r[1], function(tip)
@@ -1938,9 +1938,9 @@ local function RenderCamp()
 	if craft then
 		buffIcon:SetTexture((C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(craft.buff))
 			or C_Item.GetItemIconByID(craft.item))
-		headline:SetText(GOOD .. craft.buffName .. " 脱钩|r")
-		sub:SetText((timeLeft and string.format("%d more minutes, ", math.ceil(timeLeft / 60)) or "")
-			.. "from a " .. craft.name .. ".")
+		headline:SetText(GOOD .. craft.buffName .. "|r")
+		sub:SetText((timeLeft and string.format("还剩约 %d 分钟，", math.ceil(timeLeft / 60)) or "")
+			.. "来自" .. craft.name .. "。")
 		Hover(right, x, y, width, 38, function(tip)
 			tip:SetSpellByID(craft.buff)
 		end, SpellLink(craft.buff))
@@ -1992,7 +1992,7 @@ local function RenderCamp()
 		if r and r.catches > 0 then
 			any = true
 			local line = PoolString(right, QuestFont, 13, INK)
-			line:SetText(string.format("%s%s|r  %s%d catch%s|r", LEAD, c.buffName, SOFT, r.catches, r.catches == 1 and "" or "es"))
+			line:SetText(string.format("%s%s|r  %s%d 次钓获|r", LEAD, c.buffName, SOFT, r.catches))
 			line:SetPoint("TOPLEFT", right.page, "TOPLEFT", x, -y)
 			y = y + 20
 			local items = {}
@@ -2288,7 +2288,7 @@ local function CreateWindow()
 	f.search:SetAutoFocus(false)
 	f.search:SetPoint("LEFT", f.where, "RIGHT", 12, 0)
 	local typed = 0
-	f.search:HookScript("搜索", function(self, userInput)
+	f.search:HookScript("OnTextChanged", function(self, userInput)
 		local text = strtrim(self:GetText() or ""):lower()
 		text = text ~= "" and text or nil
 		if text ~= state.search then

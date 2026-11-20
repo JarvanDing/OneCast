@@ -386,7 +386,7 @@ local function CreateWindow()
 	url:SetText(PROJECT_URL)
 	url:SetCursorPosition(0)
 	url:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
-	url:SetScript("搜索", function(self)
+	url:SetScript("OnTextChanged", function(self)
 		if self:GetText() ~= PROJECT_URL then
 			self:SetText(PROJECT_URL)
 			self:HighlightText()

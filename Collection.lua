@@ -221,7 +221,7 @@ local function AddCaughtLine(tooltip, data)
 		return
 	end
 	local GOLD_R, GOLD_G, GOLD_B = 1, 0.82, 0
-	tooltip:AddDoubleLine("哇，大鱼", rarity and (ns.RARITY_COLOR[rarity.key] .. rarity.label .. " 脱钩|r") or "",
+	tooltip:AddDoubleLine("哇，大鱼", rarity and (ns.RARITY_COLOR[rarity.key] .. rarity.label .. "|r") or "",
 		0.44, 0.84, 1, 1, 1, 1)
 	if rarity then
 		-- How rare it is, from Classic's loot tables, and where it's likeliest.

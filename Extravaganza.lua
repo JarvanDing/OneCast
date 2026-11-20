@@ -88,7 +88,7 @@ function X.StatusLine(zone)
 		return string.format("可口鱼 %d/%d  ·  |cff9d9d9d剩余 %s|r", X.TastyfishInBags(), X.GOAL, X.FormatWait(seconds))
 	end
 	if zone == X.ZONE or seconds <= 3 * 3600 then
-		return " 后开始" .. X.FormatWait(seconds)
+		return X.FormatWait(seconds) .. "后开始"
 	end
 end
 
@@ -103,9 +103,9 @@ function X.Describe(fishID)
 		text = text .. string.format(" The first %d to bring Riggle Bassbait %d win the Arcanite Fishing Pole and a coin for one of Jang's prizes; Jang buys any you have left in fives.", X.WINNERS, X.GOAL)
 	end
 	if running then
-		return text .. " 正在进行中：还剩 " .. X.FormatWait(seconds) .. " left."
+		return text .. " 正在进行中：还剩 " .. X.FormatWait(seconds) .. "。"
 	elseif running == false then
-		return text .. " 下场大赛还有 " .. X.FormatWait(seconds) .. "."
+		return text .. " 下场大赛还有 " .. X.FormatWait(seconds) .. "。"
 	end
 	return text
 end

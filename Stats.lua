@@ -800,7 +800,7 @@ local function AlertIfRare(loot)
 	for _, l in ipairs(loot) do
 		if not IsWanted(l.id) and l.quality and l.quality >= db.alertQuality then
 			local color = Stats.QualityColor(l.quality)
-			local text = (color and color.hex or "|cffffffff") .. (l.name or "?") .. " 脱钩|r"
+			local text = (color and color.hex or "|cffffffff") .. (l.name or "?") .. "|r"
 			ns.RaidWarning("钓到 " .. text .. "!")
 			if db.alertSound ~= false then
 				PlaySound(SOUNDKIT.RAID_WARNING)
@@ -812,7 +812,7 @@ end
 
 -- Sum up the session in chat once the player has stopped for a while.
 function Stats.SessionSummaryText(s)
-	local parts = { string.format("%d catch%s", s.catches, s.catches == 1 and "" or "es") }
+	local parts = { string.format("%d 次钓获", s.catches) }
 	local rate = PerHour(s)
 	if rate then
 		parts[#parts + 1] = string.format("%.0f/时", rate)
@@ -1406,8 +1406,7 @@ WhatCaught = function(s)
 	if opened == 0 then
 		return "本次会话的渔获"
 	end
-	return string.format("本次会话渔获（含你打开的 %d 个宝箱%s、蛤蜊%s 或浮肿鱼中的内容）",
-		opened, opened == 1 and "" or "s", opened == 1 and "" or "s")
+	return string.format("本次会话渔获（含你打开的 %d 个宝箱、蛤蜊或浮肿鱼中的内容）", opened)
 end
 
 -- What it sells for at auction, said once for the tiles: grey junk and bound items count at the
@@ -1420,7 +1419,7 @@ local function GoldTile(value, seconds, what)
 	local copper = auction and value.auction or value.vendor
 	local shown = copper > 0 and seconds and seconds >= 60 and ShortGold(copper / seconds * 3600)
 	return Tile(shown, auction and "金币/时（拍卖）" or "金币/时（商人）",
-		what .. "每小时钓鱼价值（" .. (auction and "拍卖" or "商人") .. "价）。"
+		what .. "按每小时钓鱼计算的价值（" .. (auction and "拍卖" or "商人") .. "价）。"
 		.. (auction and ("\n\n拍卖价来源：" .. PriceSources(value.sources) .. AUCTION_NOTE)
 			or " 安装 Auctionator、TSM 或 Naowh Forever 后可显示拍卖价。"))
 end
@@ -1429,7 +1428,7 @@ end
 local function VendorTile(value, seconds, what)
 	local copper = value.vendor
 	return Tile(copper > 0 and seconds and seconds >= 60 and ShortGold(copper / seconds * 3600), "商人价/时",
-		what .. "每小时卖给商人的价值。")
+		what .. "卖给商人的价格，按每小时钓鱼计算。")
 end
 
 
@@ -1444,7 +1443,7 @@ local function AuctionTile(value, seconds, what)
 		for _, source in ipairs(Stats.PriceSources()) do
 			names[#names + 1] = source.name
 		end
-		tip = "尚无拍卖价：" .. what .. "。价格插件：" .. table.concat(names, ", ")
+		tip = what .. "尚无拍卖价。价格插件：" .. table.concat(names, ", ")
 			.. "。在拍卖行扫描以补全价格。"
 	end
 	return Tile(priced and copper > 0 and seconds and seconds >= 60 and ShortGold(copper / seconds * 3600),
@@ -1464,7 +1463,7 @@ end
 
 -- About how long `catches` more will take, at this session's pace (or your usual one).
 local function CatchesAndTime(catches)
-	local text = string.format("约 %d 次钓获", catches, catches == 1 and "" or "es")
+	local text = string.format("约 %d 次钓获", catches)
 	local rate = PerHour(Session()) or PerHour(charDB.lifetime)
 	if rate and rate > 0 then
 		text = text .. GREY .. "  (" .. ShortDuration(catches / rate * 3600) .. ")|r"
@@ -1580,7 +1579,7 @@ local function PlaceText(place)
 	if not place then
 		return GREY .. "-|r"
 	end
-	return place.name .. GREY .. "  " .. (place.rate and string.format("%.0f/时", place.rate) or ("x" .. place.count)) .. " 脱钩|r"
+	return place.name .. GREY .. "  " .. (place.rate and string.format("%.0f/时", place.rate) or ("x" .. place.count)) .. "|r"
 end
 
 -- Returns a view's section title, summary pairs, item rows, list title and empty-list text.
@@ -1604,7 +1603,7 @@ local function NowView(zone)
 	local best = charDB.bests and charDB.bests.rate
 	local rateTip = "本次会话每小时钓获数。超过 2 分钟的间隔不计入。"
 	if best then
-		rateTip = rateTip .. string.format("\n\n你的最佳：%.0f/时，%s%s。", best.value, date("%d %b %Y", best.time) or "?",
+		rateTip = rateTip .. string.format("\n\n你的最佳：%.0f/时，%s%s。", best.value, date("%Y-%m-%d", best.time) or "?",
 			best.zone and ("，地点：" .. best.zone) or "")
 		if rate and s.activeTime >= BEST_MIN_TIME then
 			rateTip = rateTip .. (rate >= best.value and "\n本次会话是你的最佳记录。"
@@ -1622,19 +1621,19 @@ local function NowView(zone)
 	local escapes = s.escapes or 0
 	if escapes > 0 then
 		caught = caught .. SEP .. RED .. string.format("%d 次脱钩（%d%%）", escapes,
-			math.floor(escapes / math.max(escapes + s.catches, 1) * 100 + 0.5)) .. " 脱钩|r"
+			math.floor(escapes / math.max(escapes + s.catches, 1) * 100 + 0.5)) .. "|r"
 	end
 	local stats = { { "钓获", caught } }
 	-- What's new for the collection this session, each fish on hover.
 	local news = Stats.SessionNew(s)
 	if #news > 0 then
-		stats[#stats + 1] = { "图鉴新鱼", GREEN .. #news .. " new|r", {
+		stats[#stats + 1] = { "图鉴新鱼", GREEN .. #news .. " 种|r", {
 			tip = function(tooltip)
 				tooltip:SetText("图鉴新鱼")
 				for _, n in ipairs(news) do
 					local color = Stats.QualityColor(n.quality)
 					tooltip:AddLine((n.icon and ("|T" .. n.icon .. ":14:14|t ") or "") .. (color and color.hex or "|cffffffff")
-						.. (n.name or "?") .. " 脱钩|r", 1, 1, 1)
+						.. (n.name or "?") .. "|r", 1, 1, 1)
 				end
 				tooltip:AddLine(" ")
 				tooltip:AddLine("点击：打开图鉴", 0.6, 0.8, 1)
@@ -1672,7 +1671,7 @@ local function NowView(zone)
 	end
 	local camp = ns.Camp and ns.Camp.StatusText()
 	if camp then
-		stats[#stats + 1] = { "营地", GREEN .. camp .. " 脱钩|r" }
+		stats[#stats + 1] = { "营地", GREEN .. camp .. "|r" }
 	end
 
 	local rows, listTitle
@@ -1723,7 +1722,7 @@ local function FarmTargetView(itemID, zone)
 		{ "最佳区域", PlaceText(zones[1]) },
 		{ "最佳地点", PlaceText(spots[1]) },
 		{ "已钓到", tostring(life and life.count or 0)
-			.. (last and (SEP .. "最近 " .. Ago(last.time) .. GREY .. ", " .. (last.zone or "?") .. " 脱钩|r") or "") },
+			.. (last and (SEP .. "最近 " .. Ago(last.time) .. GREY .. ", " .. (last.zone or "?") .. "|r") or "") },
 		{ "单价", (price and Coins(price) or "-") .. (ah and (SEP .. Coins(ah) .. GREY .. " 拍卖|r") or "") },
 	}
 
@@ -1731,10 +1730,10 @@ local function FarmTargetView(itemID, zone)
 	local rows = {}
 	for _, place in ipairs(spots) do
 		rows[#rows + 1] = { name = place.name, spot = place.spot, zone = place.zone, icon = icon,
-			label = place.name ~= place.zone and (place.name .. GREY .. "  " .. place.zone .. " 脱钩|r") or place.name,
+			label = place.name ~= place.zone and (place.name .. GREY .. "  " .. place.zone .. "|r") or place.name,
 			right = (place.rate and string.format("%.0f/时  ", place.rate) or "") .. "x" .. place.count }
 	end
-	local title = (color and color.hex or "|cffffffff") .. name .. " 脱钩|r"
+	local title = (color and color.hex or "|cffffffff") .. name .. "|r"
 	return title, tiles, stats, rows, "咬钩地点，最佳优先", "尚未在任何地点钓到。"
 end
 
@@ -1771,7 +1770,7 @@ local function FarmView(zone)
 		for _, r in ipairs(rows) do
 			local best = PlacesFor(r.id)[1]
 			r.pick = true
-			r.right = best and (best.name .. GREY .. "  " .. (best.rate and string.format("%.0f/时", best.rate) or ("x" .. best.count)) .. " 脱钩|r")
+			r.right = best and (best.name .. GREY .. "  " .. (best.rate and string.format("%.0f/时", best.rate) or ("x" .. best.count)) .. "|r")
 				or ("x" .. r.count)
 		end
 		return zone, tiles, stats, rows, "选择要刷的鱼", "尚未钓到任何东西。"
@@ -1784,7 +1783,7 @@ local function BestTip(text, best)
 	if not best then
 		return text .. "单次会话钓鱼满 15 分钟后记录。"
 	end
-	return text .. string.format("创下于 %s%s。", date("%d %b %Y", best.time), best.zone and ("，地点：" .. best.zone) or "")
+	return text .. string.format("创下于 %s%s。", date("%Y-%m-%d", best.time), best.zone and ("，地点：" .. best.zone) or "")
 end
 
 local function RecordsView()
@@ -1795,14 +1794,14 @@ local function RecordsView()
 			BestTip("单次会话中每小时钓获最多的纪录。", bests.rate)),
 		Tile(bests.vendor and ShortGold(bests.vendor.value), "最高金币/时",
 			BestTip("单次会话中每小时商人售价最高的纪录。", bests.vendor)),
-		Tile(bests.skill and (GREEN .. "+" .. bests.skill.value .. " 脱钩|r"), "最多技能提升",
+		Tile(bests.skill and (GREEN .. "+" .. bests.skill.value .. "|r"), "最多技能提升",
 			BestTip("单次会话中钓鱼技能提升最多的纪录。", bests.skill)),
 	}
 	local rate = PerHour(life)
 	local stats = {
 		{ "已钓鱼数", tostring(life.catches) .. (rate and (SEP .. string.format("%.0f/时", rate)) or "") },
 		{ "钓鱼时间", Stats.FormatDuration(life.activeTime) },
-		{ "最长会话", bests.time and (Stats.FormatDuration(bests.time.value) .. GREY .. "  " .. date("暂无记录。稀有渔获、想要的鱼和图鉴新鱼会显示在这里。", bests.time.time) .. " 脱钩|r")
+		{ "最长会话", bests.time and (Stats.FormatDuration(bests.time.value) .. GREY .. "  " .. date("%m-%d", bests.time.time) .. "|r")
 			or (GREY .. "-|r") },
 	}
 	local zonesText = CountKeys(life.zones) .. " 个区域钓过"
@@ -1818,17 +1817,17 @@ local function RecordsView()
 		for i, h in ipairs(charDB.history or {}) do
 			local rate = h.time and h.time >= 60 and h.catches / h.time * 3600
 			rows[i] = { icon = h.top and C_Item.GetItemIconByID(h.top) or 133888, session = h,
-				name = (h.start and date("%a %d %b", h.start) or "?") .. GREY .. "  " .. (h.zone or "?") .. " 脱钩|r",
+				name = (h.start and date("%Y-%m-%d", h.start) or "?") .. GREY .. "  " .. (h.zone or "?") .. "|r",
 				right = tostring(h.catches) .. (rate and (SEP .. string.format("%.0f/时", rate)) or "") }
 		end
 		return "历史记录", tiles, stats, rows, "最近会话",
 			"暂无已结束的会话。重置时结束（「重置会话」按钮，或 /onecast reset）。"
 	end
 	for i, e in ipairs(charDB.notable or {}) do
-		rows[i] = { id = e.id, icon = e.icon, quality = e.quality, right = date("暂无记录。稀有渔获、想要的鱼和图鉴新鱼会显示在这里。", e.time),
+		rows[i] = { id = e.id, icon = e.icon, quality = e.quality, right = date("%m-%d", e.time),
 			name = (e.name or "?") .. (e.quantity and e.quantity > 1 and (" x" .. e.quantity) or ""),
 			note = (e.why == "new" and "图鉴新鱼。" or e.why == "wanted" and "想要的鱼。" or "")
-				.. "钓于" .. (e.zone or "?") .. ", " .. date("%d %b %H:%M", e.time) .. "." }
+				.. "钓于" .. (e.zone or "?") .. "，" .. date("%Y-%m-%d %H:%M", e.time) .. "。" }
 	end
 	return "历史记录", tiles, stats, rows, "值得纪念的渔获",
 		"暂无记录。稀有渔获、想要的鱼和图鉴新鱼会显示在这里。"
@@ -2694,6 +2693,26 @@ local function StatRowClick(self, button)
 	end
 end
 
+-- Sets a detail row's label and value. Chinese strings and coin icons run wider than the
+-- English the row was laid out for, so a value that doesn't fit beside its label is drawn in a
+-- smaller font (down to 9 pt) rather than overlapping; past that the game clips it.
+local STAT_MIN_FONT = 9
+local function StatRowSetText(row, label, value)
+	row.label:SetText(label)
+	local font = row.valueFont
+	if font and font[1] then
+		row.value:SetFont(font[1], font[2], font[3])
+	end
+	row.value:SetText(value)
+	if font and font[1] and font[2] then
+		local room = (INSET_WIDTH - 2 * EDGE) - 2 * PAD - 6 - (row.label:GetStringWidth() or 0)
+		local need = row.value:GetStringWidth() or 0
+		if need > room and room > 0 then
+			row.value:SetFont(font[1], math.max(STAT_MIN_FONT, math.floor(font[2] * room / need)), font[3])
+		end
+	end
+end
+
 local function StatRow(parent, index, y)
 	local row = CreateFrame("Frame", nil, parent)
 	row:SetPoint("TOPLEFT", 10, y)
@@ -2703,8 +2722,14 @@ local function StatRow(parent, index, y)
 	row.label = row:CreateFontString(nil, "OVERLAY", "OneCastFontNormalSmall") -- gold, like "Health:"
 	row.label:SetPoint("LEFT", PAD, 0)
 	row.value = row:CreateFontString(nil, "OVERLAY", "OneCastFontHighlightSmall")
+	-- The value is boxed in between the label and the row's right edge, so a long (Chinese)
+	-- value can never run back over its label; StatRowSetText shrinks it to fit first.
+	row.value:SetPoint("LEFT", row.label, "RIGHT", 6, 0)
 	row.value:SetPoint("RIGHT", -PAD, 0)
 	row.value:SetJustifyH("RIGHT")
+	row.value:SetWordWrap(false)
+	row.label:SetWordWrap(false)
+	row.valueFont = { row.value:GetFont() }
 	-- A row with more to say (`extra`: tip and click) takes the mouse; the others don't.
 	row:SetScript("OnEnter", function(self)
 		local extra = self.extra
@@ -3355,7 +3380,7 @@ local function FitTabs(f)
 end
 
 local function CreateWindow()
-	local f, inset = CreateShell("OneCastStatsFrame", "OneCast  " .. GREY .. "v" .. (ns.VERSION or "?") .. " 脱钩|r",
+	local f, inset = CreateShell("OneCastStatsFrame", ns.DISPLAY_NAME .. "  " .. GREY .. "v" .. (ns.VERSION or "?") .. "|r",
 		"Interface\\Icons\\INV_Misc_Fish_68")
 	f:SetSize(WINDOW_WIDTH, WINDOW_HEIGHT)
 	f:SetFrameStrata("DIALOG")
@@ -3623,8 +3648,7 @@ function Stats.Refresh()
 	for i, row in ipairs(frame.stats) do
 		local pair = stats[i]
 		if pair then
-			row.label:SetText(pair[1] .. ":")
-			row.value:SetText(pair[2])
+			StatRowSetText(row, pair[1] .. ":", pair[2])
 			row.extra = pair[3]
 			row:EnableMouse(pair[3] ~= nil)
 			-- A controller stops on anything with a click handler: only on rows that do something.

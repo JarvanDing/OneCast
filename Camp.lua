@@ -25,7 +25,7 @@ Camp.CRAFTS = {
 		reagents = { { 6291, 1, "Raw Brilliant Smallfish" }, { 3371, 1, "Empty Vial" } },
 		effect = "放在营火旁，你和坐在附近的所有人 1 小时内全属性 +8%。与王者祝福不叠加。",
 		does = "放在营火旁，你和坐在附近的所有人 1 小时内全属性 +8%。与王者祝福不叠加。" },
-	{ key = "蓝图：钓鱼架", name = "优良钓鱼", recipe = 1262990, item = 279965, skill = 140,
+	{ key = "rack", name = "钓鱼架", recipe = 1262990, item = 279965, skill = 140,
 		blueprint = 273141, blueprintName = "蓝图：钓鱼架", buff = 1280341, buffName = "优良钓鱼",
 		blueprintFrom = "由黑暗深渊的格里哈斯特掉落，并非每次击杀必掉。其他玩家可以交易给你。",
 		blueprintKnown = { name = "Gelihast", npc = 6243 }, -- confirmed: a drop from it isn't news

@@ -529,7 +529,7 @@ local function LinkBox(parent, url, onCopy)
 	box:SetHeight(LINK_HEIGHT)
 	box:SetText(url)
 	box:SetCursorPosition(0)
-	box:SetScript("搜索", function(self, userInput)
+	box:SetScript("OnTextChanged", function(self, userInput)
 		if userInput then
 			self:SetText(url)
 			self:HighlightText()
@@ -834,7 +834,7 @@ local function FindingTitle(finding)
 	end
 	local quality = id and C_Item.GetItemQualityByID and C_Item.GetItemQualityByID(id)
 	local color = quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
-	return (color and color.hex or "|cffffffff") .. title .. " 脱钩|r"
+	return (color and color.hex or "|cffffffff") .. title .. "|r"
 end
 
 local function FindingRow(parent, index, y)
@@ -980,7 +980,7 @@ local function CreateWindow()
 	edit:SetMaxLetters(0)
 	edit:SetScript("OnEscapePressed", edit.ClearFocus)
 	-- Read-only, and all of it selected whenever it's clicked, ready to copy.
-	edit:SetScript("搜索", function(self, userInput)
+	edit:SetScript("OnTextChanged", function(self, userInput)
 		if userInput then
 			self:SetText(f.text or "")
 			self:HighlightText()

@@ -287,7 +287,7 @@ local function StatusText()
 	elseif reason == "none" then
 		return "|cff9d9d9d鱼竿上没有诱饵。|r"
 	end
-	return "|cffff2020" .. Lure.ReasonText(reason, about) .. " 脱钩|r"
+	return "|cffff2020" .. Lure.ReasonText(reason, about) .. "|r"
 end
 
 local function RedrawWindow()

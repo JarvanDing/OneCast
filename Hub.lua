@@ -752,12 +752,12 @@ local NAV_WIDTH, DETAIL_WIDTH, PANE_GAP = 168, 250, 12
 local LIST_WIDTH = OPTIONS_WIDTH - 10 - 2 * EDGE - NAV_WIDTH - DETAIL_WIDTH - 2 * PANE_GAP
 local NAV_ROW = 34
 local CATEGORY = {
-	常规 = { icon = "Interface\\Icons\\INV_Misc_Gear_01", blurb = "窗口外观与缩放、锁定与小地图，以及物品提示和地图相关选项。" },
-	钓鱼 = { icon = "Interface\\Icons\\Trade_Fishing", blurb = "如何施放与收杆、鱼竿与钓鱼装备，以及渔获如何处理。" },
-	诱饵 = { item = 6533, icon = "Interface\\Icons\\INV_Misc_Orb_03", blurb = "本角色使用的诱饵，以及工具箱按钮。" },
+	["常规"] = { icon = "Interface\\Icons\\INV_Misc_Gear_01", blurb = "窗口外观与缩放、锁定与小地图，以及物品提示和地图相关选项。" },
+	["钓鱼"] = { icon = "Interface\\Icons\\Trade_Fishing", blurb = "如何施放与收杆、鱼竿与钓鱼装备，以及渔获如何处理。" },
+	["诱饵"] = { item = 6533, icon = "Interface\\Icons\\INV_Misc_Orb_03", blurb = "本角色使用的诱饵，以及工具箱按钮。" },
 	["钓鱼时"] = { icon = "Interface\\Icons\\INV_Misc_Horn_01", blurb = "鱼线抛出后看到和听到什么：标记浮漂，以及突出水花声。" },
-	手柄 = { icon = "Interface\\Icons\\INV_Misc_EngGizmos_17", blurb = "用手柄钓鱼：施放与收杆键、打开窗口的键、提示与震动。" },
-	无障碍 = { icon = "Interface\\Icons\\INV_Misc_Spyglass_03", blurb = "更大的文字与手柄图示、已拥有勾标记，以及减少动态的界面。" },
+	["手柄"] = { icon = "Interface\\Icons\\INV_Misc_EngGizmos_17", blurb = "用手柄钓鱼：施放与收杆键、打开窗口的键、提示与震动。" },
+	["无障碍"] = { icon = "Interface\\Icons\\INV_Misc_Spyglass_03", blurb = "更大的文字与手柄图示、已拥有勾标记，以及减少动态的界面。" },
 	["统计与提醒"] = { icon = "Interface\\Icons\\INV_Misc_Book_09", blurb = "统计窗口与迷你条、渔获提醒、各类提醒与图鉴相关选项。" },
 }
 
