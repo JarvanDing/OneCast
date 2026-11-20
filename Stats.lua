@@ -532,6 +532,22 @@ local function Openable(itemID)
 end
 Stats.Openable = Openable
 
+-- Small / Sturdy / Ironbound / Reinforced Locked Chest: need lockpicking. Classic often still
+-- reports hasLoot on them, so name is the reliable skip — never auto-open; open by hand after pick.
+local needsLockpick -- itemID -> true
+local function NeedsLockpick(itemID)
+	if not needsLockpick then
+		needsLockpick = {}
+		for _, fish in ipairs(ns.FISH or {}) do
+			if (fish.name or ""):find("Locked", 1, true) then
+				needsLockpick[fish.id] = true
+			end
+		end
+	end
+	return itemID and needsLockpick[itemID] or false
+end
+Stats.NeedsLockpick = NeedsLockpick
+
 Containers.WINDOW = 3 -- seconds from using it to its loot
 
 -- The fished-up container just used from the bags: Containers.pending = { id, at }.
@@ -551,14 +567,15 @@ end
 -- Open one fished-up container from the bags when the option is on. One per call; bag updates and
 -- loot closing chain the rest so the loot window isn't overrun. When a cast or combat blocks the
 -- open, remember to try again on the next free moment (line in, loot closed, unlock, leave combat).
--- Locked chests (hasLoot == false until picked) are never auto-opened or retried.
+-- Lockpick chests (name contains "Locked") are never auto-opened or retried.
 local autoOpenPending = false
 local autoOpenBusyUntil = 0
 local autoOpenRetry
 
--- Ready to open: must already hold loot. Locked chests stay hasLoot false until lockpicked.
+-- Ready to open: must already hold loot, and must not need lockpicking.
 local function ReadyToOpen(info)
-	return info and Openable(info.itemID) and info.hasLoot == true and not info.isLocked
+	return info and Openable(info.itemID) and not NeedsLockpick(info.itemID)
+		and info.hasLoot == true and not info.isLocked
 end
 
 local function HasReadyOpenableInBags()
@@ -568,7 +585,7 @@ local function HasReadyOpenableInBags()
 	for bag = 0, NUM_BAG_SLOTS or 4 do
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
 			local info = C_Container.GetContainerItemInfo(bag, slot)
-			if info and Openable(info.itemID) and info.hasLoot == true then
+			if info and Openable(info.itemID) and not NeedsLockpick(info.itemID) and info.hasLoot == true then
 				return true
 			end
 		end
@@ -621,7 +638,7 @@ function Stats.TryAutoOpen()
 			end
 		end
 	end
-	-- Nothing ready: locked chests and empty hasLoot stay ignored. Temporarily locked
+	-- Nothing ready: lockpick chests and empty hasLoot stay ignored. Temporarily locked
 	-- (isLocked) items wait for ITEM_LOCK_CHANGED — no 1s poll that keeps poking them.
 	autoOpenPending = HasReadyOpenableInBags()
 end

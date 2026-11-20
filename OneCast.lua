@@ -151,7 +151,7 @@ local OPTIONS = {
 	{ cmd = "fastloot", key = "fastLoot", label = "快速拾取",
 		tooltip = "自动拾取开启时，战利品窗口一出现就一次性拿走，比游戏逐件拾取更快。仅钓鱼战利品及钓上的箱子、匣子；其他交给游戏。" },
 	{ cmd = "opencontainers", key = "autoOpenContainers", label = "自动打开可开渔获",
-		tooltip = "装备鱼竿时，自动打开背包里钓上来的箱子、匣子、蛤蜊与浮肿鱼。仍锁着的箱子（需开锁）一律跳过、不会反复尝试；开锁后若已可开再处理。抛竿或战斗中会等收杆/脱战后再开。默认关闭。" },
+		tooltip = "装备鱼竿时，自动打开背包里钓上来的箱子、匣子、蛤蜊与浮肿鱼。名称含 Locked 的需开锁箱子一律忽略（请开锁后手动打开）。抛竿或战斗中会等收杆/脱战后再开。默认关闭。" },
 	{ cmd = "autoloot", key = "autoLootHint", label = "提示开启自动拾取",
 		tooltip = "钓到东西时若未开启自动拾取，每次登录最多提示一次，方便渔获直接进包。" },
 	{ cmd = "alertsound", key = "alertSound", label = "播放提醒音效",

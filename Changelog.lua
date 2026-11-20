@@ -10,7 +10,7 @@ ns.CHANGELOG = {
 		date = "2026年11月20日",
 		sections = {
 			{ "修复", {
-				{ "上锁箱子不再反复尝试。", "自动打开只处理已经 hasLoot 的容器；仍锁着的箱子会跳过，也不会每秒重试去点开。" },
+				{ "上锁箱子一律忽略。", "自动打开按名称跳过 Small / Sturdy / Ironbound / Reinforced Locked Chest；经典服里它们仍可能带 hasLoot，以前会反复点开失败。开锁后请手动打开。" },
 			} },
 		},
 	},
