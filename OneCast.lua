@@ -69,6 +69,8 @@ local defaults = {
 	autoLootFishing = false,
 	fastLoot = false,
 	autoOpenContainers = false,
+	autoDestroy = false,
+	autoDestroyItems = {}, -- [itemID] = true; account-wide discard list
 	padFishing = true,   -- a controller button casts and reels while the pole is on
 	padButton = "PAD1",  -- A / Cross
 	padStart = "both",   -- LT + RT + the button works with no pole on
@@ -152,6 +154,8 @@ local OPTIONS = {
 		tooltip = "自动拾取开启时，战利品窗口一出现就一次性拿走，比游戏逐件拾取更快。仅钓鱼战利品及钓上的箱子、匣子；其他交给游戏。" },
 	{ cmd = "opencontainers", key = "autoOpenContainers", label = "自动打开可开渔获",
 		tooltip = "装备鱼竿时，自动打开背包里钓上来的箱子、匣子、蛤蜊与浮肿鱼。名称含 Locked 的需开锁箱子一律忽略（请开锁后手动打开）。抛竿或战斗中会等收杆/脱战后再开。默认关闭。" },
+	{ cmd = "autodestroy", key = "autoDestroy", label = "自动丢弃指定物品",
+		tooltip = "仅在装备鱼竿、且普通背包只剩 1 格或更少空位时，才从背包丢弃「丢弃列表」中的物品，预留空位给下一竿。未装鱼竿不会触发。默认关闭；请先编辑列表再开启。战斗中、打开商人时不会丢弃。也可用 /onecast destroy 管理列表。" },
 	{ cmd = "autoloot", key = "autoLootHint", label = "提示开启自动拾取",
 		tooltip = "钓到东西时若未开启自动拾取，每次登录最多提示一次，方便渔获直接进包。" },
 	{ cmd = "alertsound", key = "alertSound", label = "播放提醒音效",
@@ -192,7 +196,7 @@ local OPTION_PAGES = {
 	{ name = "钓鱼",
 		{ "施放", "castKey", "doubleClick", "softInteract" },
 		{ "鱼竿与装备", "autoEquip", "fishingOutfit", "restoreDelay", "restoreOnCombat" },
-		{ "拾取与背包", "autoLootFishing", "fastLoot", "autoOpenContainers", "autoLootHint", "bagWarning", "junkMode", "auctionSource" },
+		{ "拾取与背包", "autoLootFishing", "fastLoot", "autoOpenContainers", "autoDestroy", "destroyList", "autoLootHint", "bagWarning", "junkMode", "auctionSource" },
 	},
 	{ name = "诱饵",
 		{ "你的诱饵", "lureChoice", "autoLure" },
@@ -225,6 +229,7 @@ local OPTION_PARENT = {
 	padWindow = "padFishing",
 	alertQuality = "alert",
 	alertSound = "alert",
+	-- destroyList stays clickable while autoDestroy is off, so the list can be edited first.
 }
 
 local UpdateQuiet -- below: quiet other sounds while fishing
@@ -1050,6 +1055,11 @@ local function SetupSettings()
 		autoLootFishing = function()
 			UpdateLoot()
 		end,
+		autoDestroy = function()
+			if ns.Destroy then
+				ns.Destroy.Try()
+			end
+		end,
 		padFishing = function()
 			if ns.Controller then
 				ns.Controller.Update()
@@ -1429,7 +1439,8 @@ events:SetScript("OnEvent", function(_, event, ...)
 			OneCastDB = OneCastDB or {}
 			for k, v in pairs(defaults) do
 				if OneCastDB[k] == nil then
-					OneCastDB[k] = v
+					-- Fresh table copy so lists never share the defaults table in memory.
+					OneCastDB[k] = type(v) == "table" and (CopyTable and CopyTable(v) or {}) or v
 				end
 			end
 			db = OneCastDB
@@ -1615,6 +1626,13 @@ SlashCmdList.ONECAST = function(msg)
 		ns.Book.RefreshIfShown()
 		Print("已清除记住的鱼群点。")
 		return
+	elseif cmd:match("^destroy") then
+		-- Keep the original message so item links aren't lowercased away.
+		local rest = msg:match("^%s*%S+%s*(.*)$") or ""
+		if ns.Destroy then
+			ns.Destroy.Slash(rest)
+		end
+		return
 	elseif cmd == "scale" or cmd:match("^scale%s") then
 		local percent = tonumber(cmd:match("^scale%s+(%d+)"))
 		if percent then
@@ -1653,6 +1671,7 @@ SlashCmdList.ONECAST = function(msg)
 	Print("/onecast done - 结束钓鱼：换回武器与装备")
 	Print("/onecast scan - 用 Auctionator 估价渔获（需打开拍卖行）")
 	Print("/onecast scale 50-200 - 窗口缩放百分比")
+	Print("/onecast destroy - 自动丢弃列表（add/remove/clear/junk）")
 	for _, opt in ipairs(OPTIONS) do
 		local store = opt.char and OneCastCharDB or db
 		Print("/onecast " .. opt.cmd .. " - " .. opt.label .. "（" .. (store[opt.key] and "开" or "关") .. "）")

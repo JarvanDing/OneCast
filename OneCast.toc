@@ -4,7 +4,7 @@
 ## Notes: 魔兽世界 Forever 钓鱼：一键抛收，或分键施放与收杆。
 ## Notes-zhCN: 魔兽世界 Forever 钓鱼：一键抛收，或分键施放与收杆。
 ## Author: rynmon
-## Version: 1.0.7
+## Version: 1.0.10
 ## SavedVariables: OneCastDB
 ## SavedVariablesPerCharacter: OneCastCharDB
 ## IconTexture: Interface\Icons\INV_Misc_Fish_68
@@ -38,6 +38,7 @@ Hub.lua
 Mini.lua
 WorldMap.lua
 Junk.lua
+Destroy.lua
 Bobber.lua
 Wardrobe.lua
 Journey.lua

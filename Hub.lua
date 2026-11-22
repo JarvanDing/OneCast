@@ -1003,6 +1003,58 @@ local function CreateOptions()
 		return line
 	end
 
+	-- Discard list: opens Destroy.ShowList. Indented under「自动丢弃指定物品」.
+	local DESTROY_TIP = "要自动丢掉的物品名单（装备鱼竿且普通背包 ≤1 格空位时才会丢）。未开启自动丢弃时也可先编辑列表。点右侧按钮打开：Shift-点击背包物品添加，或一键加入常见钓鱼垃圾。\n\n"
+		.. "聊天命令：/onecast destroy add <链接>、remove、clear、junk。"
+	local function DestroyListRow()
+		local line = Line("destroyList")
+		line:EnableMouse(true)
+		local text = line:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+		text:SetPoint("LEFT", LABEL_LEFT, 0)
+		text:SetPoint("RIGHT", -(CONTROL_WIDTH + 8), 0)
+		text:SetJustifyH("LEFT")
+		text:SetWordWrap(false)
+		text:SetText("丢弃列表")
+		local button = CreateFrame("Button", nil, line, "UIPanelButtonTemplate")
+		button:SetSize(CONTROL_WIDTH, ROW - 2)
+		button:SetPoint("RIGHT", -2, 0)
+		local function Now()
+			local n = ns.Destroy and ns.Destroy.Count() or 0
+			return n > 0 and (n .. " 项") or "空"
+		end
+		local function Enter()
+			Hover(line, "丢弃列表", DESTROY_TIP, Now(), "destroy")
+		end
+		button:SetScript("OnClick", function()
+			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			if ns.Destroy then
+				ns.Destroy.ShowList()
+			end
+			Enter()
+		end)
+		line:SetScript("OnEnter", Enter)
+		line:SetScript("OnLeave", Unhover)
+		button:HookScript("OnEnter", Enter)
+		button:HookScript("OnLeave", function() Unhover(line) end)
+		if ns.Controller then
+			ns.Controller.NoStop(line)
+		end
+		line:SetScript("OnMouseUp", function(_, btn)
+			if btn == "LeftButton" and button:IsEnabled() then
+				button:Click()
+			end
+		end)
+		line.Update = function()
+			button:SetText("管理（" .. Now() .. "）")
+		end
+		line.SetActive = function(_, on)
+			button:SetEnabled(on)
+			text:SetAlpha(on and 1 or 0.45)
+			button:SetAlpha(on and 1 or 0.45)
+		end
+		return line
+	end
+
 	-- The cast key, set right here: click its button, then press the key. It's the game's own
 	-- binding, the one under Key Bindings > OneCast.
 	local KEY_TIP = "「哇，大鱼」钓鱼用的主键：按下施放，浮漂起水花时再按收杆。\n\n"
@@ -1242,6 +1294,8 @@ local function CreateOptions()
 			local row
 			if key == "castKey" then
 				row = KeyRow()
+			elseif key == "destroyList" then
+				row = DestroyListRow()
 			elseif choices[key] then
 				row = choices[key].list and ChoiceRow(key, choices[key]) or SliderRow(key, choices[key])
 			elseif byKey[key] then

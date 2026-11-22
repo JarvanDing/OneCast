@@ -42,6 +42,7 @@ Each cast and reel is still one hardware press; nothing is automated.
 | `Mini.lua` | Mini mode: a slim bar in place of the stats while you fish |
 | `WorldMap.lua` | The fishing strip on the world map, following the zone on show or under the mouse |
 | `Junk.lua` | Selling the grey junk you fished up at a vendor |
+| `Destroy.lua` | Auto-destroy a user-specified item list from the bags while the pole is on |
 | `Journey.lua` | The Fisherman's journey: the Fishing ranks, how and where each is learned, and where to fish at each; and the gear catalogue (`Journey.GEAR`, its vendors and spots) the wardrobe's Gear guide draws |
 | `Wardrobe.lua` | The fishing wardrobe: each slot's choice, the pole, and your character wearing it; the Gear guide tab |
 | `RecipeSellers.lua` | Who sells each fish recipe and where they stand (generated from Classic's vendors and Forever's maps) |
